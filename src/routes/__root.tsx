@@ -5,6 +5,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { EnvironmentProvider, useEnvironment } from '@/contexts/environment-context'
+import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
 import '../index.css'
 
 export const Route = createRootRoute({
@@ -13,16 +15,32 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 p-6">
-          <Outlet />
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <EnvironmentProvider>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+          </header>
+          <main className="flex-1 p-6">
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+      <FirstRunDialog />
+    </EnvironmentProvider>
+  )
+}
+
+// Separate component to access environment context
+function FirstRunDialog() {
+  const { isFirstRun } = useEnvironment()
+
+  return (
+    <AddEnvironmentDialog
+      open={isFirstRun}
+      onOpenChange={() => {}}
+      isFirstRun
+    />
   )
 }

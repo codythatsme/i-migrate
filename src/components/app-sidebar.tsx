@@ -8,7 +8,6 @@ import {
   Server,
 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +21,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { EnvironmentSwitcher } from '@/components/environment-switcher'
 
 const navItems = [
   {
@@ -98,17 +98,9 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <Button variant="outline" className="w-full justify-start gap-2">
-              <Server className="size-4" />
-              <span>Select Environment</span>
-            </Button>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <EnvironmentSwitcher />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
 }
-
