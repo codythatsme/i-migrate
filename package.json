@@ -33,7 +33,8 @@
     "radix-ui": "^1.4.3",
     "react": "^19",
     "react-dom": "^19",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@tanstack/router-cli": "^1.145.1",

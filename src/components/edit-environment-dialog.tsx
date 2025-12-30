@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useEnvironment } from '@/contexts/environment-context'
 import { queries } from '@/lib/queries'
+import { useUpdateEnvironment, useSetPassword } from '@/lib/mutations'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -26,12 +26,12 @@ export function EditEnvironmentDialog({
   open,
   onOpenChange,
 }: EditEnvironmentDialogProps) {
-  const { updateEnvironment } = useEnvironment()
+  const updateEnvironment = useUpdateEnvironment()
+  const setPassword = useSetPassword()
   const [name, setName] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [password, setPasswordValue] = useState('')
 
   // Query password status (server-side storage - we can't retrieve the actual password)
   const { data: passwordStatus } = useQuery({
@@ -46,7 +46,7 @@ export function EditEnvironmentDialog({
       setBaseUrl(environment.baseUrl)
       setUsername(environment.username)
       // Don't pre-fill password - it's stored server-side and not retrievable
-      setPassword('')
+      setPasswordValue('')
     }
   }, [environment])
 
@@ -54,25 +54,29 @@ export function EditEnvironmentDialog({
     e.preventDefault()
     if (!environment) return
 
-    setIsSubmitting(true)
-
-    try {
-      updateEnvironment(
-        environment.id,
-        {
+    updateEnvironment.mutate(
+      {
+        id: environment.id,
+        updates: {
           name: name.trim(),
           baseUrl: baseUrl.trim(),
           username: username.trim(),
         },
-        password || undefined // Only update password if provided
-      )
-      onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
-    }
+      },
+      {
+        onSuccess: () => {
+          // Update password if provided
+          if (password) {
+            setPassword.mutate({ environmentId: environment.id, password })
+          }
+          onOpenChange(false)
+        },
+      }
+    )
   }
 
   const isValid = name.trim() !== '' && baseUrl.trim() !== '' && username.trim() !== ''
+  const isPending = updateEnvironment.isPending || setPassword.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,7 +124,7 @@ export function EditEnvironmentDialog({
               type="password"
               placeholder={passwordStatus?.hasPassword ? "Enter to update password" : "Enter password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPasswordValue(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               {passwordStatus?.hasPassword
@@ -136,8 +140,8 @@ export function EditEnvironmentDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!isValid || isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            <Button type="submit" disabled={!isValid || isPending}>
+              {isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>
@@ -145,4 +149,3 @@ export function EditEnvironmentDialog({
     </Dialog>
   )
 }
-

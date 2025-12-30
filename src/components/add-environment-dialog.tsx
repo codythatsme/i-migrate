@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useEnvironment } from '@/contexts/environment-context'
+import { useCreateEnvironment, useSetPassword } from '@/lib/mutations'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,45 +16,47 @@ type AddEnvironmentDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   isFirstRun?: boolean
+  onSuccess?: (environmentId: string) => void
 }
 
 export function AddEnvironmentDialog({
   open,
   onOpenChange,
   isFirstRun = false,
+  onSuccess,
 }: AddEnvironmentDialogProps) {
-  const { addEnvironment } = useEnvironment()
+  const createEnvironment = useCreateEnvironment()
+  const setPassword = useSetPassword()
   const [name, setName] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [password, setPasswordValue] = useState('')
 
   const resetForm = () => {
     setName('')
     setBaseUrl('')
     setUsername('')
-    setPassword('')
+    setPasswordValue('')
   }
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
 
-    try {
-      addEnvironment(
-        {
-          name: name.trim(),
-          baseUrl: baseUrl.trim(),
-          username: username.trim(),
+    createEnvironment.mutate(
+      {
+        name: name.trim(),
+        baseUrl: baseUrl.trim(),
+        username: username.trim(),
+      },
+      {
+        onSuccess: (env) => {
+          setPassword.mutate({ environmentId: env.id, password })
+          resetForm()
+          onOpenChange(false)
+          onSuccess?.(env.id)
         },
-        password
-      )
-      resetForm()
-      onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
-    }
+      }
+    )
   }
 
   const isValid =
@@ -62,6 +64,8 @@ export function AddEnvironmentDialog({
     baseUrl.trim() !== '' &&
     username.trim() !== '' &&
     password !== ''
+
+  const isPending = createEnvironment.isPending || setPassword.isPending
 
   return (
     <Dialog
@@ -120,7 +124,7 @@ export function AddEnvironmentDialog({
               type="password"
               placeholder="Your IMIS password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPasswordValue(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               Stored in server memory only. You&apos;ll need to re-enter if the server restarts.
@@ -136,8 +140,8 @@ export function AddEnvironmentDialog({
                 Cancel
               </Button>
             )}
-            <Button type="submit" disabled={!isValid || isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Environment'}
+            <Button type="submit" disabled={!isValid || isPending}>
+              {isPending ? 'Saving...' : 'Save Environment'}
             </Button>
           </DialogFooter>
         </form>
@@ -145,4 +149,3 @@ export function AddEnvironmentDialog({
     </Dialog>
   )
 }
-
