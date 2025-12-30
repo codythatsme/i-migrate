@@ -43,21 +43,32 @@ const makePersistenceService = (): PersistenceService => ({
         catch: (cause) => new DatabaseError({ message: "Failed to fetch environment", cause }),
       })
 
-      if (results.length === 0) {
+      const environment = results[0]
+      if (!environment) {
         return yield* Effect.fail(new EnvironmentNotFoundError({ id }))
       }
 
-      return results[0]
+      return environment
     }),
 
   createEnvironment: (env: NewEnvironment) =>
-    Effect.try({
-      try: () => {
-        db.insert(environments).values(env).run()
-        const [created] = db.select().from(environments).where(eq(environments.id, env.id)).all()
-        return created
-      },
-      catch: (cause) => new DatabaseError({ message: "Failed to create environment", cause }),
+    Effect.gen(function* () {
+      yield* Effect.try({
+        try: () => db.insert(environments).values(env).run(),
+        catch: (cause) => new DatabaseError({ message: "Failed to create environment", cause }),
+      })
+
+      const results = yield* Effect.try({
+        try: () => db.select().from(environments).where(eq(environments.id, env.id)).all(),
+        catch: (cause) => new DatabaseError({ message: "Failed to fetch created environment", cause }),
+      })
+
+      const created = results[0]
+      if (!created) {
+        return yield* Effect.fail(new DatabaseError({ message: "Environment was created but could not be retrieved" }))
+      }
+
+      return created
     }),
 
   updateEnvironment: (id: string, updates: Partial<Pick<Environment, "name" | "baseUrl" | "username">>) =>
@@ -85,10 +96,15 @@ const makePersistenceService = (): PersistenceService => ({
       })
 
       // Return updated environment
-      const [updated] = yield* Effect.try({
+      const results = yield* Effect.try({
         try: () => db.select().from(environments).where(eq(environments.id, id)).all(),
         catch: (cause) => new DatabaseError({ message: "Failed to fetch updated environment", cause }),
       })
+
+      const updated = results[0]
+      if (!updated) {
+        return yield* Effect.fail(new DatabaseError({ message: "Environment was updated but could not be retrieved" }))
+      }
 
       return updated
     }),
@@ -114,4 +130,3 @@ const makePersistenceService = (): PersistenceService => ({
 
 // Layer
 export const PersistenceServiceLive = Layer.succeed(PersistenceService, makePersistenceService())
-
