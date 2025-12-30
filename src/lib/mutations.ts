@@ -81,6 +81,55 @@ export const useDeleteEnvironment = () => {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries(queries.environments.all())
       queryClient.removeQueries(queries.environments.byId(id))
+      // Password is cleared server-side when environment is deleted
+      queryClient.removeQueries({ queryKey: ["environments", id, "passwordStatus"] })
+    },
+  })
+}
+
+// ============================================
+// Password Mutations (server-side storage)
+// ============================================
+
+// Set password for an environment (stored server-side in memory)
+export const useSetPassword = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ environmentId, password }: { environmentId: string; password: string }) => {
+      const res = await fetch(`/api/environments/${environmentId}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Unknown error" }))
+        throw new Error(error.error || `Request failed: ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: (_data, { environmentId }) => {
+      queryClient.setQueryData(["environments", environmentId, "passwordStatus"], { hasPassword: true })
+    },
+  })
+}
+
+// Clear password for an environment
+export const useClearPassword = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (environmentId: string) => {
+      const res = await fetch(`/api/environments/${environmentId}/password`, {
+        method: "DELETE",
+      })
+      if (!res.ok && res.status !== 204) {
+        const error = await res.json().catch(() => ({ error: "Unknown error" }))
+        throw new Error(error.error || `Request failed: ${res.status}`)
+      }
+    },
+    onSuccess: (_data, environmentId) => {
+      queryClient.setQueryData(["environments", environmentId, "passwordStatus"], { hasPassword: false })
     },
   })
 }

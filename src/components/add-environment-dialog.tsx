@@ -80,7 +80,7 @@ export function AddEnvironmentDialog({
           <DialogDescription>
             {isFirstRun
               ? 'To get started, add an IMIS environment. This will be used as your source environment.'
-              : 'Add a new IMIS environment. Passwords are stored in memory only and never persisted.'}
+              : 'Add a new IMIS environment. Passwords are stored securely in server memory.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -123,7 +123,7 @@ export function AddEnvironmentDialog({
               onChange={(e) => setPassword(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Stored in memory only. You&apos;ll need to re-enter on app restart.
+              Stored in server memory only. You&apos;ll need to re-enter if the server restarts.
             </p>
           </div>
           <DialogFooter className="pt-2">

@@ -96,7 +96,7 @@ export function EnvironmentSwitcher() {
               <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Source Environment
               </DropdownMenuLabel>
-              {environments.map((env) => (
+              {environments?.map((env) => (
                 <DropdownMenuItem
                   key={env.id}
                   onClick={() => selectEnvironment(env.id)}

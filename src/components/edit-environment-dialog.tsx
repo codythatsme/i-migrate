@@ -1,5 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useEnvironment } from '@/contexts/environment-context'
+import { queries } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,12 +26,18 @@ export function EditEnvironmentDialog({
   open,
   onOpenChange,
 }: EditEnvironmentDialogProps) {
-  const { updateEnvironment, getPassword } = useEnvironment()
+  const { updateEnvironment } = useEnvironment()
   const [name, setName] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Query password status (server-side storage - we can't retrieve the actual password)
+  const { data: passwordStatus } = useQuery({
+    ...queries.environments.passwordStatus(environment?.id ?? ''),
+    enabled: !!environment?.id && open,
+  })
 
   // Reset form when environment changes
   useEffect(() => {
@@ -37,11 +45,10 @@ export function EditEnvironmentDialog({
       setName(environment.name)
       setBaseUrl(environment.baseUrl)
       setUsername(environment.username)
-      // Pre-fill password if we have it in memory
-      const storedPassword = getPassword(environment.id)
-      setPassword(storedPassword ?? '')
+      // Don't pre-fill password - it's stored server-side and not retrievable
+      setPassword('')
     }
-  }, [environment, getPassword])
+  }, [environment])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -111,12 +118,14 @@ export function EditEnvironmentDialog({
             <Input
               id="edit-env-password"
               type="password"
-              placeholder="Enter to update password"
+              placeholder={passwordStatus?.hasPassword ? "Enter to update password" : "Enter password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Stored in memory only. Leave blank to keep the current password.
+              {passwordStatus?.hasPassword
+                ? "Password is stored server-side. Leave blank to keep the current password."
+                : "No password stored. Enter a password to save it server-side."}
             </p>
           </div>
           <DialogFooter className="pt-2">
