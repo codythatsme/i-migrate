@@ -1,0 +1,114 @@
+import { Link, useRouterState } from '@tanstack/react-router'
+import {
+  Database,
+  FolderSearch,
+  GitBranch,
+  Home,
+  PlayCircle,
+  Server,
+} from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from '@/components/ui/sidebar'
+
+const navItems = [
+  {
+    title: 'Home',
+    url: '/',
+    icon: Home,
+  },
+  {
+    title: 'Environments',
+    url: '/environments',
+    icon: Server,
+  },
+  {
+    title: 'Browse',
+    url: '/browse',
+    icon: FolderSearch,
+  },
+  {
+    title: 'Mappings',
+    url: '/mappings',
+    icon: GitBranch,
+  },
+  {
+    title: 'Jobs',
+    url: '/jobs',
+    icon: PlayCircle,
+  },
+]
+
+export function AppSidebar() {
+  const routerState = useRouterState()
+  const currentPath = routerState.location.pathname
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link to="/">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+                  <Database className="size-4" />
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-semibold">i-migrate</span>
+                  <span className="text-xs text-muted-foreground">IMIS Data Migration</span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={currentPath === item.url}
+                    tooltip={item.title}
+                  >
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter className="border-t border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <Button variant="outline" className="w-full justify-start gap-2">
+              <Server className="size-4" />
+              <span>Select Environment</span>
+            </Button>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+
