@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Plus, Server } from 'lucide-react'
-import { useEnvironment } from '@/contexts/environment-context'
+import { useEnvironmentStore } from '@/stores/environment-store'
+import { queries } from '@/lib/queries'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +21,11 @@ import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
 
 export function EnvironmentSwitcher() {
   const { state } = useSidebar()
-  const { environments, selectedEnvironment, selectEnvironment, isLoading } =
-    useEnvironment()
+  const { selectedId, selectEnvironment } = useEnvironmentStore()
+  const { data: environments, isLoading } = useQuery(queries.environments.all())
   const [showAddDialog, setShowAddDialog] = useState(false)
+
+  const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null
 
   if (isLoading) {
     return (
@@ -57,7 +61,11 @@ export function EnvironmentSwitcher() {
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        <AddEnvironmentDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+        <AddEnvironmentDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onSuccess={selectEnvironment}
+        />
       </SidebarMenu>
     )
   }
@@ -130,8 +138,11 @@ export function EnvironmentSwitcher() {
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
-      <AddEnvironmentDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <AddEnvironmentDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onSuccess={selectEnvironment}
+      />
     </>
   )
 }
-

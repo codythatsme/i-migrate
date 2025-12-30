@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { MoreHorizontal, Pencil, Plus, Server, Trash2 } from 'lucide-react'
-import { useEnvironment } from '@/contexts/environment-context'
+import { useEnvironmentStore } from '@/stores/environment-store'
+import { queries } from '@/lib/queries'
+import { useDeleteEnvironment } from '@/lib/mutations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -20,10 +23,41 @@ export const Route = createFileRoute('/environments')({
 })
 
 function EnvironmentsPage() {
-  const { environments, selectedEnvironment, selectEnvironment, deleteEnvironment } =
-    useEnvironment()
+  const { selectedId, selectEnvironment, clearSelection } = useEnvironmentStore()
+  const { data: environments } = useQuery(queries.environments.all())
+  const deleteEnvironment = useDeleteEnvironment()
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingEnvironment, setEditingEnvironment] = useState<Environment | null>(null)
+
+  const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null
+
+  // Auto-select first environment if none selected or selected doesn't exist
+  useEffect(() => {
+    if (environments && environments.length > 0) {
+      const selectedExists = environments.some((e) => e.id === selectedId)
+      if (!selectedExists) {
+        const firstId = environments[0]?.id
+        if (firstId) selectEnvironment(firstId)
+      }
+    }
+  }, [environments, selectedId, selectEnvironment])
+
+  // Clear selection if all environments deleted
+  useEffect(() => {
+    if (environments && environments.length === 0 && selectedId) {
+      clearSelection()
+    }
+  }, [environments, selectedId, clearSelection])
+
+  const handleDelete = (id: string) => {
+    deleteEnvironment.mutate(id, {
+      onSuccess: () => {
+        if (selectedId === id) {
+          clearSelection()
+        }
+      },
+    })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -109,7 +143,7 @@ function EnvironmentsPage() {
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => deleteEnvironment(env.id)}
+                        onClick={() => handleDelete(env.id)}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="mr-2 size-4" />
@@ -140,7 +174,11 @@ function EnvironmentsPage() {
         </div>
       )}
 
-      <AddEnvironmentDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <AddEnvironmentDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onSuccess={selectEnvironment}
+      />
       <EditEnvironmentDialog
         environment={editingEnvironment}
         open={editingEnvironment !== null}
