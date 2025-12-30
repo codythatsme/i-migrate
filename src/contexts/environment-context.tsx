@@ -6,15 +6,17 @@ import {
   useEffect,
   type ReactNode,
 } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { queries } from '@/lib/queries'
 import {
-  type Environment,
-  getEnvironments,
-  saveEnvironments,
-  getSelectedEnvironmentId,
-  setSelectedEnvironmentId,
-  createEnvironment,
-  updateEnvironment as updateEnvironmentHelper,
-} from '@/lib/environments'
+  useCreateEnvironment,
+  useUpdateEnvironment,
+  useDeleteEnvironment,
+} from '@/lib/mutations'
+import type { Environment } from '@/lib/environments'
+
+// Local storage key for persisting selected environment across page reloads
+const SELECTED_ENV_KEY = 'i-migrate:selected-environment-id'
 
 type EnvironmentContextValue = {
   // State
@@ -23,12 +25,13 @@ type EnvironmentContextValue = {
   passwords: Map<string, string> // In-memory only, keyed by environment ID
   isFirstRun: boolean // True when no environments exist
   isLoading: boolean
+  error: Error | null
 
   // Actions
   addEnvironment: (
     data: Pick<Environment, 'name' | 'baseUrl' | 'username'>,
     password: string
-  ) => Environment
+  ) => void
   updateEnvironment: (
     id: string,
     updates: Partial<Pick<Environment, 'name' | 'baseUrl' | 'username'>>,
@@ -55,29 +58,47 @@ type EnvironmentProviderProps = {
 }
 
 export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
-  const [environments, setEnvironments] = useState<Environment[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [passwords, setPasswords] = useState<Map<string, string>>(new Map())
-  const [isLoading, setIsLoading] = useState(true)
+  // Fetch environments from API via TanStack Query
+  const {
+    data: environments = [],
+    isLoading,
+    error,
+  } = useQuery(queries.environments.all())
 
-  // Load from session storage on mount
-  useEffect(() => {
-    const storedEnvs = getEnvironments()
-    const storedSelectedId = getSelectedEnvironmentId()
-
-    setEnvironments(storedEnvs)
-
-    // If we have a stored selection and it exists, use it
-    // Otherwise, use the first environment if available
-    if (storedSelectedId && storedEnvs.some((e) => e.id === storedSelectedId)) {
-      setSelectedId(storedSelectedId)
-    } else if (storedEnvs.length > 0) {
-      setSelectedId(storedEnvs[0].id)
-      setSelectedEnvironmentId(storedEnvs[0].id)
+  // Local state
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    // Initialize from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(SELECTED_ENV_KEY)
     }
+    return null
+  })
+  const [passwords, setPasswords] = useState<Map<string, string>>(new Map())
 
-    setIsLoading(false)
-  }, [])
+  // Mutations
+  const createMutation = useCreateEnvironment()
+  const updateMutation = useUpdateEnvironment()
+  const deleteMutation = useDeleteEnvironment()
+
+  // Auto-select first environment if none selected or selected doesn't exist
+  useEffect(() => {
+    if (!isLoading && environments.length > 0) {
+      const selectedExists = environments.some((e) => e.id === selectedId)
+      if (!selectedExists) {
+        const firstId = environments[0]?.id
+        setSelectedId(firstId ?? null)
+        localStorage.setItem(SELECTED_ENV_KEY, firstId ?? '')
+      }
+    }
+  }, [environments, selectedId, isLoading])
+
+  // Clear selection if all environments deleted
+  useEffect(() => {
+    if (!isLoading && environments.length === 0 && selectedId) {
+      setSelectedId(null)
+      localStorage.removeItem(SELECTED_ENV_KEY)
+    }
+  }, [environments, selectedId, isLoading])
 
   const selectedEnvironment =
     environments.find((e) => e.id === selectedId) ?? null
@@ -89,26 +110,20 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
       data: Pick<Environment, 'name' | 'baseUrl' | 'username'>,
       password: string
     ) => {
-      const newEnv = createEnvironment(data)
+      createMutation.mutate(data, {
+        onSuccess: (newEnv) => {
+          // Store password in memory
+          setPasswords((prev) => new Map(prev).set(newEnv.id, password))
 
-      setEnvironments((prev) => {
-        const updated = [...prev, newEnv]
-        saveEnvironments(updated)
-        return updated
+          // If this is the first environment, select it automatically
+          if (environments.length === 0) {
+            setSelectedId(newEnv.id)
+            localStorage.setItem(SELECTED_ENV_KEY, newEnv.id)
+          }
+        },
       })
-
-      // Store password in memory
-      setPasswords((prev) => new Map(prev).set(newEnv.id, password))
-
-      // If this is the first environment, select it automatically
-      if (environments.length === 0) {
-        setSelectedId(newEnv.id)
-        setSelectedEnvironmentId(newEnv.id)
-      }
-
-      return newEnv
     },
-    [environments.length]
+    [createMutation, environments.length]
   )
 
   const updateEnvironment = useCallback(
@@ -117,51 +132,46 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
       updates: Partial<Pick<Environment, 'name' | 'baseUrl' | 'username'>>,
       password?: string
     ) => {
-      setEnvironments((prev) => {
-        const updated = prev.map((env) =>
-          env.id === id ? updateEnvironmentHelper(env, updates) : env
-        )
-        saveEnvironments(updated)
-        return updated
-      })
-
-      // Update password if provided
-      if (password !== undefined) {
-        setPasswords((prev) => new Map(prev).set(id, password))
-      }
+      updateMutation.mutate(
+        { id, updates },
+        {
+          onSuccess: () => {
+            // Update password if provided
+            if (password !== undefined) {
+              setPasswords((prev) => new Map(prev).set(id, password))
+            }
+          },
+        }
+      )
     },
-    []
+    [updateMutation]
   )
 
   const deleteEnvironment = useCallback(
     (id: string) => {
-      setEnvironments((prev) => {
-        const updated = prev.filter((env) => env.id !== id)
-        saveEnvironments(updated)
+      deleteMutation.mutate(id, {
+        onSuccess: () => {
+          // Remove password from memory
+          setPasswords((prev) => {
+            const next = new Map(prev)
+            next.delete(id)
+            return next
+          })
 
-        // If we deleted the selected environment, select another one
-        if (selectedId === id) {
-          const newSelectedId = updated.length > 0 ? updated[0].id : null
-          setSelectedId(newSelectedId)
-          setSelectedEnvironmentId(newSelectedId)
-        }
-
-        return updated
-      })
-
-      // Remove password from memory
-      setPasswords((prev) => {
-        const next = new Map(prev)
-        next.delete(id)
-        return next
+          // If we deleted the selected environment, let the useEffect handle reselection
+          if (selectedId === id) {
+            setSelectedId(null)
+            localStorage.removeItem(SELECTED_ENV_KEY)
+          }
+        },
       })
     },
-    [selectedId]
+    [deleteMutation, selectedId]
   )
 
   const selectEnvironment = useCallback((id: string) => {
     setSelectedId(id)
-    setSelectedEnvironmentId(id)
+    localStorage.setItem(SELECTED_ENV_KEY, id)
   }, [])
 
   const setPassword = useCallback((environmentId: string, password: string) => {
@@ -181,6 +191,7 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     passwords,
     isFirstRun,
     isLoading,
+    error: error as Error | null,
     addEnvironment,
     updateEnvironment,
     deleteEnvironment,
@@ -195,4 +206,3 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     </EnvironmentContext.Provider>
   )
 }
-
