@@ -41,7 +41,7 @@ function EnvironmentsPage() {
         </Button>
       </div>
 
-      {environments.length === 0 ? (
+      {!environments || environments.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted">
@@ -59,7 +59,7 @@ function EnvironmentsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {environments.map((env) => {
+          {environments?.map((env) => {
             const isSelected = selectedEnvironment?.id === env.id
             return (
               <Card

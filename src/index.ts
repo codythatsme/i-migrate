@@ -7,13 +7,14 @@ import {
   DatabaseError,
   EnvironmentNotFoundError,
 } from "./services/persistence"
+import { SessionService, SessionServiceLive } from "./services/session"
 import type { NewEnvironment } from "./db/schema"
 
 // Create the runtime with all services
-const MainLayer = Layer.merge(PersistenceServiceLive, Layer.empty)
+const MainLayer = Layer.mergeAll(PersistenceServiceLive, SessionServiceLive)
 
 // Helper to run Effect programs with the service layer
-const runEffect = <A, E>(effect: Effect.Effect<A, E, PersistenceService>) =>
+const runEffect = <A, E>(effect: Effect.Effect<A, E, PersistenceService | SessionService>) =>
   Effect.runPromise(Effect.provide(effect, MainLayer))
 
 // Helper to generate UUIDs
@@ -148,6 +149,9 @@ const server = serve({
           await runEffect(
             Effect.gen(function* () {
               const persistence = yield* PersistenceService
+              const session = yield* SessionService
+              // Clear session data (password, tokens) when environment is deleted
+              yield* session.clearSession(id)
               return yield* persistence.deleteEnvironment(id)
             })
           )
@@ -159,6 +163,86 @@ const server = serve({
           }
           console.error("Failed to delete environment:", error)
           return errorResponse("Failed to delete environment", 500)
+        }
+      },
+    },
+
+    // ============================================
+    // Password API Routes (server-side in-memory storage)
+    // ============================================
+
+    "/api/environments/:id/password": {
+      // POST /api/environments/:id/password - Set password for an environment
+      async POST(req) {
+        const { id } = req.params
+
+        try {
+          const body = await req.json()
+
+          if (!body.password || typeof body.password !== "string") {
+            return errorResponse("Missing required field: password", 400)
+          }
+
+          await runEffect(
+            Effect.gen(function* () {
+              // Verify environment exists first
+              const persistence = yield* PersistenceService
+              yield* persistence.getEnvironmentById(id)
+
+              // Store password in server-side memory
+              const session = yield* SessionService
+              yield* session.setPassword(id, body.password)
+            })
+          )
+
+          return Response.json({ success: true })
+        } catch (error) {
+          if (error instanceof EnvironmentNotFoundError) {
+            return errorResponse(`Environment not found: ${id}`, 404)
+          }
+          console.error("Failed to set password:", error)
+          return errorResponse("Failed to set password", 500)
+        }
+      },
+
+      // DELETE /api/environments/:id/password - Clear password for an environment
+      async DELETE(req) {
+        const { id } = req.params
+
+        try {
+          await runEffect(
+            Effect.gen(function* () {
+              const session = yield* SessionService
+              yield* session.clearPassword(id)
+            })
+          )
+
+          return new Response(null, { status: 204 })
+        } catch (error) {
+          console.error("Failed to clear password:", error)
+          return errorResponse("Failed to clear password", 500)
+        }
+      },
+    },
+
+    "/api/environments/:id/password/status": {
+      // GET /api/environments/:id/password/status - Check if password is set (without exposing it)
+      async GET(req) {
+        const { id } = req.params
+
+        try {
+          const hasPassword = await runEffect(
+            Effect.gen(function* () {
+              const session = yield* SessionService
+              const password = yield* session.getPassword(id)
+              return password !== undefined
+            })
+          )
+
+          return Response.json({ hasPassword })
+        } catch (error) {
+          console.error("Failed to check password status:", error)
+          return errorResponse("Failed to check password status", 500)
         }
       },
     },

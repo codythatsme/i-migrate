@@ -12,6 +12,8 @@ import {
   useCreateEnvironment,
   useUpdateEnvironment,
   useDeleteEnvironment,
+  useSetPassword,
+  useClearPassword,
 } from '@/lib/mutations'
 import type { Environment } from '@/lib/environments'
 
@@ -20,10 +22,9 @@ const SELECTED_ENV_KEY = 'i-migrate:selected-environment-id'
 
 type EnvironmentContextValue = {
   // State
-  environments: Environment[]
+  environments: Environment[] | null // null = loading, [] = loaded with none
   selectedEnvironment: Environment | null
-  passwords: Map<string, string> // In-memory only, keyed by environment ID
-  isFirstRun: boolean // True when no environments exist
+  selectedEnvironmentHasPassword: boolean // Whether the selected environment has a password stored server-side
   isLoading: boolean
   error: Error | null
 
@@ -39,8 +40,8 @@ type EnvironmentContextValue = {
   ) => void
   deleteEnvironment: (id: string) => void
   selectEnvironment: (id: string) => void
-  setPassword: (environmentId: string, password: string) => void
-  getPassword: (environmentId: string) => string | undefined
+  setPassword: (environmentId: string, password: string) => Promise<void>
+  clearPassword: (environmentId: string) => Promise<void>
 }
 
 const EnvironmentContext = createContext<EnvironmentContextValue | null>(null)
@@ -60,7 +61,7 @@ type EnvironmentProviderProps = {
 export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
   // Fetch environments from API via TanStack Query
   const {
-    data: environments = [],
+    data: environments,
     isLoading,
     error,
   } = useQuery(queries.environments.all())
@@ -73,16 +74,23 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     }
     return null
   })
-  const [passwords, setPasswords] = useState<Map<string, string>>(new Map())
+
+  // Query password status for selected environment (server-side storage)
+  const { data: passwordStatus } = useQuery({
+    ...queries.environments.passwordStatus(selectedId ?? ''),
+    enabled: !!selectedId,
+  })
 
   // Mutations
   const createMutation = useCreateEnvironment()
   const updateMutation = useUpdateEnvironment()
   const deleteMutation = useDeleteEnvironment()
+  const setPasswordMutation = useSetPassword()
+  const clearPasswordMutation = useClearPassword()
 
   // Auto-select first environment if none selected or selected doesn't exist
   useEffect(() => {
-    if (!isLoading && environments.length > 0) {
+    if (environments && environments.length > 0) {
       const selectedExists = environments.some((e) => e.id === selectedId)
       if (!selectedExists) {
         const firstId = environments[0]?.id
@@ -90,20 +98,18 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
         localStorage.setItem(SELECTED_ENV_KEY, firstId ?? '')
       }
     }
-  }, [environments, selectedId, isLoading])
+  }, [environments, selectedId])
 
   // Clear selection if all environments deleted
   useEffect(() => {
-    if (!isLoading && environments.length === 0 && selectedId) {
+    if (environments && environments.length === 0 && selectedId) {
       setSelectedId(null)
       localStorage.removeItem(SELECTED_ENV_KEY)
     }
-  }, [environments, selectedId, isLoading])
+  }, [environments, selectedId])
 
   const selectedEnvironment =
-    environments.find((e) => e.id === selectedId) ?? null
-
-  const isFirstRun = !isLoading && environments.length === 0
+    environments?.find((e) => e.id === selectedId) ?? null
 
   const addEnvironment = useCallback(
     (
@@ -112,18 +118,18 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     ) => {
       createMutation.mutate(data, {
         onSuccess: (newEnv) => {
-          // Store password in memory
-          setPasswords((prev) => new Map(prev).set(newEnv.id, password))
+          // Store password server-side
+          setPasswordMutation.mutate({ environmentId: newEnv.id, password })
 
           // If this is the first environment, select it automatically
-          if (environments.length === 0) {
+          if (!environments || environments.length === 0) {
             setSelectedId(newEnv.id)
             localStorage.setItem(SELECTED_ENV_KEY, newEnv.id)
           }
         },
       })
     },
-    [createMutation, environments.length]
+    [createMutation, environments, setPasswordMutation]
   )
 
   const updateEnvironment = useCallback(
@@ -136,27 +142,22 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
         { id, updates },
         {
           onSuccess: () => {
-            // Update password if provided
+            // Update password server-side if provided
             if (password !== undefined) {
-              setPasswords((prev) => new Map(prev).set(id, password))
+              setPasswordMutation.mutate({ environmentId: id, password })
             }
           },
         }
       )
     },
-    [updateMutation]
+    [updateMutation, setPasswordMutation]
   )
 
   const deleteEnvironment = useCallback(
     (id: string) => {
       deleteMutation.mutate(id, {
         onSuccess: () => {
-          // Remove password from memory
-          setPasswords((prev) => {
-            const next = new Map(prev)
-            next.delete(id)
-            return next
-          })
+          // Password is cleared server-side when environment is deleted
 
           // If we deleted the selected environment, let the useEffect handle reselection
           if (selectedId === id) {
@@ -174,22 +175,24 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     localStorage.setItem(SELECTED_ENV_KEY, id)
   }, [])
 
-  const setPassword = useCallback((environmentId: string, password: string) => {
-    setPasswords((prev) => new Map(prev).set(environmentId, password))
-  }, [])
-
-  const getPassword = useCallback(
-    (environmentId: string) => {
-      return passwords.get(environmentId)
+  const setPassword = useCallback(
+    async (environmentId: string, password: string) => {
+      await setPasswordMutation.mutateAsync({ environmentId, password })
     },
-    [passwords]
+    [setPasswordMutation]
+  )
+
+  const clearPassword = useCallback(
+    async (environmentId: string) => {
+      await clearPasswordMutation.mutateAsync(environmentId)
+    },
+    [clearPasswordMutation]
   )
 
   const value: EnvironmentContextValue = {
-    environments,
+    environments: environments ?? null,
     selectedEnvironment,
-    passwords,
-    isFirstRun,
+    selectedEnvironmentHasPassword: passwordStatus?.hasPassword ?? false,
     isLoading,
     error: error as Error | null,
     addEnvironment,
@@ -197,7 +200,7 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     deleteEnvironment,
     selectEnvironment,
     setPassword,
-    getPassword,
+    clearPassword,
   }
 
   return (

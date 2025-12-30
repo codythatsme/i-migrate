@@ -34,7 +34,10 @@ function RootLayout() {
 
 // Separate component to access environment context
 function FirstRunDialog() {
-  const { isFirstRun } = useEnvironment()
+  const { environments } = useEnvironment()
+
+  // Show dialog only when environments have loaded (not null) and none exist
+  const isFirstRun = environments !== null && environments.length === 0
 
   return (
     <AddEnvironmentDialog
