@@ -5,22 +5,33 @@
  * It is included in `src/index.html`.
  */
 
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { RouterProvider, createRouter } from '@tanstack/react-router'
+import { routeTree } from './routeTree.gen'
 
-const elem = document.getElementById("root")!;
+// Create the router instance
+const router = createRouter({ routeTree })
+
+// Register the router for type safety
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}
+
+const elem = document.getElementById('root')!
 const app = (
   <StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </StrictMode>
-);
+)
 
 if (import.meta.hot) {
   // With hot module reloading, `import.meta.hot.data` is persisted.
-  const root = (import.meta.hot.data.root ??= createRoot(elem));
-  root.render(app);
+  const root = (import.meta.hot.data.root ??= createRoot(elem))
+  root.render(app)
 } else {
   // The hot module reloading API is not available in production.
-  createRoot(elem).render(app);
+  createRoot(elem).render(app)
 }
