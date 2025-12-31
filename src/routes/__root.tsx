@@ -10,6 +10,7 @@ import {
 import { useEnvironmentStore } from '@/stores/environment-store'
 import { queries } from '@/lib/queries'
 import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
+import { PasswordRequiredDialog } from '@/components/password-required-dialog'
 import '../index.css'
 
 export const Route = createRootRoute({
@@ -29,6 +30,7 @@ function RootLayout() {
         </main>
       </SidebarInset>
       <FirstRunDialog />
+      <PasswordRequiredDialog />
     </SidebarProvider>
   )
 }
