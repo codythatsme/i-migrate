@@ -6,6 +6,7 @@ export type Environment = {
   username: string
   createdAt: string
   updatedAt: string
+  hasPassword: boolean  // Indicates if password is set server-side
 }
 
 // Re-export the type from the schema for consistency

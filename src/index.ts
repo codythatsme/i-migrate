@@ -42,13 +42,26 @@ const server = serve({
     // ============================================
 
     "/api/environments": {
-      // GET /api/environments - List all environments
+      // GET /api/environments - List all environments (with hasPassword status)
       async GET() {
         try {
           const environments = await runEffect(
             Effect.gen(function* () {
               const persistence = yield* PersistenceService
-              return yield* persistence.getEnvironments()
+              const session = yield* SessionService
+              const envs = yield* persistence.getEnvironments()
+              
+              // Add hasPassword status to each environment
+              const envsWithPasswordStatus = yield* Effect.all(
+                envs.map((env) =>
+                  Effect.gen(function* () {
+                    const password = yield* session.getPassword(env.id)
+                    return { ...env, hasPassword: password !== undefined }
+                  })
+                )
+              )
+              
+              return envsWithPasswordStatus
             })
           )
           return Response.json(environments)
@@ -94,7 +107,7 @@ const server = serve({
     },
 
     "/api/environments/:id": {
-      // GET /api/environments/:id - Get a single environment
+      // GET /api/environments/:id - Get a single environment (with hasPassword status)
       async GET(req) {
         const { id } = req.params
 
@@ -102,7 +115,10 @@ const server = serve({
           const environment = await runEffect(
             Effect.gen(function* () {
               const persistence = yield* PersistenceService
-              return yield* persistence.getEnvironmentById(id)
+              const session = yield* SessionService
+              const env = yield* persistence.getEnvironmentById(id)
+              const password = yield* session.getPassword(id)
+              return { ...env, hasPassword: password !== undefined }
             })
           )
           return Response.json(environment)

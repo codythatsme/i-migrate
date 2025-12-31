@@ -14,6 +14,18 @@ type SessionData = {
 }
 
 // ---------------------
+// Module-level session store (persists across all requests)
+// ---------------------
+const sessions = new Map<string, SessionData>()
+
+const getOrCreateSession = (envId: string): SessionData => {
+  if (!sessions.has(envId)) {
+    sessions.set(envId, {})
+  }
+  return sessions.get(envId)!
+}
+
+// ---------------------
 // Service Definition
 // ---------------------
 
@@ -22,16 +34,6 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
   accessors: true,
 
   sync: () => {
-    // In-memory session store
-    const sessions = new Map<string, SessionData>()
-
-    const getOrCreateSession = (envId: string): SessionData => {
-      if (!sessions.has(envId)) {
-        sessions.set(envId, {})
-      }
-      return sessions.get(envId)!
-    }
-
     return {
       setPassword: (envId: string, password: string): Effect.Effect<void> =>
         Effect.sync(() => {
