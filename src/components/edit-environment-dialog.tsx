@@ -65,11 +65,18 @@ export function EditEnvironmentDialog({
       },
       {
         onSuccess: () => {
-          // Update password if provided
+          // Update password if provided, and wait for it to complete
           if (password) {
-            setPassword.mutate({ environmentId: environment.id, password })
+            setPassword.mutate(
+              { environmentId: environment.id, password },
+              {
+                onSuccess: () => onOpenChange(false),
+                onError: () => onOpenChange(false), // Still close on error
+              }
+            )
+          } else {
+            onOpenChange(false)
           }
-          onOpenChange(false)
         },
       }
     )
