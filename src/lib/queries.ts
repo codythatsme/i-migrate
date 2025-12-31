@@ -1,33 +1,26 @@
 import { queryOptions } from "@tanstack/react-query"
-import type { Environment } from "./environments"
+import {
+  listEnvironments,
+  getEnvironment,
+  type EnvironmentWithStatus,
+} from "@/api/client"
 
-// API fetch helpers
-const fetchJson = async <T>(url: string): Promise<T> => {
-  const res = await fetch(url)
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: "Unknown error" }))
-    throw new Error(error.error || `Request failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-// Query options factory
+// Query options factory using RPC client
 export const queries = {
   environments: {
     // Get all environments (includes hasPassword status from server)
     all: () =>
       queryOptions({
         queryKey: ["environments"],
-        queryFn: () => fetchJson<Environment[]>("/api/environments"),
+        queryFn: () => listEnvironments(),
       }),
 
     // Get a single environment by ID (includes hasPassword status from server)
     byId: (id: string) =>
       queryOptions({
         queryKey: ["environments", id],
-        queryFn: () => fetchJson<Environment>(`/api/environments/${id}`),
+        queryFn: () => getEnvironment(id),
         enabled: !!id,
       }),
   },
 }
-

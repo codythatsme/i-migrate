@@ -1,14 +1,12 @@
-// Environment type (no password stored - passwords are kept in memory only)
-export type Environment = {
-  id: string
-  name: string
-  baseUrl: string
-  username: string
-  createdAt: string
-  updatedAt: string
-  hasPassword: boolean  // Indicates if password is set server-side
-}
+// Re-export types from the API schemas for consistency
+// The API schemas are now the source of truth for these types
 
-// Re-export the type from the schema for consistency
-// The database schema type should be the source of truth
-export type { Environment as EnvironmentDB } from '@/db/schema'
+// Environment represents the base database record
+export type { Environment as EnvironmentDB } from "@/api/schemas"
+
+// EnvironmentWithStatus includes hasPassword flag (this is what the API returns)
+export type { EnvironmentWithStatus } from "@/api/schemas"
+
+// For backward compatibility, Environment type now includes hasPassword
+// since that's what the list and get endpoints return
+export type { EnvironmentWithStatus as Environment } from "@/api/schemas"
