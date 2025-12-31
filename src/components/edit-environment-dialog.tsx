@@ -1,6 +1,4 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { queries } from '@/lib/queries'
 import { useUpdateEnvironment, useSetPassword } from '@/lib/mutations'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,12 +30,6 @@ export function EditEnvironmentDialog({
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPasswordValue] = useState('')
-
-  // Query password status (server-side storage - we can't retrieve the actual password)
-  const { data: passwordStatus } = useQuery({
-    ...queries.environments.passwordStatus(environment?.id ?? ''),
-    enabled: !!environment?.id && open,
-  })
 
   // Reset form when environment changes
   useEffect(() => {
@@ -129,12 +121,12 @@ export function EditEnvironmentDialog({
             <Input
               id="edit-env-password"
               type="password"
-              placeholder={passwordStatus?.hasPassword ? "Enter to update password" : "Enter password"}
+              placeholder={environment?.hasPassword ? "Enter to update password" : "Enter password"}
               value={password}
               onChange={(e) => setPasswordValue(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              {passwordStatus?.hasPassword
+              {environment?.hasPassword
                 ? "Password is stored server-side. Leave blank to keep the current password."
                 : "No password stored. Enter a password to save it server-side."}
             </p>

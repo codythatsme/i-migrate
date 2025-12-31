@@ -81,8 +81,6 @@ export const useDeleteEnvironment = () => {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries(queries.environments.all())
       queryClient.removeQueries(queries.environments.byId(id))
-      // Password is cleared server-side when environment is deleted
-      queryClient.removeQueries({ queryKey: ["environments", id, "passwordStatus"] })
     },
   })
 }
@@ -108,8 +106,9 @@ export const useSetPassword = () => {
       }
       return res.json()
     },
-    onSuccess: (_data, { environmentId }) => {
-      queryClient.setQueryData(["environments", environmentId, "passwordStatus"], { hasPassword: true })
+    onSuccess: () => {
+      // Invalidate environments query to refresh hasPassword status from server
+      queryClient.invalidateQueries(queries.environments.all())
     },
   })
 }
@@ -128,8 +127,9 @@ export const useClearPassword = () => {
         throw new Error(error.error || `Request failed: ${res.status}`)
       }
     },
-    onSuccess: (_data, environmentId) => {
-      queryClient.setQueryData(["environments", environmentId, "passwordStatus"], { hasPassword: false })
+    onSuccess: () => {
+      // Invalidate environments query to refresh hasPassword status from server
+      queryClient.invalidateQueries(queries.environments.all())
     },
   })
 }

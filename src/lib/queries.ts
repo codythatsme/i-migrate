@@ -11,37 +11,22 @@ const fetchJson = async <T>(url: string): Promise<T> => {
   return res.json()
 }
 
-// Password status response type
-type PasswordStatus = {
-  hasPassword: boolean
-}
-
 // Query options factory
 export const queries = {
   environments: {
-    // Get all environments
+    // Get all environments (includes hasPassword status from server)
     all: () =>
       queryOptions({
         queryKey: ["environments"],
         queryFn: () => fetchJson<Environment[]>("/api/environments"),
       }),
 
-    // Get a single environment by ID
+    // Get a single environment by ID (includes hasPassword status from server)
     byId: (id: string) =>
       queryOptions({
         queryKey: ["environments", id],
         queryFn: () => fetchJson<Environment>(`/api/environments/${id}`),
         enabled: !!id,
-      }),
-
-    // Check if password is set for an environment (server-side storage)
-    passwordStatus: (id: string) =>
-      queryOptions({
-        queryKey: ["environments", id, "passwordStatus"],
-        queryFn: () => fetchJson<PasswordStatus>(`/api/environments/${id}/password/status`),
-        enabled: !!id,
-        // Don't refetch too often since password status rarely changes
-        staleTime: 30_000,
       }),
   },
 }
