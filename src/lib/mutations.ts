@@ -133,3 +133,23 @@ export const useClearPassword = () => {
     },
   })
 }
+
+// ============================================
+// Connection Test Mutations
+// ============================================
+
+// Test connection to an IMIS environment
+export const useTestConnection = () => {
+  return useMutation({
+    mutationFn: async (environmentId: string) => {
+      const res = await fetch(`/api/environments/${environmentId}/test`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Connection failed" }))
+        throw new Error(error.error || `Test failed: ${res.status}`)
+      }
+      return res.json() as Promise<{ success: boolean }>
+    },
+  })
+}

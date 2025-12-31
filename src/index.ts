@@ -8,13 +8,21 @@ import {
   EnvironmentNotFoundError,
 } from "./services/persistence"
 import { SessionService, SessionServiceLive } from "./services/session"
+import {
+  ImisApiService,
+  ImisApiServiceLive,
+  ImisAuthError,
+  ImisRequestError,
+  ImisResponseError,
+  MissingCredentialsError,
+} from "./services/imis-api"
 import type { NewEnvironment } from "./db/schema"
 
 // Create the runtime with all services
-const MainLayer = Layer.mergeAll(PersistenceServiceLive, SessionServiceLive)
+const MainLayer = Layer.mergeAll(PersistenceServiceLive, SessionServiceLive, ImisApiServiceLive)
 
 // Helper to run Effect programs with the service layer
-const runEffect = <A, E>(effect: Effect.Effect<A, E, PersistenceService | SessionService>) =>
+const runEffect = <A, E>(effect: Effect.Effect<A, E, PersistenceService | SessionService | ImisApiService>) =>
   Effect.runPromise(Effect.provide(effect, MainLayer))
 
 // Helper to generate UUIDs
@@ -243,6 +251,57 @@ const server = serve({
         } catch (error) {
           console.error("Failed to check password status:", error)
           return errorResponse("Failed to check password status", 500)
+        }
+      },
+    },
+
+    // ============================================
+    // Connection Test API Routes
+    // ============================================
+
+    "/api/environments/:id/test": {
+      // POST /api/environments/:id/test - Test connection to IMIS environment
+      async POST(req) {
+        const { id } = req.params
+
+        try {
+          const result = await runEffect(
+            Effect.gen(function* () {
+              const imisApi = yield* ImisApiService
+              return yield* imisApi.healthCheck(id)
+            })
+          )
+
+          return Response.json(result)
+        } catch (error: unknown) {
+          // Effect errors have a _tag property for discrimination
+          const tag = (error as { _tag?: string })?._tag
+          const message = (error as { message?: string })?.message
+
+          // Handle specific error types by their tag
+          if (tag === "EnvironmentNotFoundError") {
+            return errorResponse(`Environment not found: ${id}`, 404)
+          }
+          if (tag === "MissingCredentialsError") {
+            return errorResponse("Password not set for this environment. Please set the password first.", 401)
+          }
+          if (tag === "ImisAuthError") {
+            return errorResponse(message || "Authentication failed. Check your username and password.", 401)
+          }
+          if (tag === "ImisResponseError") {
+            const status = (error as { status?: number })?.status || 500
+            return errorResponse(message || `IMIS returned an error (status ${status})`, status)
+          }
+          if (tag === "ImisRequestError") {
+            return errorResponse(message || "Failed to connect to IMIS. Check the base URL and network connectivity.", 503)
+          }
+          if (tag === "DatabaseError") {
+            return errorResponse("Database error occurred", 500)
+          }
+
+          // Log unexpected errors for debugging
+          console.error("Failed to test connection:", error)
+          return errorResponse(message || "Connection test failed", 500)
         }
       },
     },
