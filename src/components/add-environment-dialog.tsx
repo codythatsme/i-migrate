@@ -50,10 +50,23 @@ export function AddEnvironmentDialog({
       },
       {
         onSuccess: (env) => {
-          setPassword.mutate({ environmentId: env.id, password })
-          resetForm()
-          onOpenChange(false)
-          onSuccess?.(env.id)
+          // Set password and wait for it to complete before closing
+          setPassword.mutate(
+            { environmentId: env.id, password },
+            {
+              onSuccess: () => {
+                resetForm()
+                onOpenChange(false)
+                onSuccess?.(env.id)
+              },
+              onError: () => {
+                // Still close and select, but password wasn't saved
+                resetForm()
+                onOpenChange(false)
+                onSuccess?.(env.id)
+              },
+            }
+          )
         },
       }
     )
