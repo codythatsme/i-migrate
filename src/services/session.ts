@@ -35,18 +35,18 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
 
   sync: () => {
     return {
-      setPassword: (envId: string, password: string): Effect.Effect<void> =>
+      setPassword: (envId: string, password: string) =>
         Effect.sync(() => {
           const session = getOrCreateSession(envId)
           session.password = password
         }),
 
-      getPassword: (envId: string): Effect.Effect<string | undefined> =>
+      getPassword: (envId: string) =>
         Effect.sync(() => {
           return sessions.get(envId)?.password
         }),
 
-      clearPassword: (envId: string): Effect.Effect<void> =>
+      clearPassword: (envId: string) =>
         Effect.sync(() => {
           const session = sessions.get(envId)
           if (session) {
@@ -54,14 +54,14 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
           }
         }),
 
-      setImisToken: (envId: string, token: string, expiresAt: number): Effect.Effect<void> =>
+      setImisToken: (envId: string, token: string, expiresAt: number) =>
         Effect.sync(() => {
           const session = getOrCreateSession(envId)
           session.imisToken = token
           session.tokenExpiresAt = expiresAt
         }),
 
-      getImisToken: (envId: string): Effect.Effect<string | undefined> =>
+      getImisToken: (envId: string) =>
         Effect.sync(() => {
           const session = sessions.get(envId)
           if (!session?.imisToken) return undefined
@@ -76,12 +76,12 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
           return session.imisToken
         }),
 
-      clearSession: (envId: string): Effect.Effect<void> =>
+      clearSession: (envId: string) =>
         Effect.sync(() => {
           sessions.delete(envId)
         }),
 
-      clearAllSessions: (): Effect.Effect<void> =>
+      clearAllSessions: () =>
         Effect.sync(() => {
           sessions.clear()
         }),
