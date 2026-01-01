@@ -1,4 +1,4 @@
-import { Effect, Layer, Data, Schema, ParseResult } from "effect"
+import { Effect, Layer, Data, Schema, ParseResult, Schedule, Duration } from "effect"
 import * as HttpClient from "@effect/platform/HttpClient"
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest"
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse"
@@ -51,6 +51,32 @@ export class MissingCredentialsError extends Data.TaggedError("MissingCredential
   override get message() {
     return `Password not set for environment: ${this.environmentId}`
   }
+}
+
+// ---------------------
+// Retry Configuration
+// ---------------------
+
+// Retry schedule: exponential backoff starting at 500ms, factor of 2, up to 3 retries
+// This gives delays of: 500ms, 1000ms, 2000ms
+const transientRetrySchedule = Schedule.exponential(Duration.millis(500), 2).pipe(
+  Schedule.intersect(Schedule.recurs(3))
+)
+
+// Determines if an HTTP error is transient (worth retrying)
+const isTransientHttpError = (error: unknown): boolean => {
+  if (HttpClientError.isHttpClientError(error)) {
+    // Network/connection errors are transient
+    if (error._tag === "RequestError") {
+      return true
+    }
+    // 5xx server errors and 429 (rate limit) are transient
+    if (error._tag === "ResponseError") {
+      const status = error.response.status
+      return status >= 500 || status === 429
+    }
+  }
+  return false
 }
 
 // ---------------------
@@ -116,7 +142,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           password: password,
         })
 
-        // Make token request
+        // Make token request with retry for transient errors
         const response = yield* HttpClientRequest.post(tokenUrl).pipe(
           HttpClientRequest.setHeader("Content-Type", "application/x-www-form-urlencoded"),
           HttpClientRequest.setHeader("Accept", "application/json"),
@@ -132,6 +158,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 )
           ),
           Effect.flatMap((res) => HttpClientResponse.schemaBodyJson(TokenResponse)(res)),
+          // Retry transient errors (network issues, 5xx, 429) with exponential backoff
+          Effect.retry({
+            schedule: transientRetrySchedule,
+            while: isTransientHttpError,
+          }),
           Effect.mapError((error) => {
             if (error instanceof ImisAuthError) return error
             if (error instanceof MissingCredentialsError) return error
@@ -177,7 +208,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         return yield* fetchToken(envId)
       })
 
-    // Execute an authenticated request with 401 retry
+    // Execute an authenticated request with 401 retry and transient error retry
     const executeWithAuth = <A, E>(
       envId: string,
       endpoint: string,
@@ -188,8 +219,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         const token = yield* ensureToken(envId)
 
         return yield* makeRequest(env.baseUrl, token).pipe(
+          // Retry transient errors (network issues, 5xx, 429) with exponential backoff
+          Effect.retry({
+            schedule: transientRetrySchedule,
+            while: isTransientHttpError,
+          }),
           Effect.catchAll((error) => {
-            // Check if this is a 401 response error
+            // Check if this is a 401 response error (after retries exhausted)
             if (
               HttpClientError.isHttpClientError(error) &&
               error._tag === "ResponseError" &&
@@ -197,7 +233,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             ) {
               return Effect.gen(function* () {
                 const newToken = yield* refreshToken(envId)
-                return yield* makeRequest(env.baseUrl, newToken)
+                // Also retry the new request for transient errors
+                return yield* makeRequest(env.baseUrl, newToken).pipe(
+                  Effect.retry({
+                    schedule: transientRetrySchedule,
+                    while: isTransientHttpError,
+                  })
+                )
               })
             }
             // Re-raise other errors
