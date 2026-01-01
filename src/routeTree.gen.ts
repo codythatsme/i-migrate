@@ -11,8 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MappingsRouteImport } from './routes/mappings'
 import { Route as JobsRouteImport } from './routes/jobs'
+import { Route as ExportRouteImport } from './routes/export'
 import { Route as EnvironmentsRouteImport } from './routes/environments'
-import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as IndexRouteImport } from './routes/index'
 
 const MappingsRoute = MappingsRouteImport.update({
@@ -25,14 +25,14 @@ const JobsRoute = JobsRouteImport.update({
   path: '/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EnvironmentsRoute = EnvironmentsRouteImport.update({
   id: '/environments',
   path: '/environments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BrowseRoute = BrowseRouteImport.update({
-  id: '/browse',
-  path: '/browse',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -43,38 +43,38 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/browse': typeof BrowseRoute
   '/environments': typeof EnvironmentsRoute
+  '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
   '/mappings': typeof MappingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/browse': typeof BrowseRoute
   '/environments': typeof EnvironmentsRoute
+  '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
   '/mappings': typeof MappingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/browse': typeof BrowseRoute
   '/environments': typeof EnvironmentsRoute
+  '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
   '/mappings': typeof MappingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/browse' | '/environments' | '/jobs' | '/mappings'
+  fullPaths: '/' | '/environments' | '/export' | '/jobs' | '/mappings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/browse' | '/environments' | '/jobs' | '/mappings'
-  id: '__root__' | '/' | '/browse' | '/environments' | '/jobs' | '/mappings'
+  to: '/' | '/environments' | '/export' | '/jobs' | '/mappings'
+  id: '__root__' | '/' | '/environments' | '/export' | '/jobs' | '/mappings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BrowseRoute: typeof BrowseRoute
   EnvironmentsRoute: typeof EnvironmentsRoute
+  ExportRoute: typeof ExportRoute
   JobsRoute: typeof JobsRoute
   MappingsRoute: typeof MappingsRoute
 }
@@ -95,18 +95,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JobsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/environments': {
       id: '/environments'
       path: '/environments'
       fullPath: '/environments'
       preLoaderRoute: typeof EnvironmentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/browse': {
-      id: '/browse'
-      path: '/browse'
-      fullPath: '/browse'
-      preLoaderRoute: typeof BrowseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -121,8 +121,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BrowseRoute: BrowseRoute,
   EnvironmentsRoute: EnvironmentsRoute,
+  ExportRoute: ExportRoute,
   JobsRoute: JobsRoute,
   MappingsRoute: MappingsRoute,
 }
