@@ -138,7 +138,7 @@ function EnvironmentsPage() {
                 key={env.id}
                 className={
                   isSelected
-                    ? 'border-emerald-600 ring-1 ring-emerald-600'
+                    ? 'border-primary ring-1 ring-primary'
                     : 'hover:border-muted-foreground/25 transition-colors'
                 }
               >
@@ -147,7 +147,7 @@ function EnvironmentsPage() {
                     <div
                       className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
                         isSelected
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-primary text-primary-foreground'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
@@ -199,8 +199,8 @@ function EnvironmentsPage() {
                       </span>
                     </div>
                     {isSelected && (
-                      <div className="flex items-center gap-2 rounded-md bg-emerald-600/10 px-2 py-1 text-xs text-emerald-600">
-                        <div className="size-1.5 rounded-full bg-emerald-600" />
+                      <div className="flex items-center gap-2 rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">
+                        <div className="size-1.5 rounded-full bg-primary" />
                         Current Source
                       </div>
                     )}
@@ -230,7 +230,7 @@ function EnvironmentsPage() {
 
                         {/* Success indicator - inline */}
                         {testStatuses[env.id]?.status === 'success' && (
-                          <div className="flex items-center gap-1 text-xs text-emerald-600">
+                          <div className="flex items-center gap-1 text-xs text-primary">
                             <CheckCircle2 className="size-3.5" />
                             <span>{testStatuses[env.id]?.message}</span>
                           </div>
