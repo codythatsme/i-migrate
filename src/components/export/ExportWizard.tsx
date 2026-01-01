@@ -20,6 +20,7 @@ import { useEnvironmentStore } from '@/stores/environment-store'
 import { queries } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { DataSourceSelector } from './DataSourceSelector'
+import { DestinationPasswordDialog } from './DestinationPasswordDialog'
 import { EnvironmentSelector } from './EnvironmentSelector'
 import { PropertyMapper, type PropertyMapping } from './PropertyMapper'
 import { QueryFileBrowser } from './QueryFileBrowser'
@@ -87,8 +88,14 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   // Local state for property mappings (not persisted to URL due to complexity)
   const [mappings, setMappings] = useState<PropertyMapping[]>([])
 
+  // State for destination password dialog
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+
   // Get the current steps based on mode
   const STEPS = mode === 'query' ? QUERY_STEPS : DATASOURCE_STEPS
+
+  // Fetch environments to check destination password status
+  const { data: environments } = useQuery(queries.environments.all())
 
   // Fetch source data sources to get the selected entity's structure info (for datasource mode)
   const { data: sourceDataSources } = useQuery({
@@ -119,6 +126,10 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     }
   }, [mode, selectedSourceEntity])
 
+  // Check if destination environment needs a password
+  const destinationEnvironment = environments?.find((env) => env.id === destEnv)
+  const destNeedsPassword = destEnv !== null && destinationEnvironment !== undefined && !destinationEnvironment.hasPassword
+
   // ---------------------
   // Navigation Handlers
   // ---------------------
@@ -129,8 +140,18 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
 
   const handleNext = () => {
     if (step < 4) {
+      // If moving from step 2 (destination selection) and destination needs password, prompt for it
+      if (step === 2 && destNeedsPassword) {
+        setShowPasswordDialog(true)
+        return
+      }
       goToStep(step + 1)
     }
+  }
+
+  const handlePasswordSuccess = () => {
+    // Password was set successfully, proceed to next step
+    goToStep(step + 1)
   }
 
   const handleBack = () => {
@@ -222,6 +243,14 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Destination Password Dialog */}
+      <DestinationPasswordDialog
+        environmentId={destEnv}
+        open={showPasswordDialog}
+        onOpenChange={setShowPasswordDialog}
+        onSuccess={handlePasswordSuccess}
+      />
+
       {/* Mode Toggle - only show when mode is not controlled by parent */}
       {!initialMode && (
         <div className="flex items-center gap-2">
