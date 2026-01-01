@@ -6,6 +6,11 @@ import * as HttpClientError from "@effect/platform/HttpClientError"
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
 import { SessionService } from "./session"
 import { PersistenceService, EnvironmentNotFoundError, DatabaseError } from "./persistence"
+import {
+  BoEntityDefinitionQueryResponseSchema,
+  type QueryResponse,
+  type BoEntityDefinition,
+} from "../api/imis-schemas"
 
 // ---------------------
 // Domain Errors
@@ -272,6 +277,39 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.scoped
           )
         ),
+
+      /**
+       * Get BoEntityDefinitions (data sources) from an IMIS environment.
+       * Will automatically authenticate if needed, and retry once on 401.
+       */
+      getBoEntityDefinitions: (
+        envId: string,
+        limit: number = 500
+      ): Effect.Effect<
+        QueryResponse<BoEntityDefinition>,
+        ImisAuthError | ImisRequestError | ImisResponseError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
+      > =>
+        executeWithAuth(envId, (baseUrl, token) =>
+          HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`).pipe(
+            HttpClientRequest.setUrlParam("limit", String(limit)),
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            httpClient.execute,
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(BoEntityDefinitionQueryResponseSchema)(res)
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`),
+                  response: res,
+                  reason: "StatusCode",
+                })
+              )
+            }),
+            Effect.scoped
+          )
+        ),
     }
   }),
 
@@ -283,6 +321,18 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     new ImisApiService({
       authenticate: () => Effect.void,
       healthCheck: () => Effect.succeed({ success: true }),
+      getBoEntityDefinitions: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts]], Asi.Contracts",
+          Items: { $type: "System.Collections.Generic.List`1[[Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts]], mscorlib", $values: [] },
+          Offset: 0,
+          Limit: 500,
+          Count: 0,
+          TotalCount: 0,
+          NextPageLink: null,
+          HasNext: false,
+          NextOffset: 0,
+        }),
     })
   )
 }

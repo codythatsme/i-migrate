@@ -92,6 +92,14 @@ export const getPasswordStatus = (environmentId: string) =>
 export const testConnection = (environmentId: string) =>
   withClient((client) => client.connection.test({ environmentId }))
 
+/** List data sources (BoEntityDefinitions) from an IMIS environment */
+export const listDataSources = (environmentId: string, limit?: number) =>
+  withClient((client) =>
+    client.datasources.list(
+      limit !== undefined ? { environmentId, limit } : { environmentId }
+    )
+  )
+
 // ---------------------
 // Re-export types for convenience
 // ---------------------
@@ -104,3 +112,9 @@ export type {
   PasswordStatus,
   TestConnectionResult,
 } from "./schemas"
+
+export type {
+  BoEntityDefinition,
+  BoProperty,
+  QueryResponse,
+} from "./imis-schemas"

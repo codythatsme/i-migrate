@@ -34,6 +34,7 @@
     "drizzle-orm": "^0.45.1",
     "effect": "^3.19.13",
     "lucide-react": "^0.562.0",
+    "nuqs": "^2.8.6",
     "radix-ui": "^1.4.3",
     "react": "^19",
     "react-dom": "^19",
