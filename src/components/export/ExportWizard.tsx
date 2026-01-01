@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   parseAsString,
   parseAsInteger,
@@ -6,6 +7,7 @@ import {
 } from 'nuqs'
 import { ArrowLeft, ArrowRight, Check, Database, Server, Map, ListChecks } from 'lucide-react'
 import { useEnvironmentStore } from '@/stores/environment-store'
+import { queries } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { DataSourceSelector } from './DataSourceSelector'
 import { EnvironmentSelector } from './EnvironmentSelector'
@@ -46,6 +48,29 @@ export function ExportWizard() {
   // Local state for property mappings (not persisted to URL due to complexity)
   const [mappings, setMappings] = useState<PropertyMapping[]>([])
 
+  // Fetch source data sources to get the selected entity's structure info
+  const { data: sourceDataSources } = useQuery({
+    ...queries.dataSources.byEnvironment(sourceEnvironmentId),
+    enabled: !!sourceEnvironmentId,
+  })
+
+  // Get the selected source entity definition
+  const selectedSourceEntity = useMemo(() => {
+    if (!sourceDataSources || !sourceEntity) return null
+    return sourceDataSources.Items.$values.find(
+      (e) => e.EntityTypeName === sourceEntity
+    ) ?? null
+  }, [sourceDataSources, sourceEntity])
+
+  // Compatibility filter for destination selection
+  const destinationCompatibilityFilter = useMemo(() => {
+    if (!selectedSourceEntity) return undefined
+    return {
+      objectTypeName: selectedSourceEntity.ObjectTypeName,
+      primaryParentEntityTypeName: selectedSourceEntity.PrimaryParentEntityTypeName,
+    }
+  }, [selectedSourceEntity])
+
   // ---------------------
   // Navigation Handlers
   // ---------------------
@@ -75,7 +100,9 @@ export function ExportWizard() {
 
   const handleSourceSelect = useCallback(
     (entityType: string) => {
-      setQueryState({ sourceEntity: entityType })
+      // Clear destination entity when source changes (compatibility may differ)
+      setQueryState({ sourceEntity: entityType, destEntity: null })
+      setMappings([])
     },
     [setQueryState]
   )
@@ -208,6 +235,7 @@ export function ExportWizard() {
             onSelect={handleDestEntitySelect}
             title="Select Destination Data Source"
             description="Choose the data source to migrate data into on the destination environment."
+            compatibilityFilter={destinationCompatibilityFilter}
           />
         )}
 
