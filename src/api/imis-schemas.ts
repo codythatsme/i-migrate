@@ -4,6 +4,30 @@ import { Schema } from "effect"
 // Common iMIS / SOA Schemas
 // ---------------------
 
+export const BoPropertyTypeNameSchema = Schema.Literal(
+  "Binary",
+  "Boolean",
+  "Date",
+  "Decimal",
+  "Integer",
+  "Monetary",
+  "String"
+)
+
+export const DbDataTypeSchema = Schema.Literal(
+  "Bit",
+  "DateTime",
+  "Decimal",
+  "Int",
+  "Money",
+  "NVarChar",
+  "Text",
+  "TinyInt",
+  "UniqueIdentifier",
+  "VarBinary",
+  "VarChar"
+)
+
 /**
  * Represents the standard collection wrapper used in iMIS / SOA contracts.
  */
@@ -17,7 +41,14 @@ export const SoaCollectionSchema = <S extends Schema.Schema.Any>(element: S) =>
  * Standard value wrapper for polymorphic values.
  */
 export const SoaValueSchema = Schema.Struct({
-  $type: Schema.String,
+  $type: Schema.Literal(
+    "System.Boolean",
+    "System.Byte",
+    "System.Decimal",
+    "System.Guid",
+    "System.Int32",
+    "System.SByte"
+  ),
   $value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
 })
 
@@ -37,7 +68,7 @@ export const SoaDefaultValueSchema = Schema.Union(
 // ---------------------
 
 export const GenericPropertySchema = Schema.Struct({
-  $type: Schema.String,
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
   Name: Schema.String,
   Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null),
 })
@@ -56,7 +87,7 @@ export const PropertyRuleValueListSchema = Schema.Struct({
 
 export const CriteriaDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.CriteriaData, Asi.Contracts"),
-  Operation: Schema.Number,
+  Operation: Schema.Literal(3),
   PropertyName: Schema.String,
   Values: SoaCollectionSchema(Schema.String),
 })
@@ -84,17 +115,17 @@ export const PropertyRuleSchema = Schema.Union(PropertyRuleValueListSchema, Prop
 // ---------------------
 
 export const PropertyRenderingInformationSchema = Schema.Struct({
-  $type: Schema.String,
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyRenderingInformationData, Asi.Contracts"),
   HelpText: Schema.String,
   ToolTip: Schema.String,
   WatermarkText: Schema.String,
-  ControlType: Schema.Number,
+  ControlType: Schema.Literal(1, 3, 4, 7, 8, 12, 14, 18),
 })
 
 export const ExtendedPropertyInformationSchema = Schema.Struct({
-  $type: Schema.String,
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.ExtendedPropertyInformationData, Asi.Contracts"),
   DatabaseColumnName: Schema.String,
-  DbDataType: Schema.String,
+  DbDataType: DbDataTypeSchema,
   IsReadOnly: Schema.optionalWith(Schema.Boolean, { exact: true }),
   IsDbIdentity: Schema.optionalWith(Schema.Boolean, { exact: true }),
   IsNullable: Schema.optionalWith(Schema.Boolean, { exact: true }),
@@ -105,7 +136,7 @@ export const ExtendedPropertyInformationSchema = Schema.Struct({
 // ---------------------
 
 const PropertyBaseFields = {
-  PropertyTypeName: Schema.String,
+  PropertyTypeName: BoPropertyTypeNameSchema,
   Name: Schema.String,
   Description: Schema.String,
   Caption: Schema.String,
@@ -123,33 +154,39 @@ const PropertyBaseFields = {
 export const PropertyTypeStringSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeStringData, Asi.Contracts"),
+  PropertyTypeName: Schema.Literal("String"),
   MaxLength: Schema.Number,
 })
 
 export const PropertyTypeIntegerSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeIntegerData, Asi.Contracts"),
+  PropertyTypeName: Schema.Literal("Integer"),
 })
 
 export const PropertyTypeBooleanSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeBooleanData, Asi.Contracts"),
+  PropertyTypeName: Schema.Literal("Boolean"),
 })
 
 export const PropertyTypeDateTimeSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeDateTimeData, Asi.Contracts"),
-  DateTimeDataType: Schema.Number,
+  PropertyTypeName: Schema.Literal("Date"),
+  DateTimeDataType: Schema.Literal(0),
 })
 
 export const PropertyTypeBinarySchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeBinaryData, Asi.Contracts"),
+  PropertyTypeName: Schema.Literal("Binary"),
 })
 
 export const PropertyTypeDecimalSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeDecimalData, Asi.Contracts"),
+  PropertyTypeName: Schema.Literal("Decimal"),
   Precision: Schema.Number,
   Scale: Schema.Number,
 })
@@ -157,6 +194,7 @@ export const PropertyTypeDecimalSchema = Schema.Struct({
 export const PropertyTypeMonetarySchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeMonetaryData, Asi.Contracts"),
+  PropertyTypeName: Schema.Literal("Monetary"),
 })
 
 /**
@@ -177,13 +215,13 @@ export const BoPropertySchema = Schema.Union(
 // ---------------------
 
 export const IndexColumnSchema = Schema.Struct({
-  $type: Schema.String,
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.IndexColumnData, Asi.Contracts"),
   ColumnName: Schema.String,
-  OrderBy: Schema.Number,
+  OrderBy: Schema.Literal(0),
 })
 
 export const IndexSchema = Schema.Struct({
-  $type: Schema.String,
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.IndexData, Asi.Contracts"),
   Name: Schema.String,
   IsPrimary: Schema.Boolean,
   IsUnique: Schema.Boolean,
