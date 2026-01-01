@@ -18,7 +18,7 @@ export const SoaCollectionSchema = <S extends Schema.Schema.Any>(element: S) =>
  */
 export const SoaValueSchema = Schema.Struct({
   $type: Schema.String,
-  $value: Schema.Any,
+  $value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
 })
 
 /**
@@ -39,7 +39,7 @@ export const SoaDefaultValueSchema = Schema.Union(
 export const GenericPropertySchema = Schema.Struct({
   $type: Schema.String,
   Name: Schema.String,
-  Value: Schema.Any,
+  Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null),
 })
 
 /**
@@ -50,12 +50,29 @@ export const PropertyRuleValueListSchema = Schema.Struct({
   ValueList: SoaCollectionSchema(GenericPropertySchema),
 })
 
+// ---------------------
+// Query Schemas
+// ---------------------
+
+export const CriteriaDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.CriteriaData, Asi.Contracts"),
+  Operation: Schema.Number,
+  PropertyName: Schema.String,
+  Values: SoaCollectionSchema(Schema.String),
+})
+
+export const QueryDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryData, Asi.Contracts"),
+  Criteria: SoaCollectionSchema(CriteriaDataSchema),
+  EntityTypeName: Schema.String,
+})
+
 /**
  * A rule that executes a query to get values (e.g., from an IQA).
  */
 export const PropertyRuleQuerySchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyRuleQueryData, Asi.Contracts"),
-  Query: Schema.Any, // Can be complex, but usually contains Criteria and EntityTypeName
+  Query: QueryDataSchema,
   ValuePropertyName: Schema.optionalWith(Schema.String, { exact: true }),
   DescriptionPropertyName: Schema.optionalWith(Schema.String, { exact: true }),
 })
@@ -175,6 +192,15 @@ export const IndexSchema = Schema.Struct({
 })
 
 // ---------------------
+// Related Entities
+// ---------------------
+
+export const RelatedEntityDataCollectionSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.RelatedEntityDataCollection, Asi.Contracts"),
+  $values: Schema.Array(Schema.Any),
+})
+
+// ---------------------
 // Root Definition
 // ---------------------
 
@@ -188,7 +214,7 @@ export const BoEntityDefinitionSchema = Schema.Struct({
   EntityTypeName: Schema.String,
   PrimaryParentEntityTypeName: Schema.String,
   Properties: SoaCollectionSchema(BoPropertySchema),
-  RelatedEntities: SoaCollectionSchema(Schema.Any),
+  RelatedEntities: RelatedEntityDataCollectionSchema,
   IsDesignable: Schema.Boolean,
   Indexes: SoaCollectionSchema(IndexSchema),
 })
@@ -205,6 +231,10 @@ export type SoaCollection<T> = {
 export type BoProperty = typeof BoPropertySchema.Type
 export type BoIndex = typeof IndexSchema.Type
 export type BoEntityDefinition = typeof BoEntityDefinitionSchema.Type
+
+export type GenericProperty = typeof GenericPropertySchema.Type
+export type QueryData = typeof QueryDataSchema.Type
+export type CriteriaData = typeof CriteriaDataSchema.Type
 
 export type PropertyTypeString = typeof PropertyTypeStringSchema.Type
 export type PropertyTypeInteger = typeof PropertyTypeIntegerSchema.Type
