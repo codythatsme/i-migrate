@@ -422,20 +422,20 @@ export const BoEntityDefinitionQueryResponseSchema = QueryResponseSchema(BoEntit
 // ---------------------
 
 export type SoaCollection<T> = {
-  $type: string
-  $values: T[]
+  readonly $type: string
+  readonly $values: readonly T[]
 }
 
 export type QueryResponse<T> = {
-  $type: string
-  Items: SoaCollection<T>
-  Offset: number
-  Limit: number
-  Count: number
-  TotalCount: number
-  NextPageLink: string | null
-  HasNext: boolean
-  NextOffset: number
+  readonly $type: string
+  readonly Items: SoaCollection<T>
+  readonly Offset: number
+  readonly Limit: number
+  readonly Count: number
+  readonly TotalCount: number
+  readonly NextPageLink: string | null
+  readonly HasNext: boolean
+  readonly NextOffset: number
 }
 
 export type BoProperty = typeof BoPropertySchema.Type

@@ -69,12 +69,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     // ---------------------
 
     // Fetch a new token from IMIS /token endpoint
-    const fetchToken = (
-      envId: string
-    ): Effect.Effect<
-      string,
-      ImisAuthError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-    > =>
+    const fetchToken = (envId: string) =>
       Effect.gen(function* () {
         // Get environment config
         const env = yield* persistence.getEnvironmentById(envId)
@@ -129,12 +124,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       })
 
     // Ensure we have a valid token, fetching one if needed
-    const ensureToken = (
-      envId: string
-    ): Effect.Effect<
-      string,
-      ImisAuthError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-    > =>
+    const ensureToken = (envId: string) =>
       Effect.gen(function* () {
         const existingToken = yield* session.getImisToken(envId)
         if (existingToken) {
@@ -144,12 +134,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       })
 
     // Clear token and fetch a fresh one
-    const refreshToken = (
-      envId: string
-    ): Effect.Effect<
-      string,
-      ImisAuthError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-    > =>
+    const refreshToken = (envId: string) =>
       Effect.gen(function* () {
         yield* session.clearSession(envId).pipe(
           Effect.flatMap(() => session.getPassword(envId)),
@@ -169,25 +154,23 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       })
 
     // Execute an authenticated request with 401 retry
-    const executeWithAuth = <A>(
+    const executeWithAuth = <A, E>(
       envId: string,
-      makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, HttpClientError.HttpClientError>
-    ): Effect.Effect<
-      A,
-      ImisAuthError | ImisRequestError | ImisResponseError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-    > =>
+      makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, E>
+    ) =>
       Effect.gen(function* () {
         const env = yield* persistence.getEnvironmentById(envId)
         const token = yield* ensureToken(envId)
 
         return yield* makeRequest(env.baseUrl, token).pipe(
-          Effect.catchIf(
-            (error): error is HttpClientError.ResponseError =>
+          Effect.catchAll((error) => {
+            // Check if this is a 401 response error
+            if (
               HttpClientError.isHttpClientError(error) &&
               error._tag === "ResponseError" &&
-              error.response.status === 401,
-            () =>
-              Effect.gen(function* () {
+              error.response.status === 401
+            ) {
+              return Effect.gen(function* () {
                 // Clear old token and get fresh one
                 // Preserve password before clearing session
                 const password = yield* session.getPassword(envId)
@@ -198,7 +181,10 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 const newToken = yield* fetchToken(envId)
                 return yield* makeRequest(env.baseUrl, newToken)
               })
-          ),
+            }
+            // Re-raise other errors
+            return Effect.fail(error)
+          }),
           Effect.mapError((error) => {
             if (error instanceof ImisAuthError) return error
             if (error instanceof ImisRequestError) return error
@@ -238,24 +224,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Authenticate with an IMIS environment and store the token.
        * Requires password to be set in session first.
        */
-      authenticate: (
-        envId: string
-      ): Effect.Effect<
-        void,
-        ImisAuthError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-      > =>
-        fetchToken(envId).pipe(Effect.asVoid),
+      authenticate: (envId: string) => fetchToken(envId).pipe(Effect.asVoid),
 
       /**
        * Health check - verifies credentials by calling GET /api/party?limit=1
        * Will automatically authenticate if needed, and retry once on 401.
        */
-      healthCheck: (
-        envId: string
-      ): Effect.Effect<
-        { success: boolean },
-        ImisAuthError | ImisRequestError | ImisResponseError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-      > =>
+      healthCheck: (envId: string) =>
         executeWithAuth(envId, (baseUrl, token) =>
           HttpClientRequest.get(`${baseUrl}/api/party`).pipe(
             HttpClientRequest.setUrlParam("limit", "1"),
@@ -282,13 +257,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Get BoEntityDefinitions (data sources) from an IMIS environment.
        * Will automatically authenticate if needed, and retry once on 401.
        */
-      getBoEntityDefinitions: (
-        envId: string,
-        limit: number = 500
-      ): Effect.Effect<
-        QueryResponse<BoEntityDefinition>,
-        ImisAuthError | ImisRequestError | ImisResponseError | MissingCredentialsError | EnvironmentNotFoundError | DatabaseError
-      > =>
+      getBoEntityDefinitions: (envId: string, limit: number = 500) =>
         executeWithAuth(envId, (baseUrl, token) =>
           HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`).pipe(
             HttpClientRequest.setUrlParam("limit", String(limit)),

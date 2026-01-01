@@ -53,9 +53,9 @@ export class PersistenceService extends Effect.Service<PersistenceService>()("ap
     // ---------------------
 
     return {
-      getEnvironments: (): Effect.Effect<Environment[], DatabaseError> => queryEnvironments(),
+      getEnvironments: () => queryEnvironments(),
 
-      getEnvironmentById: (id: string): Effect.Effect<Environment, DatabaseError | EnvironmentNotFoundError> =>
+      getEnvironmentById: (id: string) =>
         Effect.gen(function* () {
           const results = yield* queryEnvironmentById(id)
           const environment = results[0]
@@ -65,7 +65,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()("ap
           return environment
         }),
 
-      createEnvironment: (env: NewEnvironment): Effect.Effect<Environment, DatabaseError> =>
+      createEnvironment: (env: NewEnvironment) =>
         Effect.gen(function* () {
           yield* Effect.try({
             try: () => db.insert(environments).values(env).run(),
@@ -83,7 +83,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()("ap
       updateEnvironment: (
         id: string,
         updates: Partial<Pick<Environment, "name" | "baseUrl" | "username">>
-      ): Effect.Effect<Environment, DatabaseError | EnvironmentNotFoundError> =>
+      ) =>
         Effect.gen(function* () {
           // First check if environment exists
           const existing = yield* queryEnvironmentById(id)
@@ -112,7 +112,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()("ap
           return updated
         }),
 
-      deleteEnvironment: (id: string): Effect.Effect<void, DatabaseError | EnvironmentNotFoundError> =>
+      deleteEnvironment: (id: string) =>
         Effect.gen(function* () {
           // First check if environment exists
           const existing = yield* queryEnvironmentById(id)
