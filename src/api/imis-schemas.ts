@@ -187,8 +187,8 @@ export const PropertyTypeDecimalSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeDecimalData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("Decimal"),
-  Precision: Schema.Number,
-  Scale: Schema.Number,
+  Precision: Schema.optionalWith(Schema.Number, { exact: true }),
+  Scale: Schema.optionalWith(Schema.Number, { exact: true }),
 })
 
 export const PropertyTypeMonetarySchema = Schema.Struct({
@@ -253,9 +253,34 @@ export const BoEntityDefinitionSchema = Schema.Struct({
   PrimaryParentEntityTypeName: Schema.String,
   Properties: SoaCollectionSchema(BoPropertySchema),
   RelatedEntities: RelatedEntityDataCollectionSchema,
-  IsDesignable: Schema.Boolean,
+  IsDesignable: Schema.optionalWith(Schema.Boolean, { exact: true }),
   Indexes: SoaCollectionSchema(IndexSchema),
 })
+
+// ---------------------
+// Query Response (Paged Results)
+// ---------------------
+
+/**
+ * Creates a schema for iMIS paged query responses.
+ */
+export const QueryResponseSchema = <S extends Schema.Schema.Any>(element: S) =>
+  Schema.Struct({
+    $type: Schema.String,
+    Items: SoaCollectionSchema(element),
+    Offset: Schema.Number,
+    Limit: Schema.Number,
+    Count: Schema.Number,
+    TotalCount: Schema.Number,
+    NextPageLink: Schema.NullOr(Schema.String),
+    HasNext: Schema.Boolean,
+    NextOffset: Schema.Number,
+  })
+
+/**
+ * Schema for BoEntityDefinition query response.
+ */
+export const BoEntityDefinitionQueryResponseSchema = QueryResponseSchema(BoEntityDefinitionSchema)
 
 // ---------------------
 // Inferred Types
@@ -264,6 +289,18 @@ export const BoEntityDefinitionSchema = Schema.Struct({
 export type SoaCollection<T> = {
   $type: string
   $values: T[]
+}
+
+export type QueryResponse<T> = {
+  $type: string
+  Items: SoaCollection<T>
+  Offset: number
+  Limit: number
+  Count: number
+  TotalCount: number
+  NextPageLink: string | null
+  HasNext: boolean
+  NextOffset: number
 }
 
 export type BoProperty = typeof BoPropertySchema.Type
