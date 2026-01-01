@@ -119,6 +119,28 @@ export const getQueryDefinition = (environmentId: string, path: string) =>
   withClient((client) => client.queries.definition({ environmentId, path }))
 
 // ---------------------
+// Trace Functions
+// ---------------------
+
+/** List recent traces */
+export const listTraces = (limit?: number, offset?: number) =>
+  withClient((client) =>
+    client.traces.list(
+      limit !== undefined || offset !== undefined
+        ? { limit, offset }
+        : {}
+    )
+  )
+
+/** Get a single trace with all spans */
+export const getTrace = (traceId: string) =>
+  withClient((client) => client.traces.get({ traceId }))
+
+/** Clear all traces */
+export const clearTraces = () =>
+  withClient((client) => client.traces.clear())
+
+// ---------------------
 // Re-export types for convenience
 // ---------------------
 
@@ -129,6 +151,9 @@ export type {
   UpdateEnvironment,
   PasswordStatus,
   TestConnectionResult,
+  TraceSummary,
+  StoredTrace,
+  StoredSpan,
 } from "./schemas"
 
 export type {

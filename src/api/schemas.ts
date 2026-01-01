@@ -119,6 +119,15 @@ export class ImisResponseErrorSchema extends Schema.TaggedError<ImisResponseErro
   }
 ) {}
 
+export class ImisSchemaErrorSchema extends Schema.TaggedError<ImisSchemaErrorSchema>()(
+  "ImisSchemaError",
+  {
+    message: Schema.String,
+    endpoint: Schema.String,
+    parseError: Schema.String,
+  }
+) {}
+
 export class ValidationErrorSchema extends Schema.TaggedError<ValidationErrorSchema>()(
   "ValidationError",
   {
@@ -139,7 +148,8 @@ export const ConnectionErrorSchema = Schema.Union(
   MissingCredentialsErrorSchema,
   ImisAuthErrorSchema,
   ImisRequestErrorSchema,
-  ImisResponseErrorSchema
+  ImisResponseErrorSchema,
+  ImisSchemaErrorSchema
 )
 
 // ---------------------
@@ -182,4 +192,87 @@ export const GetQueryDefinitionRequestSchema = Schema.Struct({
 })
 
 export type GetQueryDefinitionRequest = typeof GetQueryDefinitionRequestSchema.Type
+
+// ---------------------
+// Trace Schemas
+// ---------------------
+
+export const SpanEventSchema = Schema.Struct({
+  name: Schema.String,
+  timestamp: Schema.Number,
+  attributes: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true }),
+})
+
+export type SpanEvent = typeof SpanEventSchema.Type
+
+export const StoredSpanSchema = Schema.Struct({
+  id: Schema.String,
+  traceId: Schema.String,
+  parentSpanId: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  status: Schema.Literal("ok", "error", "running"),
+  kind: Schema.String,
+  startTime: Schema.Number,
+  endTime: Schema.NullOr(Schema.Number),
+  durationMs: Schema.NullOr(Schema.Number),
+  attributes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  events: Schema.Array(SpanEventSchema),
+  errorCause: Schema.NullOr(Schema.String),
+})
+
+export type StoredSpan = typeof StoredSpanSchema.Type
+
+export const StoredTraceSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  status: Schema.Literal("ok", "error", "running"),
+  startTime: Schema.Number,
+  endTime: Schema.NullOr(Schema.Number),
+  durationMs: Schema.NullOr(Schema.Number),
+  errorMessage: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+  spans: Schema.Array(StoredSpanSchema),
+})
+
+export type StoredTrace = typeof StoredTraceSchema.Type
+
+export const TraceSummarySchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  status: Schema.Literal("ok", "error", "running"),
+  startTime: Schema.Number,
+  durationMs: Schema.NullOr(Schema.Number),
+  createdAt: Schema.String,
+  spanCount: Schema.Number,
+  errorMessage: Schema.NullOr(Schema.String),
+})
+
+export type TraceSummary = typeof TraceSummarySchema.Type
+
+export const ListTracesRequestSchema = Schema.Struct({
+  limit: Schema.optionalWith(Schema.Number, { exact: true }),
+  offset: Schema.optionalWith(Schema.Number, { exact: true }),
+})
+
+export type ListTracesRequest = typeof ListTracesRequestSchema.Type
+
+export const GetTraceRequestSchema = Schema.Struct({
+  traceId: Schema.String,
+})
+
+export type GetTraceRequest = typeof GetTraceRequestSchema.Type
+
+export class TraceNotFoundErrorSchema extends Schema.TaggedError<TraceNotFoundErrorSchema>()(
+  "TraceNotFoundError",
+  {
+    traceId: Schema.String,
+  }
+) {}
+
+export class TraceStoreErrorSchema extends Schema.TaggedError<TraceStoreErrorSchema>()(
+  "TraceStoreError",
+  {
+    message: Schema.String,
+  }
+) {}
 

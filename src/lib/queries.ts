@@ -6,6 +6,8 @@ import {
   getDocumentByPath,
   getDocumentsInFolder,
   getQueryDefinition,
+  listTraces,
+  getTrace,
 } from "@/api/client"
 
 // Query options factory using RPC client
@@ -66,6 +68,24 @@ export const queries = {
         queryKey: ["queryDefinition", environmentId, path],
         queryFn: () => getQueryDefinition(environmentId!, path!),
         enabled: !!environmentId && !!path,
+      }),
+  },
+
+  traces: {
+    // Get all recent traces
+    all: (limit?: number, offset?: number) =>
+      queryOptions({
+        queryKey: ["traces", limit, offset],
+        queryFn: () => listTraces(limit, offset),
+        refetchInterval: 5000, // Auto-refresh every 5 seconds
+      }),
+
+    // Get a single trace with all spans
+    byId: (traceId: string | null) =>
+      queryOptions({
+        queryKey: ["traces", traceId],
+        queryFn: () => getTrace(traceId!),
+        enabled: !!traceId,
       }),
   },
 }

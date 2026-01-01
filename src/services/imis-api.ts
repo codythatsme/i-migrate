@@ -1,4 +1,4 @@
-import { Effect, Layer, Data, Schema } from "effect"
+import { Effect, Layer, Data, Schema, ParseResult } from "effect"
 import * as HttpClient from "@effect/platform/HttpClient"
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest"
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse"
@@ -38,11 +38,33 @@ export class ImisResponseError extends Data.TaggedError("ImisResponseError")<{
   readonly cause?: unknown
 }> {}
 
+export class ImisSchemaError extends Data.TaggedError("ImisSchemaError")<{
+  readonly message: string
+  readonly endpoint: string
+  readonly parseError: string
+  readonly cause?: unknown
+}> {}
+
 export class MissingCredentialsError extends Data.TaggedError("MissingCredentialsError")<{
   readonly environmentId: string
 }> {
   override get message() {
     return `Password not set for environment: ${this.environmentId}`
+  }
+}
+
+// ---------------------
+// Error Detection Helpers
+// ---------------------
+
+const isParseError = (error: unknown): error is ParseResult.ParseError =>
+  error instanceof Error && error.name === "ParseError"
+
+const formatParseError = (error: ParseResult.ParseError): string => {
+  try {
+    return ParseResult.TreeFormatter.formatErrorSync(error)
+  } catch {
+    return error.message
   }
 }
 
@@ -127,7 +149,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         yield* session.setImisToken(envId, response.access_token, Date.now() + response.expires_in * 1000)
 
         return response.access_token
-      })
+      }).pipe(
+        Effect.withSpan("imis.fetchToken", {
+          attributes: { environmentId: envId, endpoint: "/token" },
+        })
+      )
 
     // Ensure we have a valid token, fetching one if needed
     const ensureToken = (envId: string) =>
@@ -162,6 +188,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     // Execute an authenticated request with 401 retry
     const executeWithAuth = <A, E>(
       envId: string,
+      endpoint: string,
       makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, E>
     ) =>
       Effect.gen(function* () {
@@ -192,13 +219,16 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             return Effect.fail(error)
           }),
           Effect.mapError((error) => {
+            // Pass through known error types
             if (error instanceof ImisAuthError) return error
             if (error instanceof ImisRequestError) return error
             if (error instanceof ImisResponseError) return error
+            if (error instanceof ImisSchemaError) return error
             if (error instanceof MissingCredentialsError) return error
             if (error instanceof EnvironmentNotFoundError) return error
             if (error instanceof DatabaseError) return error
 
+            // Handle HTTP client errors
             if (HttpClientError.isHttpClientError(error)) {
               if (error._tag === "ResponseError") {
                 return new ImisResponseError({
@@ -212,9 +242,22 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 cause: error,
               })
             }
-            console.log(error)
+
+            // Handle schema parse errors with detailed formatting
+            if (isParseError(error)) {
+              const formattedError = formatParseError(error)
+              return new ImisSchemaError({
+                message: `Response from ${endpoint} did not match expected schema`,
+                endpoint,
+                parseError: formattedError,
+                cause: error,
+              })
+            }
+
+            // Unknown error - log and wrap
+            console.error("[ImisApi] Unknown error:", error)
             return new ImisRequestError({
-              message: "Unknown error during IMIS request",
+              message: `Unknown error during IMIS request to ${endpoint}`,
               cause: error,
             })
           })
@@ -230,14 +273,20 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Authenticate with an IMIS environment and store the token.
        * Requires password to be set in session first.
        */
-      authenticate: (envId: string) => fetchToken(envId).pipe(Effect.asVoid),
+      authenticate: (envId: string) =>
+        fetchToken(envId).pipe(
+          Effect.asVoid,
+          Effect.withSpan("imis.authenticate", {
+            attributes: { environmentId: envId },
+          })
+        ),
 
       /**
        * Health check - verifies credentials by calling GET /api/party?limit=1
        * Will automatically authenticate if needed, and retry once on 401.
        */
       healthCheck: (envId: string) =>
-        executeWithAuth(envId, (baseUrl, token) =>
+        executeWithAuth(envId, "/api/party", (baseUrl, token) =>
           HttpClientRequest.get(`${baseUrl}/api/party`).pipe(
             HttpClientRequest.setUrlParam("limit", "1"),
             HttpClientRequest.bearerToken(token),
@@ -257,6 +306,10 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             }),
             Effect.scoped
           )
+        ).pipe(
+          Effect.withSpan("imis.healthCheck", {
+            attributes: { environmentId: envId, endpoint: "/api/party" },
+          })
         ),
 
       /**
@@ -264,7 +317,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Will automatically authenticate if needed, and retry once on 401.
        */
       getBoEntityDefinitions: (envId: string, limit: number = 500) =>
-        executeWithAuth(envId, (baseUrl, token) =>
+        executeWithAuth(envId, "/api/BoEntityDefinition", (baseUrl, token) =>
           HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`).pipe(
             HttpClientRequest.setUrlParam("limit", String(limit)),
             HttpClientRequest.bearerToken(token),
@@ -284,6 +337,10 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             }),
             Effect.scoped
           )
+        ).pipe(
+          Effect.withSpan("imis.getBoEntityDefinitions", {
+            attributes: { environmentId: envId, endpoint: "/api/BoEntityDefinition", limit },
+          })
         ),
 
       /**
@@ -291,7 +348,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Used to get folder info for browsing the CMS.
        */
       getDocumentByPath: (envId: string, path: string) =>
-        executeWithAuth(envId, (baseUrl, token) =>
+        executeWithAuth(envId, "/api/DocumentSummary/_execute", (baseUrl, token) =>
           HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`).pipe(
             HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeader("Accept", "application/json"),
@@ -325,6 +382,15 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             }),
             Effect.scoped
           )
+        ).pipe(
+          Effect.withSpan("imis.getDocumentByPath", {
+            attributes: {
+              environmentId: envId,
+              endpoint: "/api/DocumentSummary/_execute",
+              operation: "FindByPath",
+              path,
+            },
+          })
         ),
 
       /**
@@ -332,7 +398,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Used for browsing the CMS file structure.
        */
       getDocumentsInFolder: (envId: string, folderId: string, fileTypes: string[]) =>
-        executeWithAuth(envId, (baseUrl, token) =>
+        executeWithAuth(envId, "/api/DocumentSummary/_execute", (baseUrl, token) =>
           HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`).pipe(
             HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeader("Accept", "application/json"),
@@ -374,6 +440,16 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             }),
             Effect.scoped
           )
+        ).pipe(
+          Effect.withSpan("imis.getDocumentsInFolder", {
+            attributes: {
+              environmentId: envId,
+              endpoint: "/api/DocumentSummary/_execute",
+              operation: "FindDocumentsInFolder",
+              folderId,
+              fileTypesCount: fileTypes.length,
+            },
+          })
         ),
 
       /**
@@ -381,7 +457,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * Returns the full IQA query definition including properties.
        */
       getQueryDefinition: (envId: string, path: string) =>
-        executeWithAuth(envId, (baseUrl, token) =>
+        executeWithAuth(envId, "/api/QueryDefinition/_execute", (baseUrl, token) =>
           HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`).pipe(
             HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeader("Accept", "application/json"),
@@ -420,6 +496,15 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             }),
             Effect.scoped
           )
+        ).pipe(
+          Effect.withSpan("imis.getQueryDefinition", {
+            attributes: {
+              environmentId: envId,
+              endpoint: "/api/QueryDefinition/_execute",
+              operation: "FindByPath",
+              path,
+            },
+          })
         ),
     }
   }),
