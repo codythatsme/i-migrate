@@ -29,6 +29,62 @@ export const DbDataTypeSchema = Schema.Literal(
 )
 
 /**
+ * Data type names used in IQA query properties.
+ */
+export const QueryDataTypeNameSchema = Schema.Literal(
+  "Boolean",
+  "Byte",
+  "Byte[]",
+  "DateTime",
+  "Decimal",
+  "Double",
+  "Guid",
+  "Int32",
+  "Int64",
+  "SByte",
+  "String"
+)
+
+/**
+ * Display format codes used in IQA query properties.
+ */
+export const DisplayFormatSchema = Schema.Literal(
+  "D",
+  "EMAIL",
+  "F",
+  "F0",
+  "G",
+  "G29",
+  "N",
+  "N0",
+  "P0",
+  "d",
+  "g",
+  "t",
+  "" // Empty string is valid
+)
+
+/**
+ * Relation types for query joins.
+ */
+export const RelationTypeSchema = Schema.Literal("Cross", "Equal", "Left", "NotExist")
+
+/**
+ * Query source types (1 = BusinessObject, 2 = IQA Query).
+ */
+export const QuerySourceTypeSchema = Schema.Literal(1, 2)
+
+/**
+ * Document status values.
+ */
+export const DocumentStatusSchema = Schema.Literal("Published", "Draft", "Archived")
+
+/**
+ * Business object type names.
+ */
+export const ObjectTypeNameSchema = Schema.Literal("Multi", "SINGLE", "Single", "Standard")
+
+/**
  * Represents the standard collection wrapper used in iMIS / SOA contracts.
  */
 export const SoaCollectionSchema = <S extends Schema.Schema.Any>(element: S) =>
@@ -123,7 +179,7 @@ export const DocumentDataSchema = Schema.Struct({
   AlternateName: Schema.optionalWith(Schema.String, { exact: true }),
   Path: Schema.String,
   FolderPath: Schema.String,
-  Status: Schema.String,
+  Status: DocumentStatusSchema,
   IsSystem: Schema.optionalWith(Schema.Boolean, { exact: true }),
   UpdateInfo: EntityUpdateInformationSchema,
 })
@@ -135,10 +191,10 @@ export const QueryPropertyDataSchema = Schema.Struct({
   PropertyName: Schema.String,
   Alias: Schema.String,
   Caption: Schema.String,
-  DisplayFormat: Schema.String,
+  DisplayFormat: DisplayFormatSchema,
   DisplayOrder: Schema.Number,
   Link: Schema.String,
-  DataTypeName: Schema.String,
+  DataTypeName: QueryDataTypeNameSchema,
 })
 
 export const QueryRelationDataSchema = Schema.Struct({
@@ -147,13 +203,13 @@ export const QueryRelationDataSchema = Schema.Struct({
   LeftPropertyName: Schema.String,
   RightQuerySourceId: Schema.String,
   RightPropertyName: Schema.String,
-  RelationType: Schema.String,
+  RelationType: RelationTypeSchema,
 })
 
 export const QuerySourceDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.QuerySourceData, Asi.Contracts"),
   QuerySourceId: Schema.String,
-  QuerySourceType: Schema.Number,
+  QuerySourceType: QuerySourceTypeSchema,
   Name: Schema.String,
   Description: Schema.optionalWith(Schema.String, { exact: true }),
   BusinessControllerName: Schema.String,
@@ -326,7 +382,7 @@ export const RelatedEntityDataCollectionSchema = Schema.Struct({
  */
 export const BoEntityDefinitionSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts"),
-  ObjectTypeName: Schema.String,
+  ObjectTypeName: ObjectTypeNameSchema,
   Description: Schema.String,
   EntityTypeName: Schema.String,
   PrimaryParentEntityTypeName: Schema.String,
@@ -398,3 +454,11 @@ export type PropertyTypeDateTime = typeof PropertyTypeDateTimeSchema.Type
 export type PropertyTypeBinary = typeof PropertyTypeBinarySchema.Type
 export type PropertyTypeDecimal = typeof PropertyTypeDecimalSchema.Type
 export type PropertyTypeMonetary = typeof PropertyTypeMonetarySchema.Type
+
+// Literal union types
+export type QueryDataTypeName = typeof QueryDataTypeNameSchema.Type
+export type DisplayFormat = typeof DisplayFormatSchema.Type
+export type RelationType = typeof RelationTypeSchema.Type
+export type QuerySourceType = typeof QuerySourceTypeSchema.Type
+export type DocumentStatus = typeof DocumentStatusSchema.Type
+export type ObjectTypeName = typeof ObjectTypeNameSchema.Type
