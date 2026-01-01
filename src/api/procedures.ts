@@ -17,8 +17,16 @@ import {
   ImisRequestErrorSchema,
   ImisResponseErrorSchema,
   ListDataSourcesRequestSchema,
+  GetDocumentByPathRequestSchema,
+  GetDocumentsInFolderRequestSchema,
+  GetQueryDefinitionRequestSchema,
 } from "./schemas"
-import { BoEntityDefinitionQueryResponseSchema } from "./imis-schemas"
+import {
+  BoEntityDefinitionQueryResponseSchema,
+  DocumentSummaryResultSchema,
+  DocumentSummaryCollectionResultSchema,
+  QueryDefinitionResultSchema,
+} from "./imis-schemas"
 
 // ---------------------
 // Environment Procedures
@@ -119,6 +127,56 @@ const ListDataSources = Rpc.make("datasources.list", {
 })
 
 // ---------------------
+// Document Procedures
+// ---------------------
+
+/** Get a document summary by path */
+const GetDocumentByPath = Rpc.make("documents.byPath", {
+  payload: GetDocumentByPathRequestSchema,
+  success: DocumentSummaryResultSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    MissingCredentialsErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema
+  ),
+})
+
+/** Get all documents in a folder */
+const GetDocumentsInFolder = Rpc.make("documents.inFolder", {
+  payload: GetDocumentsInFolderRequestSchema,
+  success: DocumentSummaryCollectionResultSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    MissingCredentialsErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema
+  ),
+})
+
+// ---------------------
+// Query Definition Procedures
+// ---------------------
+
+/** Get a query definition by path */
+const GetQueryDefinition = Rpc.make("queries.definition", {
+  payload: GetQueryDefinitionRequestSchema,
+  success: QueryDefinitionResultSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    MissingCredentialsErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema
+  ),
+})
+
+// ---------------------
 // API Group
 // ---------------------
 
@@ -137,7 +195,12 @@ export const ApiGroup = RpcGroup.make(
   // Connection
   TestConnection,
   // Data Sources
-  ListDataSources
+  ListDataSources,
+  // Documents
+  GetDocumentByPath,
+  GetDocumentsInFolder,
+  // Query Definitions
+  GetQueryDefinition
 )
 
 // Export type for the API group
