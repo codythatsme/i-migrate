@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, Loader2, MoreHorizontal, Pencil, Plug, Plus, Server, Trash2, XCircle } from 'lucide-react'
@@ -45,7 +45,7 @@ function EnvironmentsPage() {
   const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null
 
   // Handle test connection
-  const handleTestConnection = useCallback((envId: string) => {
+  const handleTestConnection = (envId: string) => {
     setTestStatuses((prev) => ({ ...prev, [envId]: { status: 'testing' } }))
 
     testConnection.mutate(envId, {
@@ -67,7 +67,7 @@ function EnvironmentsPage() {
         }, 8000)
       },
     })
-  }, [testConnection])
+  }
 
   // Auto-select first environment if none selected or selected doesn't exist
   useEffect(() => {

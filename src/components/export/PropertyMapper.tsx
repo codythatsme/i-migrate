@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, ArrowRight, Info, Loader2 } from 'lucide-react'
 import { queries } from '@/lib/queries'
@@ -156,17 +156,14 @@ export function PropertyMapper({
     }
   }, [sourceProperties, destProperties, hasInitialized, onMappingsChange])
 
-  const handleMappingChange = useCallback(
-    (sourceProperty: string, destinationProperty: string | null) => {
-      const newMappings = mappings.map((m) =>
-        m.sourceProperty === sourceProperty
-          ? { ...m, destinationProperty }
-          : m
-      )
-      onMappingsChange(newMappings)
-    },
-    [mappings, onMappingsChange]
-  )
+  const handleMappingChange = (sourceProperty: string, destinationProperty: string | null) => {
+    const newMappings = mappings.map((m) =>
+      m.sourceProperty === sourceProperty
+        ? { ...m, destinationProperty }
+        : m
+    )
+    onMappingsChange(newMappings)
+  }
 
   const mappedCount = useMemo(() => {
     return mappings.filter((m) => m.destinationProperty !== null).length

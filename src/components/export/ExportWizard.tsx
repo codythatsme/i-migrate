@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   parseAsString,
@@ -75,56 +75,44 @@ export function ExportWizard() {
   // Navigation Handlers
   // ---------------------
 
-  const goToStep = useCallback(
-    (newStep: number) => {
-      setQueryState({ step: newStep })
-    },
-    [setQueryState]
-  )
+  const goToStep = (newStep: number) => {
+    setQueryState({ step: newStep })
+  }
 
-  const handleNext = useCallback(() => {
+  const handleNext = () => {
     if (step < 4) {
       goToStep(step + 1)
     }
-  }, [step, goToStep])
+  }
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     if (step > 1) {
       goToStep(step - 1)
     }
-  }, [step, goToStep])
+  }
 
   // ---------------------
   // Selection Handlers
   // ---------------------
 
-  const handleSourceSelect = useCallback(
-    (entityType: string) => {
-      // Clear destination entity when source changes (compatibility may differ)
-      setQueryState({ sourceEntity: entityType, destEntity: null })
-      setMappings([])
-    },
-    [setQueryState]
-  )
+  const handleSourceSelect = (entityType: string) => {
+    // Clear destination entity when source changes (compatibility may differ)
+    setQueryState({ sourceEntity: entityType, destEntity: null })
+    setMappings([])
+  }
 
-  const handleDestEnvSelect = useCallback(
-    (envId: string) => {
-      // Clear destination entity when changing environment
-      setQueryState({ destEnv: envId, destEntity: null })
-      setMappings([])
-    },
-    [setQueryState]
-  )
+  const handleDestEnvSelect = (envId: string) => {
+    // Clear destination entity when changing environment
+    setQueryState({ destEnv: envId, destEntity: null })
+    setMappings([])
+  }
 
-  const handleDestEntitySelect = useCallback(
-    (entityType: string) => {
-      setQueryState({ destEntity: entityType })
-      setMappings([])
-    },
-    [setQueryState]
-  )
+  const handleDestEntitySelect = (entityType: string) => {
+    setQueryState({ destEntity: entityType })
+    setMappings([])
+  }
 
-  const handleQueueJob = useCallback(() => {
+  const handleQueueJob = () => {
     // TODO: Implement job queuing logic
     console.log('Queue job:', {
       sourceEnvironmentId,
@@ -134,7 +122,7 @@ export function ExportWizard() {
       mappings,
     })
     alert('Job queuing not yet implemented. Check console for mapping data.')
-  }, [sourceEnvironmentId, sourceEntity, destEnv, destEntity, mappings])
+  }
 
   // ---------------------
   // Validation
