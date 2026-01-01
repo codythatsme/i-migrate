@@ -87,9 +87,88 @@ export const PropertyRuleValueListSchema = Schema.Struct({
 
 export const CriteriaDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.CriteriaData, Asi.Contracts"),
-  Operation: Schema.Literal(3),
+  Operation: Schema.optionalWith(Schema.Number, { exact: true }),
   PropertyName: Schema.String,
-  Values: SoaCollectionSchema(Schema.String),
+  Prompt: Schema.optionalWith(Schema.String, { exact: true }),
+  AllowMultiple: Schema.optionalWith(Schema.Boolean, { exact: true }),
+  Values: Schema.Union(SoaCollectionSchema(Schema.String), Schema.Any),
+})
+
+export const EntityUpdateInformationSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.EntityUpdateInformationData, Asi.Contracts"),
+  CreatedBy: Schema.String,
+  CreatedOn: Schema.String,
+  UpdatedBy: Schema.String,
+  UpdatedOn: Schema.String,
+})
+
+export const DocumentDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.DocumentData, Asi.Contracts"),
+  Data: Schema.optionalWith(
+    Schema.Struct({
+      $type: Schema.String,
+      $value: Schema.String,
+    }),
+    { exact: true }
+  ),
+  AccessId: Schema.String,
+  DocumentCode: Schema.optionalWith(Schema.String, { exact: true }),
+  StatusUpdatedByUserId: Schema.String,
+  StatusUpdatedOn: Schema.String,
+  Description: Schema.optionalWith(Schema.String, { exact: true }),
+  DocumentId: Schema.String,
+  DocumentVersionId: Schema.String,
+  DocumentTypeId: Schema.String,
+  Name: Schema.String,
+  AlternateName: Schema.optionalWith(Schema.String, { exact: true }),
+  Path: Schema.String,
+  FolderPath: Schema.String,
+  Status: Schema.String,
+  IsSystem: Schema.optionalWith(Schema.Boolean, { exact: true }),
+  UpdateInfo: EntityUpdateInformationSchema,
+})
+
+export const QueryPropertyDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryPropertyData, Asi.Contracts"),
+  QuerySourceId: Schema.optionalWith(Schema.String, { exact: true }),
+  Name: Schema.String,
+  PropertyName: Schema.String,
+  Alias: Schema.String,
+  Caption: Schema.String,
+  DisplayFormat: Schema.String,
+  DisplayOrder: Schema.Number,
+  Link: Schema.String,
+  DataTypeName: Schema.optionalWith(Schema.String, { exact: true }),
+})
+
+export const QueryRelationDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryRelationData, Asi.Contracts"),
+  LeftQuerySourceId: Schema.String,
+  LeftPropertyName: Schema.String,
+  RightQuerySourceId: Schema.String,
+  RightPropertyName: Schema.String,
+  RelationType: Schema.String,
+})
+
+export const QuerySourceDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QuerySourceData, Asi.Contracts"),
+  QuerySourceId: Schema.String,
+  QuerySourceType: Schema.Number,
+  Name: Schema.String,
+  Description: Schema.optionalWith(Schema.String, { exact: true }),
+  BusinessControllerName: Schema.String,
+})
+
+export const QueryDefinitionSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.IqaQueryDefinitionData, Asi.Contracts"),
+  Document: DocumentDataSchema,
+  Parameters: SoaCollectionSchema(CriteriaDataSchema),
+  Path: Schema.String,
+  Properties: SoaCollectionSchema(QueryPropertyDataSchema),
+  Relations: SoaCollectionSchema(QueryRelationDataSchema),
+  Sources: SoaCollectionSchema(QuerySourceDataSchema),
+  QueryDefinitionId: Schema.String,
+  LimitResultsCount: Schema.optionalWith(Schema.Number, { exact: true }),
 })
 
 export const QueryDataSchema = Schema.Struct({
@@ -308,6 +387,7 @@ export type BoIndex = typeof IndexSchema.Type
 export type BoEntityDefinition = typeof BoEntityDefinitionSchema.Type
 
 export type GenericProperty = typeof GenericPropertySchema.Type
+export type QueryDefinition = typeof QueryDefinitionSchema.Type
 export type QueryData = typeof QueryDataSchema.Type
 export type CriteriaData = typeof CriteriaDataSchema.Type
 
