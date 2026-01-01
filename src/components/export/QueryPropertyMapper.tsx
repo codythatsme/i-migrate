@@ -1,8 +1,10 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ArrowRight, Loader2 } from 'lucide-react'
+import { AlertTriangle, Check, ArrowRight, Loader2, Search, X, Trash2, Filter, Info } from 'lucide-react'
 import { queries } from '@/lib/queries'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -113,6 +115,8 @@ export function QueryPropertyMapper({
   onMappingsChange,
 }: QueryPropertyMapperProps) {
   const [hasInitialized, setHasInitialized] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false)
 
   const { data: destData, isLoading: destLoading } = useQuery(
     queries.dataSources.byEnvironment(destinationEnvironmentId)
@@ -148,9 +152,28 @@ export function QueryPropertyMapper({
     onMappingsChange(newMappings)
   }
 
+  const handleClearAll = () => {
+    const cleared = mappings.map(m => ({ ...m, destinationProperty: null }))
+    onMappingsChange(cleared)
+  }
+
   const mappedCount = useMemo(() => {
     return mappings.filter((m) => m.destinationProperty !== null).length
   }, [mappings])
+
+  const filteredProperties = useMemo(() => {
+    return queryProperties.filter((prop) => {
+      const name = prop.Alias || prop.PropertyName
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      if (showUnmappedOnly) {
+        const mapping = mappings.find(m => m.sourceProperty === name)
+        return matchesSearch && (!mapping || mapping.destinationProperty === null)
+      }
+      
+      return matchesSearch
+    })
+  }, [queryProperties, searchQuery, showUnmappedOnly, mappings])
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
@@ -167,11 +190,11 @@ export function QueryPropertyMapper({
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Map Query Properties</h2>
+          <h2 className="text-lg font-semibold text-foreground">Map Query Properties</h2>
           <p className="text-sm text-muted-foreground">Loading property definitions...</p>
         </div>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground/50" />
         </div>
       </div>
     )
@@ -181,7 +204,7 @@ export function QueryPropertyMapper({
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Map Query Properties</h2>
+          <h2 className="text-lg font-semibold text-foreground">Map Query Properties</h2>
           <p className="text-sm text-destructive">
             Could not load destination entity definition. Please go back and verify your selection.
           </p>
@@ -191,64 +214,139 @@ export function QueryPropertyMapper({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Map Query Properties</h2>
+        <h2 className="text-lg font-semibold text-foreground">Map Query Properties</h2>
         <p className="text-sm text-muted-foreground">
           Map query output properties to destination data source properties. Properties with matching
           names and compatible types are auto-mapped.
         </p>
       </div>
 
-      {/* Summary */}
-      <div className="flex items-center gap-4 rounded-lg border bg-card/50 p-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate max-w-[200px]">
-            {queryDefinition.Document.Name}
-          </span>
-          <ArrowRight className="size-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{destinationEntityType}</span>
+      {/* Summary & Controls */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4 rounded-xl border bg-muted/30 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Search className="size-4" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium truncate max-w-[300px]">
+                {queryDefinition.Document.Name}
+              </span>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Query Results</span>
+                <ArrowRight className="size-3" />
+                <span>{destinationEntityType}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="ml-auto flex items-center gap-6">
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-sm font-semibold">
+                {mappedCount} / {queryProperties.length}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                Mapped
+              </span>
+            </div>
+            
+            {warningCount > 0 && (
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-sm font-semibold text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="size-3.5" />
+                  {warningCount}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-amber-600/70 font-medium">
+                  Warnings
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-4 text-sm">
-          <span className="text-muted-foreground">
-            {mappedCount} of {queryProperties.length} mapped
-          </span>
-          {warningCount > 0 && (
-            <span className="flex items-center gap-1 text-amber-600">
-              <AlertTriangle className="size-3.5" />
-              {warningCount} warning{warningCount !== 1 ? 's' : ''}
-            </span>
-          )}
+
+        {/* Action Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-1 items-center gap-2 min-w-[240px]">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search properties..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </div>
+            <Button
+              variant={showUnmappedOnly ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowUnmappedOnly(!showUnmappedOnly)}
+              className="h-9 gap-2 shrink-0"
+            >
+              <Filter className="size-3.5" />
+              {showUnmappedOnly ? "Showing Unmapped" : "Show Unmapped"}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleClearAll} className="h-9 gap-2 text-destructive hover:text-destructive">
+              <Trash2 className="size-3.5" />
+              Clear
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Mapping rows */}
-      <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto pr-2">
+      {/* Mapping list */}
+      <div className="flex flex-col rounded-xl border overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr,40px,1fr] gap-2 items-center px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide sticky top-0 bg-background z-10 border-b">
+        <div className="grid grid-cols-[1.2fr_48px_1fr] gap-4 items-center px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 border-b">
           <span>Query Property</span>
-          <span></span>
+          <span className="text-center">Status</span>
           <span>Destination Property</span>
         </div>
 
-        {queryProperties.map((queryProp) => {
-          const propKey = queryProp.Alias || queryProp.PropertyName
-          const mapping = mappings.find((m) => m.sourceProperty === propKey)
-          const destProp = destProperties.find((p) => p.Name === mapping?.destinationProperty)
-          const compatibility =
-            destProp ? checkCompatibility(queryProp.DataTypeName, destProp) : null
+        <div className="flex flex-col max-h-[500px] overflow-y-auto divide-y divide-border">
+          {filteredProperties.length > 0 ? (
+            filteredProperties.map((queryProp) => {
+              const propKey = queryProp.Alias || queryProp.PropertyName
+              const mapping = mappings.find((m) => m.sourceProperty === propKey)
+              const destProp = destProperties.find((p) => p.Name === mapping?.destinationProperty)
+              const compatibility =
+                destProp ? checkCompatibility(queryProp.DataTypeName, destProp) : null
 
-          return (
-            <QueryMappingRow
-              key={propKey}
-              queryProperty={queryProp}
-              destinationProperties={destProperties}
-              selectedDestination={mapping?.destinationProperty ?? null}
-              onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
-              compatibility={compatibility}
-            />
-          )
-        })}
+              return (
+                <QueryMappingRow
+                  key={propKey}
+                  queryProperty={queryProp}
+                  destinationProperties={destProperties}
+                  selectedDestination={mapping?.destinationProperty ?? null}
+                  onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
+                  compatibility={compatibility}
+                />
+              )
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted mb-3">
+                <Search className="size-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm font-medium">No properties found</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Try adjusting your search or filters
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -293,15 +391,30 @@ function QueryMappingRow({
   const displayName = queryProperty.Alias || queryProperty.PropertyName
 
   return (
-    <div className="grid grid-cols-[1fr,40px,1fr] gap-2 items-center px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors">
+    <div className={`grid grid-cols-[1.2fr_48px_1fr] gap-4 items-center px-4 py-3 transition-colors ${
+      isMapped ? 'bg-primary/[0.02] hover:bg-primary/[0.05]' : 'bg-background hover:bg-muted/50'
+    }`}>
       {/* Source property */}
       <div className="flex flex-col gap-0.5 overflow-hidden">
-        <span className="text-sm font-medium truncate">{displayName}</span>
-        <span className="text-xs text-muted-foreground">
-          {sourceType}
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium truncate ${isMapped ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {displayName}
+          </span>
           {queryProperty.Caption && queryProperty.Caption !== displayName && (
-            <span className="ml-1 text-muted-foreground/70">({queryProperty.Caption})</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="size-3.5 text-muted-foreground/50" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Caption: {queryProperty.Caption}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground/70 uppercase">
+          {sourceType}
         </span>
       </div>
 
@@ -311,8 +424,10 @@ function QueryMappingRow({
           compatibility?.warnings.length ? (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
-                  <AlertTriangle className="size-4 text-amber-600" />
+                <TooltipTrigger asChild>
+                  <div className="flex size-6 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                    <AlertTriangle className="size-3.5" />
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
                   {compatibility.warnings.map((w, i) => (
@@ -322,61 +437,71 @@ function QueryMappingRow({
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <Check className="size-4 text-primary" />
+            <div className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Check className="size-3.5" />
+            </div>
           )
         ) : (
-          <ArrowRight className="size-4 text-muted-foreground/50" />
+          <ArrowRight className="size-4 text-muted-foreground/30" />
         )}
       </div>
 
       {/* Destination select */}
-      <Select
-        value={selectedDestination ?? '__unmapped__'}
-        onValueChange={(value) =>
-          onDestinationChange(value === '__unmapped__' ? null : value)
-        }
-      >
-        <SelectTrigger className="h-9">
-          <SelectValue placeholder="Select destination..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__unmapped__">
-            <span className="text-muted-foreground">— Not mapped —</span>
-          </SelectItem>
-          {sortedDestinations.map((destProp) => {
-            const destType = getBoPropertyTypeName(destProp)
-            const isCompatibleType = destType === boCompatibleType
+      <div className="min-w-0">
+        <Select
+          value={selectedDestination ?? '__unmapped__'}
+          onValueChange={(value) =>
+            onDestinationChange(value === '__unmapped__' ? null : value)
+          }
+        >
+          <SelectTrigger className={`h-9 text-xs transition-all ${
+            isMapped ? 'border-primary/30 bg-primary/[0.03]' : 'border-input'
+          }`}>
+            <SelectValue placeholder="Select destination..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__unmapped__">
+              <div className="flex items-center gap-2 text-muted-foreground italic">
+                <Trash2 className="size-3.5" />
+                <span>Not mapped</span>
+              </div>
+            </SelectItem>
+            {sortedDestinations.map((destProp) => {
+              const destType = getBoPropertyTypeName(destProp)
+              const isCompatibleType = destType === boCompatibleType
 
-            return (
-              <SelectItem
-                key={destProp.Name}
-                value={destProp.Name}
-                className={!isCompatibleType ? 'opacity-50' : ''}
-              >
-                <div className="flex items-center gap-2">
-                  <span>{destProp.Name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {destType}
-                  </span>
-                  {!isCompatibleType && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <AlertTriangle className="size-3 text-destructive" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Type mismatch: {sourceType} → {destType}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-              </SelectItem>
-            )
-          })}
-        </SelectContent>
-      </Select>
+              return (
+                <SelectItem
+                  key={destProp.Name}
+                  value={destProp.Name}
+                  className={!isCompatibleType ? 'opacity-50' : ''}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{destProp.Name}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
+                      {destType}
+                    </span>
+                    {!isCompatibleType && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle className="size-3 text-destructive" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Type mismatch: {sourceType} → {destType}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }
+
 
