@@ -165,22 +165,14 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         return yield* fetchToken(envId)
       })
 
-    // Clear token and fetch a fresh one
+    // Clear token and fetch a fresh one (preserves password)
     const refreshToken = (envId: string) =>
       Effect.gen(function* () {
-        yield* session.clearSession(envId).pipe(
-          Effect.flatMap(() => session.getPassword(envId)),
-          Effect.flatMap((password) =>
-            password
-              ? session.setPassword(envId, password)
-              : Effect.void
-          )
-        )
-        // Re-fetch password since we cleared the session
+        // Preserve password before clearing session
         const password = yield* session.getPassword(envId)
-        if (!password) {
-          // Password was cleared with session, need to get it again
-          // Actually, we need to preserve the password before clearing
+        yield* session.clearSession(envId)
+        if (password) {
+          yield* session.setPassword(envId, password)
         }
         return yield* fetchToken(envId)
       })
@@ -204,14 +196,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               error.response.status === 401
             ) {
               return Effect.gen(function* () {
-                // Clear old token and get fresh one
-                // Preserve password before clearing session
-                const password = yield* session.getPassword(envId)
-                yield* session.clearSession(envId)
-                if (password) {
-                  yield* session.setPassword(envId, password)
-                }
-                const newToken = yield* fetchToken(envId)
+                const newToken = yield* refreshToken(envId)
                 return yield* makeRequest(env.baseUrl, newToken)
               })
             }
