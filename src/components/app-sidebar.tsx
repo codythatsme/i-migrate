@@ -1,7 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
   Database,
-  FolderSearch,
+  Download,
   GitBranch,
   Home,
   PlayCircle,
@@ -35,9 +35,9 @@ const navItems = [
     icon: Server,
   },
   {
-    title: 'Browse',
-    url: '/browse',
-    icon: FolderSearch,
+    title: 'Export',
+    url: '/export',
+    icon: Download,
   },
   {
     title: 'Mappings',

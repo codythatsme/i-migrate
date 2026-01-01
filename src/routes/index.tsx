@@ -1,4 +1,8 @@
+import { Link } from '@tanstack/react-router'
 import { createFileRoute } from '@tanstack/react-router'
+import { Database, FileText } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -6,59 +10,28 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Welcome to i-migrate</h1>
-        <p className="text-muted-foreground text-lg">
+    <div className="flex flex-col items-center justify-center gap-12 min-h-[60vh]">
+      <div className="flex flex-col gap-3 text-center">
+        <h1 className="text-4xl font-bold tracking-tight">Welcome to i-migrate</h1>
+        <p className="text-muted-foreground text-lg max-w-md">
           Safely migrate and tabulate data between IMIS environments with row-level logging and retries.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <QuickStartCard
-          title="1. Environments"
-          description="Configure your source and destination IMIS environments"
-          href="/environments"
-        />
-        <QuickStartCard
-          title="2. Browse"
-          description="Explore data sources and queries from your source environment"
-          href="/browse"
-        />
-        <QuickStartCard
-          title="3. Mappings"
-          description="Create column mappings between source and destination"
-          href="/mappings"
-        />
-        <QuickStartCard
-          title="4. Jobs"
-          description="Queue and run import jobs with live progress tracking"
-          href="/jobs"
-        />
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <Button asChild size="lg" className="gap-3 px-8 py-6 text-base">
+          <Link to="/export" search={{ from: 'datasource' }}>
+            <Database className="size-5" />
+            Export from data source
+          </Link>
+        </Button>
+        <Button asChild size="lg" variant="outline" className="gap-3 px-8 py-6 text-base">
+          <Link to="/export" search={{ from: 'query' }}>
+            <FileText className="size-5" />
+            Export from query
+          </Link>
+        </Button>
       </div>
     </div>
   )
 }
-
-function QuickStartCard({
-  title,
-  description,
-  href,
-}: {
-  title: string
-  description: string
-  href: string
-}) {
-  return (
-    <a
-      href={href}
-      className="group block p-6 rounded-xl border border-border bg-card/50 hover:border-muted-foreground/25 hover:bg-accent transition-all"
-    >
-      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        {title}
-      </h3>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-    </a>
-  )
-}
-
