@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TracesRouteImport } from './routes/traces'
 import { Route as MappingsRouteImport } from './routes/mappings'
 import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as ExportRouteImport } from './routes/export'
 import { Route as EnvironmentsRouteImport } from './routes/environments'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TracesRoute = TracesRouteImport.update({
+  id: '/traces',
+  path: '/traces',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MappingsRoute = MappingsRouteImport.update({
   id: '/mappings',
   path: '/mappings',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
   '/mappings': typeof MappingsRoute
+  '/traces': typeof TracesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
   '/mappings': typeof MappingsRoute
+  '/traces': typeof TracesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
   '/mappings': typeof MappingsRoute
+  '/traces': typeof TracesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/environments' | '/export' | '/jobs' | '/mappings'
+  fullPaths:
+    | '/'
+    | '/environments'
+    | '/export'
+    | '/jobs'
+    | '/mappings'
+    | '/traces'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/environments' | '/export' | '/jobs' | '/mappings'
-  id: '__root__' | '/' | '/environments' | '/export' | '/jobs' | '/mappings'
+  to: '/' | '/environments' | '/export' | '/jobs' | '/mappings' | '/traces'
+  id:
+    | '__root__'
+    | '/'
+    | '/environments'
+    | '/export'
+    | '/jobs'
+    | '/mappings'
+    | '/traces'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,10 +99,18 @@ export interface RootRouteChildren {
   ExportRoute: typeof ExportRoute
   JobsRoute: typeof JobsRoute
   MappingsRoute: typeof MappingsRoute
+  TracesRoute: typeof TracesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/traces': {
+      id: '/traces'
+      path: '/traces'
+      fullPath: '/traces'
+      preLoaderRoute: typeof TracesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mappings': {
       id: '/mappings'
       path: '/mappings'
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExportRoute: ExportRoute,
   JobsRoute: JobsRoute,
   MappingsRoute: MappingsRoute,
+  TracesRoute: TracesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

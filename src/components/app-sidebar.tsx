@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
+  Activity,
   Database,
   Download,
   GitBranch,
@@ -48,6 +49,11 @@ const navItems = [
     title: 'Jobs',
     url: '/jobs',
     icon: PlayCircle,
+  },
+  {
+    title: 'Traces',
+    url: '/traces',
+    icon: Activity,
   },
 ]
 

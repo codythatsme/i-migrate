@@ -11,6 +11,7 @@ import {
 } from "./services/persistence"
 import { SessionServiceLive } from "./services/session"
 import { ImisApiServiceLive } from "./services/imis-api"
+import { TraceStoreServiceLive, TracerLive } from "./services/trace-store"
 
 // ---------------------
 // Service Layers
@@ -20,7 +21,8 @@ import { ImisApiServiceLive } from "./services/imis-api"
 const ServicesLive = Layer.mergeAll(
   PersistenceServiceLive,
   SessionServiceLive,
-  ImisApiServiceLive
+  ImisApiServiceLive,
+  TraceStoreServiceLive
 )
 
 // Handlers layer with all dependencies
@@ -39,10 +41,12 @@ const PlatformLive = Layer.mergeAll(
 )
 
 // Complete layer for RPC server
+// TracerLive must be merged at the top level to set the tracer for all Effects
 const RpcLive = Layer.mergeAll(
   HandlersWithDeps,
   RpcSerialization.layerJson,
-  PlatformLive
+  PlatformLive,
+  TracerLive  // Sets the custom tracer for all Effect.withSpan calls
 )
 
 // ---------------------

@@ -16,10 +16,17 @@ import {
   ImisAuthErrorSchema,
   ImisRequestErrorSchema,
   ImisResponseErrorSchema,
+  ImisSchemaErrorSchema,
   ListDataSourcesRequestSchema,
   GetDocumentByPathRequestSchema,
   GetDocumentsInFolderRequestSchema,
   GetQueryDefinitionRequestSchema,
+  TraceSummarySchema,
+  StoredTraceSchema,
+  ListTracesRequestSchema,
+  GetTraceRequestSchema,
+  TraceNotFoundErrorSchema,
+  TraceStoreErrorSchema,
 } from "./schemas"
 import {
   BoEntityDefinitionQueryResponseSchema,
@@ -104,7 +111,8 @@ const TestConnection = Rpc.make("connection.test", {
     MissingCredentialsErrorSchema,
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
-    ImisResponseErrorSchema
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
   ),
 })
 
@@ -122,7 +130,8 @@ const ListDataSources = Rpc.make("datasources.list", {
     MissingCredentialsErrorSchema,
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
-    ImisResponseErrorSchema
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
   ),
 })
 
@@ -140,7 +149,8 @@ const GetDocumentByPath = Rpc.make("documents.byPath", {
     MissingCredentialsErrorSchema,
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
-    ImisResponseErrorSchema
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
   ),
 })
 
@@ -154,7 +164,8 @@ const GetDocumentsInFolder = Rpc.make("documents.inFolder", {
     MissingCredentialsErrorSchema,
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
-    ImisResponseErrorSchema
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
   ),
 })
 
@@ -172,8 +183,32 @@ const GetQueryDefinition = Rpc.make("queries.definition", {
     MissingCredentialsErrorSchema,
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
-    ImisResponseErrorSchema
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
   ),
+})
+
+// ---------------------
+// Trace Procedures
+// ---------------------
+
+/** List recent traces with summaries */
+const ListTraces = Rpc.make("traces.list", {
+  payload: ListTracesRequestSchema,
+  success: Schema.Array(TraceSummarySchema),
+  error: TraceStoreErrorSchema,
+})
+
+/** Get a single trace with all spans */
+const GetTrace = Rpc.make("traces.get", {
+  payload: GetTraceRequestSchema,
+  success: Schema.NullOr(StoredTraceSchema),
+  error: TraceStoreErrorSchema,
+})
+
+/** Clear all traces */
+const ClearTraces = Rpc.make("traces.clear", {
+  error: TraceStoreErrorSchema,
 })
 
 // ---------------------
@@ -200,7 +235,11 @@ export const ApiGroup = RpcGroup.make(
   GetDocumentByPath,
   GetDocumentsInFolder,
   // Query Definitions
-  GetQueryDefinition
+  GetQueryDefinition,
+  // Traces
+  ListTraces,
+  GetTrace,
+  ClearTraces
 )
 
 // Export type for the API group

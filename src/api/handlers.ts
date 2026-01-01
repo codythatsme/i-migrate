@@ -8,6 +8,8 @@ import {
   ImisAuthErrorSchema,
   ImisRequestErrorSchema,
   ImisResponseErrorSchema,
+  ImisSchemaErrorSchema,
+  TraceStoreErrorSchema,
 } from "./schemas"
 import { PersistenceService, DatabaseError, EnvironmentNotFoundError } from "../services/persistence"
 import { SessionService } from "../services/session"
@@ -16,8 +18,10 @@ import {
   ImisAuthError,
   ImisRequestError,
   ImisResponseError,
+  ImisSchemaError,
   MissingCredentialsError,
 } from "../services/imis-api"
+import { TraceStoreService, TraceStoreError } from "../services/trace-store"
 import type { NewEnvironment } from "../db/schema"
 
 // ---------------------
@@ -42,6 +46,16 @@ const mapImisRequestError = (error: ImisRequestError) =>
 const mapImisResponseError = (error: ImisResponseError) =>
   new ImisResponseErrorSchema({ message: error.message, status: error.status })
 
+const mapImisSchemaError = (error: ImisSchemaError) =>
+  new ImisSchemaErrorSchema({
+    message: error.message,
+    endpoint: error.endpoint,
+    parseError: error.parseError,
+  })
+
+const mapTraceStoreError = (error: TraceStoreError) =>
+  new TraceStoreErrorSchema({ message: error.message })
+
 const mapPersistenceError = (error: DatabaseError | EnvironmentNotFoundError) => {
   if (error._tag === "DatabaseError") {
     return mapDatabaseError(error)
@@ -50,7 +64,7 @@ const mapPersistenceError = (error: DatabaseError | EnvironmentNotFoundError) =>
 }
 
 const mapConnectionError = (
-  error: DatabaseError | EnvironmentNotFoundError | MissingCredentialsError | ImisAuthError | ImisRequestError | ImisResponseError
+  error: DatabaseError | EnvironmentNotFoundError | MissingCredentialsError | ImisAuthError | ImisRequestError | ImisResponseError | ImisSchemaError
 ) => {
   switch (error._tag) {
     case "DatabaseError":
@@ -65,6 +79,8 @@ const mapConnectionError = (
       return mapImisRequestError(error)
     case "ImisResponseError":
       return mapImisResponseError(error)
+    case "ImisSchemaError":
+      return mapImisSchemaError(error)
   }
 }
 
@@ -258,5 +274,29 @@ export const HandlersLive = ApiGroup.toLayer({
       const result = yield* imisApi.getQueryDefinition(environmentId, path)
       return result
     }).pipe(Effect.mapError(mapConnectionError)),
+
+  // ---------------------
+  // Trace Handlers
+  // ---------------------
+
+  "traces.list": ({ limit, offset }) =>
+    Effect.gen(function* () {
+      const traceStore = yield* TraceStoreService
+      const traces = yield* traceStore.listTraces(limit ?? 50, offset ?? 0)
+      return traces
+    }).pipe(Effect.mapError(mapTraceStoreError)),
+
+  "traces.get": ({ traceId }) =>
+    Effect.gen(function* () {
+      const traceStore = yield* TraceStoreService
+      const trace = yield* traceStore.getTrace(traceId)
+      return trace
+    }).pipe(Effect.mapError(mapTraceStoreError)),
+
+  "traces.clear": () =>
+    Effect.gen(function* () {
+      const traceStore = yield* TraceStoreService
+      yield* traceStore.clearTraces()
+    }).pipe(Effect.mapError(mapTraceStoreError)),
 })
 
