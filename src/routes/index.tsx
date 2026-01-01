@@ -6,10 +6,10 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   return (
-    <div className="space-y-8">
-      <div className="space-y-2">
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Welcome to i-migrate</h1>
-        <p className="text-zinc-400 text-lg">
+        <p className="text-muted-foreground text-lg">
           Safely migrate and tabulate data between IMIS environments with row-level logging and retries.
         </p>
       </div>
@@ -52,12 +52,12 @@ function QuickStartCard({
   return (
     <a
       href={href}
-      className="group block p-6 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-900 transition-all"
+      className="group block p-6 rounded-xl border border-border bg-card/50 hover:border-muted-foreground/25 hover:bg-accent transition-all"
     >
-      <h3 className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
+      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
         {title}
       </h3>
-      <p className="mt-2 text-sm text-zinc-400">{description}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
     </a>
   )
 }

@@ -64,8 +64,8 @@ export function PasswordRequiredDialog() {
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-            <KeyRound className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-chart-5/20">
+            <KeyRound className="h-6 w-6 text-chart-5" />
           </div>
           <DialogTitle className="text-center">Password Required</DialogTitle>
           <DialogDescription className="text-center">

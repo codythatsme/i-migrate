@@ -81,7 +81,7 @@ export function EnvironmentSwitcher() {
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 tooltip={selectedEnvironment.name}
               >
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Server className="size-4" />
                 </div>
                 <div className="flex flex-1 flex-col gap-0.5 leading-none">
@@ -110,7 +110,7 @@ export function EnvironmentSwitcher() {
                   onClick={() => selectEnvironment(env.id)}
                   className="gap-2 p-2"
                 >
-                  <div className="flex size-6 items-center justify-center rounded-sm bg-emerald-600 text-white">
+                  <div className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-foreground">
                     <Server className="size-3" />
                   </div>
                   <div className="flex flex-col gap-0.5">
