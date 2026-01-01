@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query"
 import {
   listEnvironments,
   getEnvironment,
-  type EnvironmentWithStatus,
+  listDataSources,
 } from "@/api/client"
 
 // Query options factory using RPC client
@@ -21,6 +21,16 @@ export const queries = {
         queryKey: ["environments", id],
         queryFn: () => getEnvironment(id),
         enabled: !!id,
+      }),
+  },
+
+  dataSources: {
+    // Get all data sources (BoEntityDefinitions) from an environment
+    byEnvironment: (environmentId: string | null) =>
+      queryOptions({
+        queryKey: ["datasources", environmentId],
+        queryFn: () => listDataSources(environmentId!),
+        enabled: !!environmentId,
       }),
   },
 }

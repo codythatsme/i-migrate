@@ -16,7 +16,9 @@ import {
   ImisAuthErrorSchema,
   ImisRequestErrorSchema,
   ImisResponseErrorSchema,
+  ListDataSourcesRequestSchema,
 } from "./schemas"
+import { BoEntityDefinitionQueryResponseSchema } from "./imis-schemas"
 
 // ---------------------
 // Environment Procedures
@@ -99,6 +101,24 @@ const TestConnection = Rpc.make("connection.test", {
 })
 
 // ---------------------
+// Data Sources Procedures
+// ---------------------
+
+/** List BoEntityDefinitions (data sources) from an IMIS environment */
+const ListDataSources = Rpc.make("datasources.list", {
+  payload: ListDataSourcesRequestSchema,
+  success: BoEntityDefinitionQueryResponseSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    MissingCredentialsErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema
+  ),
+})
+
+// ---------------------
 // API Group
 // ---------------------
 
@@ -115,7 +135,9 @@ export const ApiGroup = RpcGroup.make(
   ClearPassword,
   GetPasswordStatus,
   // Connection
-  TestConnection
+  TestConnection,
+  // Data Sources
+  ListDataSources
 )
 
 // Export type for the API group

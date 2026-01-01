@@ -218,5 +218,16 @@ export const HandlersLive = ApiGroup.toLayer({
       const result = yield* imisApi.healthCheck(environmentId)
       return result
     }).pipe(Effect.mapError(mapConnectionError)),
+
+  // ---------------------
+  // Data Sources Handler
+  // ---------------------
+
+  "datasources.list": ({ environmentId, limit }) =>
+    Effect.gen(function* () {
+      const imisApi = yield* ImisApiService
+      const result = yield* imisApi.getBoEntityDefinitions(environmentId, limit ?? 500)
+      return result
+    }).pipe(Effect.mapError(mapConnectionError)),
 })
 

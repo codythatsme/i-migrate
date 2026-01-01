@@ -142,3 +142,14 @@ export const ConnectionErrorSchema = Schema.Union(
   ImisResponseErrorSchema
 )
 
+// ---------------------
+// Data Sources Schemas
+// ---------------------
+
+export const ListDataSourcesRequestSchema = Schema.Struct({
+  environmentId: Schema.String,
+  limit: Schema.optionalWith(Schema.Number, { exact: true }),
+})
+
+export type ListDataSourcesRequest = typeof ListDataSourcesRequestSchema.Type
+
