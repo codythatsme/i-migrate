@@ -8,8 +8,14 @@ import { SessionService } from "./session"
 import { PersistenceService, EnvironmentNotFoundError, DatabaseError } from "./persistence"
 import {
   BoEntityDefinitionQueryResponseSchema,
+  DocumentSummaryResultSchema,
+  DocumentSummaryCollectionResultSchema,
+  QueryDefinitionResultSchema,
   type QueryResponse,
   type BoEntityDefinition,
+  type DocumentSummaryResult,
+  type DocumentSummaryCollectionResult,
+  type QueryDefinitionResult,
 } from "../api/imis-schemas"
 
 // ---------------------
@@ -206,7 +212,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 cause: error,
               })
             }
-
+            console.log(error)
             return new ImisRequestError({
               message: "Unknown error during IMIS request",
               cause: error,
@@ -279,6 +285,142 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.scoped
           )
         ),
+
+      /**
+       * Get a document summary by path from an IMIS environment.
+       * Used to get folder info for browsing the CMS.
+       */
+      getDocumentByPath: (envId: string, path: string) =>
+        executeWithAuth(envId, (baseUrl, token) =>
+          HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`).pipe(
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            HttpClientRequest.setHeader("Content-Type", "application/json"),
+            HttpClientRequest.bodyJson({
+              $type: "Asi.Soa.Core.DataContracts.GenericExecuteRequest, Asi.Contracts",
+              EntityTypeName: "DocumentSummary",
+              OperationName: "FindByPath",
+              Parameters: {
+                $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                $values: [
+                  {
+                    $type: "System.String",
+                    $value: path,
+                  },
+                ],
+              },
+            }),
+            Effect.flatMap((req) => httpClient.execute(req)),
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(DocumentSummaryResultSchema)(res)
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`),
+                  response: res,
+                  reason: "StatusCode",
+                })
+              )
+            }),
+            Effect.scoped
+          )
+        ),
+
+      /**
+       * Get all documents in a folder by folder ID.
+       * Used for browsing the CMS file structure.
+       */
+      getDocumentsInFolder: (envId: string, folderId: string, fileTypes: string[]) =>
+        executeWithAuth(envId, (baseUrl, token) =>
+          HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`).pipe(
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            HttpClientRequest.setHeader("Content-Type", "application/json"),
+            HttpClientRequest.bodyJson({
+              $type: "Asi.Soa.Core.DataContracts.GenericExecuteRequest, Asi.Contracts",
+              EntityTypeName: "DocumentSummary",
+              OperationName: "FindDocumentsInFolder",
+              Parameters: {
+                $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                $values: [
+                  {
+                    $type: "System.String",
+                    $value: folderId,
+                  },
+                  {
+                    $type: "System.String[]",
+                    $values: fileTypes,
+                  },
+                  {
+                    $type: "System.Boolean",
+                    $value: false,
+                  },
+                ],
+              },
+            }),
+            Effect.flatMap((req) => httpClient.execute(req)),
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(DocumentSummaryCollectionResultSchema)(res)
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`),
+                  response: res,
+                  reason: "StatusCode",
+                })
+              )
+            }),
+            Effect.scoped
+          )
+        ),
+
+      /**
+       * Get a query definition by path from an IMIS environment.
+       * Returns the full IQA query definition including properties.
+       */
+      getQueryDefinition: (envId: string, path: string) =>
+        executeWithAuth(envId, (baseUrl, token) =>
+          HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`).pipe(
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            HttpClientRequest.setHeader("Content-Type", "application/json"),
+            HttpClientRequest.bodyJson({
+              $type: "Asi.Soa.Core.DataContracts.GenericExecuteRequest, Asi.Contracts",
+              OperationName: "FindByPath",
+              EntityTypeName: "QueryDefinition",
+              Parameters: {
+                $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                $values: [
+                  {
+                    $type: "System.String",
+                    $value: path,
+                  },
+                ],
+              },
+              ParameterTypeName: {
+                $type: "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                $values: ["System.String"],
+              },
+              UseJson: false,
+            }),
+            Effect.flatMap((req) => httpClient.execute(req)),
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(QueryDefinitionResultSchema)(res)
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`),
+                  response: res,
+                  reason: "StatusCode",
+                })
+              )
+            }),
+            Effect.scoped
+          )
+        ),
     }
   }),
 
@@ -301,6 +443,21 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           NextPageLink: null,
           HasNext: false,
           NextOffset: 0,
+        }),
+      getDocumentByPath: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts",
+          Result: null,
+        }),
+      getDocumentsInFolder: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts",
+          Result: { $type: "System.Collections.Generic.List`1[[Asi.Soa.Core.DataContracts.DocumentSummaryData, Asi.Contracts]], mscorlib", $values: [] },
+        }),
+      getQueryDefinition: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts",
+          Result: null,
         }),
     })
   )

@@ -153,3 +153,33 @@ export const ListDataSourcesRequestSchema = Schema.Struct({
 
 export type ListDataSourcesRequest = typeof ListDataSourcesRequestSchema.Type
 
+// ---------------------
+// Document Schemas
+// ---------------------
+
+export const GetDocumentByPathRequestSchema = Schema.Struct({
+  environmentId: Schema.String,
+  path: Schema.String,
+})
+
+export type GetDocumentByPathRequest = typeof GetDocumentByPathRequestSchema.Type
+
+export const GetDocumentsInFolderRequestSchema = Schema.Struct({
+  environmentId: Schema.String,
+  folderId: Schema.String,
+  fileTypes: Schema.Array(Schema.String),
+})
+
+export type GetDocumentsInFolderRequest = typeof GetDocumentsInFolderRequestSchema.Type
+
+// ---------------------
+// Query Definition Schemas
+// ---------------------
+
+export const GetQueryDefinitionRequestSchema = Schema.Struct({
+  environmentId: Schema.String,
+  path: Schema.String,
+})
+
+export type GetQueryDefinitionRequest = typeof GetQueryDefinitionRequestSchema.Type
+

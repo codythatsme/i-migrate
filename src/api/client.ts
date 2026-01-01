@@ -100,6 +100,24 @@ export const listDataSources = (environmentId: string, limit?: number) =>
     )
   )
 
+/** Get a document summary by path */
+export const getDocumentByPath = (environmentId: string, path: string) =>
+  withClient((client) => client.documents.byPath({ environmentId, path }))
+
+/** Get all documents in a folder by folder ID */
+export const getDocumentsInFolder = (
+  environmentId: string,
+  folderId: string,
+  fileTypes: string[]
+) =>
+  withClient((client) =>
+    client.documents.inFolder({ environmentId, folderId, fileTypes })
+  )
+
+/** Get a query definition by path */
+export const getQueryDefinition = (environmentId: string, path: string) =>
+  withClient((client) => client.queries.definition({ environmentId, path }))
+
 // ---------------------
 // Re-export types for convenience
 // ---------------------
@@ -117,4 +135,10 @@ export type {
   BoEntityDefinition,
   BoProperty,
   QueryResponse,
+  DocumentSummaryData,
+  DocumentSummaryResult,
+  DocumentSummaryCollectionResult,
+  QueryDefinition,
+  QueryDefinitionResult,
+  QueryPropertyData,
 } from "./imis-schemas"

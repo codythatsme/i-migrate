@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Database, FileSearch } from 'lucide-react'
 import { ExportWizard } from '@/components/export'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 type ExportSearch = {
@@ -33,22 +32,19 @@ function ExportPage() {
     return <ExportSourceSelection />
   }
 
-  // Show query-based export placeholder (not yet implemented)
-  if (from === 'query') {
-    return <QueryExportPlaceholder />
-  }
+  const title = from === 'query' ? 'Export from Query' : 'Export from Data Source'
+  const description = from === 'query'
+    ? 'Select an IQA query to export data and map to a destination.'
+    : 'Configure and queue a data migration between environments.'
 
-  // Show data source wizard
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">Export from Data Source</h1>
-        <p className="text-muted-foreground">
-          Configure and queue a data migration between environments.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="text-muted-foreground">{description}</p>
       </div>
 
-      <ExportWizard />
+      <ExportWizard initialMode={from} />
     </div>
   )
 }
@@ -86,55 +82,30 @@ function ExportSourceSelection() {
           </Card>
         </Link>
 
-        <Card className="h-full opacity-60">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <FileSearch className="size-5" />
+        <Link to="/export" search={{ from: 'query' }}>
+          <Card className="h-full cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <FileSearch className="size-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">From Query</CardTitle>
+                  <CardDescription>Export data using an IQA query</CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-lg">From Query</CardTitle>
-                <CardDescription>Export data using an IQA query</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Run a custom IQA query and export the results. This option is coming soon.
-            </p>
-            <div className="mt-3 inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              Coming Soon
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Browse and select an IQA query from the CMS, then map its output properties to a
+                destination data source.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   )
 }
 
-function QueryExportPlaceholder() {
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">Export from Query</h1>
-        <p className="text-muted-foreground">
-          This feature is not yet implemented.
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card/50 p-8">
-        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-          <FileSearch className="size-12 mb-4" />
-          <p className="text-lg font-medium">Query Export Coming Soon</p>
-          <p className="text-sm mt-1 max-w-md text-center">
-            The ability to export data using IQA queries will be available in a future update.
-          </p>
-          <Link to="/export" className="mt-4">
-            <Button variant="outline">Go Back</Button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
 

@@ -229,5 +229,34 @@ export const HandlersLive = ApiGroup.toLayer({
       const result = yield* imisApi.getBoEntityDefinitions(environmentId, limit ?? 500)
       return result
     }).pipe(Effect.mapError(mapConnectionError)),
+
+  // ---------------------
+  // Document Handlers
+  // ---------------------
+
+  "documents.byPath": ({ environmentId, path }) =>
+    Effect.gen(function* () {
+      const imisApi = yield* ImisApiService
+      const result = yield* imisApi.getDocumentByPath(environmentId, path)
+      return result
+    }).pipe(Effect.mapError(mapConnectionError)),
+
+  "documents.inFolder": ({ environmentId, folderId, fileTypes }) =>
+    Effect.gen(function* () {
+      const imisApi = yield* ImisApiService
+      const result = yield* imisApi.getDocumentsInFolder(environmentId, folderId, [...fileTypes])
+      return result
+    }).pipe(Effect.mapError(mapConnectionError)),
+
+  // ---------------------
+  // Query Definition Handler
+  // ---------------------
+
+  "queries.definition": ({ environmentId, path }) =>
+    Effect.gen(function* () {
+      const imisApi = yield* ImisApiService
+      const result = yield* imisApi.getQueryDefinition(environmentId, path)
+      return result
+    }).pipe(Effect.mapError(mapConnectionError)),
 })
 

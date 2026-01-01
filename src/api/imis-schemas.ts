@@ -152,10 +152,29 @@ export const CriteriaDataSchema = Schema.Struct({
 
 export const EntityUpdateInformationSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.EntityUpdateInformationData, Asi.Contracts"),
-  CreatedBy: Schema.String,
-  CreatedOn: Schema.String,
-  UpdatedBy: Schema.String,
-  UpdatedOn: Schema.String,
+  CreatedBy: Schema.optionalWith(Schema.String, { exact: true }),
+  CreatedOn: Schema.optionalWith(Schema.String, { exact: true }),
+  UpdatedBy: Schema.optionalWith(Schema.String, { exact: true }),
+  UpdatedOn: Schema.optionalWith(Schema.String, { exact: true }),
+})
+
+/**
+ * Document summary data for file browser navigation.
+ */
+export const DocumentSummaryDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.DocumentSummaryData, Asi.Contracts"),
+  Description: Schema.String,
+  DocumentId: Schema.String,
+  DocumentVersionId: Schema.String,
+  DocumentTypeId: Schema.String, // "FOL" = folder, "IQD" = query
+  Name: Schema.String,
+  AlternateName: Schema.optionalWith(Schema.String, { exact: true }),
+  Path: Schema.String,
+  FolderPath: Schema.optionalWith(Schema.String, { exact: true }),
+  Status: DocumentStatusSchema,
+  IsSystem: Schema.optionalWith(Schema.Boolean, { exact: true }),
+  IsFolder: Schema.optionalWith(Schema.Boolean, { exact: true }),
+  UpdateInfo: Schema.optionalWith(EntityUpdateInformationSchema, { exact: true }),
 })
 
 export const DocumentDataSchema = Schema.Struct({
@@ -418,6 +437,43 @@ export const QueryResponseSchema = <S extends Schema.Schema.Any>(element: S) =>
 export const BoEntityDefinitionQueryResponseSchema = QueryResponseSchema(BoEntityDefinitionSchema)
 
 // ---------------------
+// Generic Execute Results
+// ---------------------
+
+/**
+ * Generic execute result for single document operations.
+ */
+export const GenericExecuteResultSchema = <S extends Schema.Schema.Any>(element: S) =>
+  Schema.Struct({
+    $type: Schema.String,
+    Result: Schema.NullOr(element),
+  })
+
+/**
+ * Generic execute result for collection operations.
+ */
+export const GenericExecuteCollectionResultSchema = <S extends Schema.Schema.Any>(element: S) =>
+  Schema.Struct({
+    $type: Schema.String,
+    Result: SoaCollectionSchema(element),
+  })
+
+/**
+ * Schema for DocumentSummary single result (FindByPath).
+ */
+export const DocumentSummaryResultSchema = GenericExecuteResultSchema(DocumentSummaryDataSchema)
+
+/**
+ * Schema for DocumentSummary collection result (FindDocumentsInFolder).
+ */
+export const DocumentSummaryCollectionResultSchema = GenericExecuteCollectionResultSchema(DocumentSummaryDataSchema)
+
+/**
+ * Schema for QueryDefinition single result (FindByPath).
+ */
+export const QueryDefinitionResultSchema = GenericExecuteResultSchema(QueryDefinitionSchema)
+
+// ---------------------
 // Inferred Types
 // ---------------------
 
@@ -462,3 +518,10 @@ export type RelationType = typeof RelationTypeSchema.Type
 export type QuerySourceType = typeof QuerySourceTypeSchema.Type
 export type DocumentStatus = typeof DocumentStatusSchema.Type
 export type ObjectTypeName = typeof ObjectTypeNameSchema.Type
+
+// Document types
+export type DocumentSummaryData = typeof DocumentSummaryDataSchema.Type
+export type DocumentSummaryResult = typeof DocumentSummaryResultSchema.Type
+export type DocumentSummaryCollectionResult = typeof DocumentSummaryCollectionResultSchema.Type
+export type QueryDefinitionResult = typeof QueryDefinitionResultSchema.Type
+export type QueryPropertyData = typeof QueryPropertyDataSchema.Type
