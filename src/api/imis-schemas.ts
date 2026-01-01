@@ -138,7 +138,7 @@ export const QueryPropertyDataSchema = Schema.Struct({
   DisplayFormat: Schema.String,
   DisplayOrder: Schema.Number,
   Link: Schema.String,
-  DataTypeName: Schema.optionalWith(Schema.String, { exact: true }),
+  DataTypeName: Schema.String,
 })
 
 export const QueryRelationDataSchema = Schema.Struct({
