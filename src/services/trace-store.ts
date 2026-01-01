@@ -310,8 +310,23 @@ export const TraceStoreServiceLive = TraceStoreService.Default
 
 // Create a tracer instance at module level for use in the layer
 // This is simpler than trying to wire it through the service
+
+// Only track spans representing external HTTP calls (not internal RPC/server spans)
+const shouldTrackSpan = (name: string): boolean => {
+  // Skip internal RpcServer and http.server spans
+  if (name.startsWith("RpcServer.") || name.startsWith("http.server")) {
+    return false
+  }
+  // Track iMIS API calls and other external calls
+  return true
+}
+
 const createPersistentTracer = () => {
   const persistSpanSync = (span: PersistentSpan): void => {
+    // Skip internal spans we don't care about
+    if (!shouldTrackSpan(span.name)) {
+      return
+    }
     
     const status = span.status as Extract<Tracer.SpanStatus, { _tag: "Ended" }>
     const startMs = bigintToMs(status.startTime)
