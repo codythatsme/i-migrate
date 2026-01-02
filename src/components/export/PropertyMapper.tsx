@@ -92,8 +92,8 @@ function checkCompatibility(
 }
 
 function findAutoMappings(
-  sourceProps: BoProperty[],
-  destProps: BoProperty[]
+  sourceProps: readonly BoProperty[],
+  destProps: readonly BoProperty[]
 ): PropertyMapping[] {
   return sourceProps.map((sourceProp) => {
     // Find matching destination property by name and compatible type
@@ -370,7 +370,7 @@ export function PropertyMapper({
 
 type MappingRowProps = {
   sourceProperty: BoProperty
-  destinationProperties: BoProperty[]
+  destinationProperties: readonly BoProperty[]
   selectedDestination: string | null
   onDestinationChange: (destination: string | null) => void
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null
