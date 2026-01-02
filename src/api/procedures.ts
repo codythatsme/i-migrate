@@ -29,6 +29,7 @@ import {
   TraceStoreErrorSchema,
   // Job schemas
   JobSchema,
+  JobWithEnvironmentsSchema,
   FailedRowSchema,
   CreateJobRequestSchema,
   CreateJobResponseSchema,
@@ -235,14 +236,14 @@ const CreateJob = Rpc.make("jobs.create", {
 
 /** List all jobs */
 const ListJobs = Rpc.make("jobs.list", {
-  success: Schema.Array(JobSchema),
+  success: Schema.Array(JobWithEnvironmentsSchema),
   error: DatabaseErrorSchema,
 })
 
 /** Get a single job by ID */
 const GetJob = Rpc.make("jobs.get", {
   payload: JobIdRequestSchema,
-  success: JobSchema,
+  success: JobWithEnvironmentsSchema,
   error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
 })
 
@@ -293,6 +294,12 @@ const CancelJob = Rpc.make("jobs.cancel", {
   error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
 })
 
+/** Delete a job and its associated failed rows */
+const DeleteJob = Rpc.make("jobs.delete", {
+  payload: JobIdRequestSchema,
+  error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
+})
+
 // ---------------------
 // API Group
 // ---------------------
@@ -329,7 +336,8 @@ export const ApiGroup = RpcGroup.make(
   RunJob,
   RetryFailedRows,
   GetJobFailedRows,
-  CancelJob
+  CancelJob,
+  DeleteJob
 )
 
 // Export type for the API group
