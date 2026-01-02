@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ArrowRight, Info, Loader2, Search, X, Trash2, Filter } from 'lucide-react'
+import { AlertTriangle, Check, ArrowRight, Info, Loader2, Search, X, Trash2, Filter, Lock } from 'lucide-react'
 import { queries } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,6 +32,14 @@ export type PropertyMapping = {
 type MappingWarning = {
   type: 'maxLength' | 'typeMismatch'
   message: string
+}
+
+// Properties that cannot be mapped to as they are auto-created on insert
+const RESTRICTED_DESTINATION_PROPERTIES: Record<string, string> = {
+  Ordinal: 'Auto-incrementing row ID for multi-instance data sources',
+  UpdatedOn: 'Auto-set to the date/time the row is inserted',
+  UpdatedBy: 'Auto-set to the username of the logged-in account',
+  UpdatedByUserKey: 'Auto-set to the contact key of the logged-in account',
 }
 
 type PropertyMapperProps = {
@@ -99,6 +107,8 @@ function findAutoMappings(
     // Find matching destination property by name and compatible type
     const matchingDest = destProps.find((destProp) => {
       if (destProp.Name !== sourceProp.Name) return false
+      // Skip restricted properties
+      if (destProp.Name in RESTRICTED_DESTINATION_PROPERTIES) return false
       const { compatible } = checkCompatibility(sourceProp, destProp)
       return compatible
     })
@@ -454,9 +464,11 @@ function MappingRow({
       <div className="min-w-0">
         <Select
           value={selectedDestination ?? '__unmapped__'}
-          onValueChange={(value) =>
+          onValueChange={(value) => {
+            // Prevent selecting restricted properties
+            if (value !== '__unmapped__' && value in RESTRICTED_DESTINATION_PROPERTIES) return
             onDestinationChange(value === '__unmapped__' ? null : value)
-          }
+          }}
         >
           <SelectTrigger className={`h-9 text-xs transition-all ${
             isMapped ? 'border-primary/30 bg-primary/[0.03]' : 'border-input'
@@ -474,39 +486,48 @@ function MappingRow({
               const destType = getPropertyTypeName(destProp)
               const destMaxLength = getMaxLength(destProp)
               const isCompatibleType = destType === sourceType
+              const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
+              const isRestricted = !!restrictedReason
 
               return (
-                <SelectItem
-                  key={destProp.Name}
-                  value={destProp.Name}
-                  className={!isCompatibleType ? 'opacity-50' : ''}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{destProp.Name}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] font-mono text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
-                        {destType}
-                      </span>
-                      {destMaxLength !== null && (
-                        <span className="text-[10px] text-muted-foreground/50 bg-muted/50 px-1 rounded">
-                          ({destMaxLength})
-                        </span>
-                      )}
-                    </div>
-                    {!isCompatibleType && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertTriangle className="size-3 text-destructive" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Type mismatch: {sourceType} → {destType}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                <TooltipProvider key={destProp.Name}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <SelectItem
+                          value={destProp.Name}
+                          className={isRestricted ? 'opacity-50 cursor-not-allowed pointer-events-none' : !isCompatibleType ? 'opacity-50' : ''}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{destProp.Name}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] font-mono text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
+                                {destType}
+                              </span>
+                              {destMaxLength !== null && (
+                                <span className="text-[10px] text-muted-foreground/50 bg-muted/50 px-1 rounded">
+                                  ({destMaxLength})
+                                </span>
+                              )}
+                            </div>
+                            {isRestricted ? (
+                              <Lock className="size-3 text-muted-foreground" />
+                            ) : !isCompatibleType && (
+                              <AlertTriangle className="size-3 text-destructive" />
+                            )}
+                          </div>
+                        </SelectItem>
+                      </div>
+                    </TooltipTrigger>
+                    {(isRestricted || !isCompatibleType) && (
+                      <TooltipContent>
+                        <p className="text-xs">
+                          {isRestricted ? restrictedReason : `Type mismatch: ${sourceType} → ${destType}`}
+                        </p>
+                      </TooltipContent>
                     )}
-                  </div>
-                </SelectItem>
+                  </Tooltip>
+                </TooltipProvider>
               )
             })}
           </SelectContent>

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ArrowRight, Loader2, Search, X, Trash2, Filter, Info } from 'lucide-react'
+import { AlertTriangle, Check, ArrowRight, Loader2, Search, X, Trash2, Filter, Info, Lock } from 'lucide-react'
 import { queries } from '@/lib/queries'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,14 @@ import type { PropertyMapping } from './PropertyMapper'
 type MappingWarning = {
   type: 'typeMismatch'
   message: string
+}
+
+// Properties that cannot be mapped to as they are auto-created on insert
+const RESTRICTED_DESTINATION_PROPERTIES: Record<string, string> = {
+  Ordinal: 'Auto-incrementing row ID for multi-instance data sources',
+  UpdatedOn: 'Auto-set to the date/time the row is inserted',
+  UpdatedBy: 'Auto-set to the username of the logged-in account',
+  UpdatedByUserKey: 'Auto-set to the contact key of the logged-in account',
 }
 
 type QueryPropertyMapperProps = {
@@ -92,6 +100,8 @@ function findAutoMappings(
     const queryName = queryProp.Alias || queryProp.PropertyName
     const matchingDest = destProps.find((destProp) => {
       if (destProp.Name.toLowerCase() !== queryName.toLowerCase()) return false
+      // Skip restricted properties
+      if (destProp.Name in RESTRICTED_DESTINATION_PROPERTIES) return false
       const { compatible } = checkCompatibility(queryProp.DataTypeName, destProp)
       return compatible
     })
@@ -450,9 +460,11 @@ function QueryMappingRow({
       <div className="min-w-0">
         <Select
           value={selectedDestination ?? '__unmapped__'}
-          onValueChange={(value) =>
+          onValueChange={(value) => {
+            // Prevent selecting restricted properties
+            if (value !== '__unmapped__' && value in RESTRICTED_DESTINATION_PROPERTIES) return
             onDestinationChange(value === '__unmapped__' ? null : value)
-          }
+          }}
         >
           <SelectTrigger className={`h-9 text-xs transition-all ${
             isMapped ? 'border-primary/30 bg-primary/[0.03]' : 'border-input'
@@ -469,32 +481,41 @@ function QueryMappingRow({
             {sortedDestinations.map((destProp) => {
               const destType = getBoPropertyTypeName(destProp)
               const isCompatibleType = destType === boCompatibleType
+              const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
+              const isRestricted = !!restrictedReason
 
               return (
-                <SelectItem
-                  key={destProp.Name}
-                  value={destProp.Name}
-                  className={!isCompatibleType ? 'opacity-50' : ''}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{destProp.Name}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
-                      {destType}
-                    </span>
-                    {!isCompatibleType && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertTriangle className="size-3 text-destructive" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Type mismatch: {sourceType} → {destType}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                <TooltipProvider key={destProp.Name}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <SelectItem
+                          value={destProp.Name}
+                          className={isRestricted ? 'opacity-50 cursor-not-allowed pointer-events-none' : !isCompatibleType ? 'opacity-50' : ''}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{destProp.Name}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
+                              {destType}
+                            </span>
+                            {isRestricted ? (
+                              <Lock className="size-3 text-muted-foreground" />
+                            ) : !isCompatibleType && (
+                              <AlertTriangle className="size-3 text-destructive" />
+                            )}
+                          </div>
+                        </SelectItem>
+                      </div>
+                    </TooltipTrigger>
+                    {(isRestricted || !isCompatibleType) && (
+                      <TooltipContent>
+                        <p className="text-xs">
+                          {isRestricted ? restrictedReason : `Type mismatch: ${sourceType} → ${destType}`}
+                        </p>
+                      </TooltipContent>
                     )}
-                  </div>
-                </SelectItem>
+                  </Tooltip>
+                </TooltipProvider>
               )
             })}
           </SelectContent>
