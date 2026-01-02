@@ -11,11 +11,15 @@ import {
   DocumentSummaryResultSchema,
   DocumentSummaryCollectionResultSchema,
   QueryDefinitionResultSchema,
+  IqaQueryResponseSchema,
+  GenericEntityDataSchema,
   type QueryResponse,
   type BoEntityDefinition,
   type DocumentSummaryResult,
   type DocumentSummaryCollectionResult,
   type QueryDefinitionResult,
+  type IqaQueryResponse,
+  type GenericEntityData,
 } from "../api/imis-schemas"
 
 // ---------------------
@@ -533,6 +537,134 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             },
           })
         ),
+
+      /**
+       * Execute an IQA query with pagination.
+       * Returns rows as Record<string, unknown> where keys are property aliases.
+       * @param envId - Environment ID
+       * @param queryPath - Full path to the query (e.g., "$/ContactManagement/DefaultContactQuery")
+       * @param limit - Maximum rows to return (max 500)
+       * @param offset - Starting offset for pagination
+       */
+      executeQuery: (envId: string, queryPath: string, limit: number = 500, offset: number = 0) =>
+        executeWithAuth(envId, "/api/query", (baseUrl, token) =>
+          HttpClientRequest.get(`${baseUrl}/api/query`).pipe(
+            HttpClientRequest.setUrlParam("queryname", queryPath),
+            HttpClientRequest.setUrlParam("limit", String(Math.min(limit, 500))),
+            HttpClientRequest.setUrlParam("offset", String(offset)),
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            httpClient.execute,
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(IqaQueryResponseSchema)(res)
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.get(`${baseUrl}/api/query`),
+                  response: res,
+                  reason: "StatusCode",
+                })
+              )
+            }),
+            Effect.scoped
+          )
+        ).pipe(
+          Effect.withSpan("imis.executeQuery", {
+            attributes: {
+              environmentId: envId,
+              endpoint: "/api/query",
+              queryPath,
+              limit,
+              offset,
+            },
+          })
+        ),
+
+      /**
+       * Insert a single entity into an IMIS data source.
+       * @param envId - Environment ID
+       * @param entityTypeName - The entity type (e.g., "CsContact")
+       * @param parentEntityTypeName - Parent entity type (e.g., "Party", "Standalone", "Event")
+       * @param parentId - Parent ID for contact/event entities (pass null for Standalone)
+       * @param properties - Key-value pairs of properties to insert
+       */
+      insertEntity: (
+        envId: string,
+        entityTypeName: string,
+        parentEntityTypeName: string,
+        parentId: string | null,
+        properties: Record<string, string | number | boolean | null>
+      ) =>
+        executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) => {
+          // Build properties array
+          const propertyData = Object.entries(properties).map(([name, value]) => ({
+            $type: "Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts",
+            Name: name,
+            Value: value,
+          }))
+
+          // Build identity structure based on parent type
+          const parentIdentity = parentId
+            ? {
+                $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+                EntityTypeName: parentEntityTypeName,
+                IdentityElements: {
+                  $type: "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                  $values: [parentId],
+                },
+              }
+            : {
+                $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+                EntityTypeName: parentEntityTypeName,
+              }
+
+          const body = {
+            $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
+            EntityTypeName: entityTypeName,
+            PrimaryParentEntityTypeName: parentEntityTypeName,
+            Identity: {
+              $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+              EntityTypeName: entityTypeName,
+            },
+            PrimaryParentIdentity: parentIdentity,
+            Properties: {
+              $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts",
+              $values: propertyData,
+            },
+          }
+
+          return HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            HttpClientRequest.setHeader("Content-Type", "application/json"),
+            HttpClientRequest.bodyJson(body),
+            Effect.flatMap((req) => httpClient.execute(req)),
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(GenericEntityDataSchema)(res)
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`),
+                  response: res,
+                  reason: "StatusCode",
+                })
+              )
+            }),
+            Effect.scoped
+          )
+        }).pipe(
+          Effect.withSpan("imis.insertEntity", {
+            attributes: {
+              environmentId: envId,
+              endpoint: `/api/${entityTypeName}`,
+              entityTypeName,
+              parentEntityTypeName,
+              hasParentId: parentId !== null,
+            },
+          })
+        ),
     }
   }),
 
@@ -570,6 +702,33 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         Effect.succeed({
           $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts",
           Result: null,
+        }),
+      executeQuery: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
+          Items: { $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib", $values: [] },
+          Offset: 0,
+          Limit: 500,
+          Count: 0,
+          TotalCount: 0,
+          NextPageLink: null,
+          HasNext: false,
+          NextOffset: 0,
+        }),
+      insertEntity: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
+          EntityTypeName: "TestEntity",
+          PrimaryParentEntityTypeName: "Party",
+          Identity: {
+            $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+            EntityTypeName: "TestEntity",
+          },
+          PrimaryParentIdentity: {
+            $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+            EntityTypeName: "Party",
+          },
+          Properties: { $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts", $values: [] },
         }),
     })
   )

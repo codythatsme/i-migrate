@@ -141,6 +141,46 @@ export const clearTraces = () =>
   withClient((client) => client.traces.clear())
 
 // ---------------------
+// Job Functions
+// ---------------------
+
+/** Create a new migration job */
+export const createJob = (data: {
+  name: string
+  mode: "query" | "datasource"
+  sourceEnvironmentId: string
+  sourceQueryPath?: string
+  sourceEntityType?: string
+  destEnvironmentId: string
+  destEntityType: string
+  mappings: Array<{ sourceProperty: string; destinationProperty: string | null }>
+}) => withClient((client) => client.jobs.create(data))
+
+/** List all jobs */
+export const listJobs = () =>
+  withClient((client) => client.jobs.list())
+
+/** Get a single job by ID */
+export const getJob = (jobId: string) =>
+  withClient((client) => client.jobs.get({ jobId }))
+
+/** Run a queued job */
+export const runJob = (jobId: string) =>
+  withClient((client) => client.jobs.run({ jobId }))
+
+/** Retry failed rows for a job */
+export const retryFailedRows = (jobId: string) =>
+  withClient((client) => client.jobs.retry({ jobId }))
+
+/** Get failed rows for a job */
+export const getJobFailedRows = (jobId: string) =>
+  withClient((client) => client.jobs.failedRows({ jobId }))
+
+/** Cancel a running job */
+export const cancelJob = (jobId: string) =>
+  withClient((client) => client.jobs.cancel({ jobId }))
+
+// ---------------------
 // Re-export types for convenience
 // ---------------------
 
@@ -154,6 +194,16 @@ export type {
   TraceSummary,
   StoredTrace,
   StoredSpan,
+  Job,
+  JobStatus,
+  JobMode,
+  FailedRow,
+  FailedRowStatus,
+  PropertyMapping,
+  CreateJobRequest,
+  CreateJobResponse,
+  RunJobResponse,
+  RetryFailedRowsResponse,
 } from "./schemas"
 
 export type {
