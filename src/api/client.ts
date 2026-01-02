@@ -180,6 +180,10 @@ export const getJobFailedRows = (jobId: string) =>
 export const cancelJob = (jobId: string) =>
   withClient((client) => client.jobs.cancel({ jobId }))
 
+/** Delete a job and its associated failed rows */
+export const deleteJob = (jobId: string) =>
+  withClient((client) => client.jobs.delete({ jobId }))
+
 // ---------------------
 // Re-export types for convenience
 // ---------------------
@@ -195,6 +199,7 @@ export type {
   StoredTrace,
   StoredSpan,
   Job,
+  JobWithEnvironments,
   JobStatus,
   JobMode,
   FailedRow,

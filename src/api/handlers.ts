@@ -365,15 +365,50 @@ export const HandlersLive = ApiGroup.toLayer({
   "jobs.list": () =>
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService
+      const persistence = yield* PersistenceService
       const jobs = yield* jobService.listJobs()
-      return jobs
+
+      // Add environment names to each job
+      const jobsWithEnvs = yield* Effect.all(
+        jobs.map((job) =>
+          Effect.gen(function* () {
+            const sourceEnv = yield* persistence.getEnvironmentById(job.sourceEnvironmentId).pipe(
+              Effect.catchAll(() => Effect.succeed({ name: "Unknown" }))
+            )
+            const destEnv = yield* persistence.getEnvironmentById(job.destEnvironmentId).pipe(
+              Effect.catchAll(() => Effect.succeed({ name: "Unknown" }))
+            )
+            return {
+              ...job,
+              sourceEnvironmentName: sourceEnv.name,
+              destEnvironmentName: destEnv.name,
+            }
+          })
+        )
+      )
+
+      return jobsWithEnvs
     }).pipe(Effect.mapError(mapDatabaseError)),
 
   "jobs.get": ({ jobId }) =>
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService
+      const persistence = yield* PersistenceService
       const job = yield* jobService.getJob(jobId)
-      return job
+
+      // Add environment names
+      const sourceEnv = yield* persistence.getEnvironmentById(job.sourceEnvironmentId).pipe(
+        Effect.catchAll(() => Effect.succeed({ name: "Unknown" }))
+      )
+      const destEnv = yield* persistence.getEnvironmentById(job.destEnvironmentId).pipe(
+        Effect.catchAll(() => Effect.succeed({ name: "Unknown" }))
+      )
+
+      return {
+        ...job,
+        sourceEnvironmentName: sourceEnv.name,
+        destEnvironmentName: destEnv.name,
+      }
     }).pipe(
       Effect.mapError((error) => {
         if (error._tag === "JobNotFoundError") return mapJobNotFoundError(error)
@@ -457,6 +492,18 @@ export const HandlersLive = ApiGroup.toLayer({
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService
       yield* jobService.cancelJob(jobId)
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error._tag === "JobNotFoundError") return mapJobNotFoundError(error)
+        if (error._tag === "DatabaseError") return mapDatabaseError(error)
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
+      })
+    ),
+
+  "jobs.delete": ({ jobId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      yield* jobService.deleteJob(jobId)
     }).pipe(
       Effect.mapError((error) => {
         if (error._tag === "JobNotFoundError") return mapJobNotFoundError(error)

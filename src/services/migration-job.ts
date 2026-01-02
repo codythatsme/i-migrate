@@ -659,11 +659,19 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
             { concurrency: insertConcurrency }
           )
 
-          // Update job's failed row count
+          // Update job's failed row count and status
           const remainingFailed = yield* getFailedRowsForJob(jobId)
+          const pendingCount = remainingFailed.filter((r) => r.status === "pending").length
+          
+          // Determine if job should be marked as completed
+          // Job is completed if no pending failed rows and no failed query offsets
+          const failedOffsets = job.failedQueryOffsets ? JSON.parse(job.failedQueryOffsets) as number[] : []
+          const shouldMarkCompleted = pendingCount === 0 && failedOffsets.length === 0 && job.status === "partial"
+
           yield* updateJobProgress(jobId, {
-            failedRowCount: remainingFailed.filter((r) => r.status === "pending").length,
+            failedRowCount: pendingCount,
             successfulRows: job.successfulRows + successCount,
+            ...(shouldMarkCompleted ? { status: "completed" as const } : {}),
           })
 
           return {
@@ -709,6 +717,31 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
             })
           }
         }),
+
+      /**
+       * Delete a job and all its associated failed rows.
+       */
+      deleteJob: (jobId: string) =>
+        Effect.gen(function* () {
+          // Verify job exists first
+          yield* getJobById(jobId)
+
+          // Delete all failed rows for this job first
+          yield* Effect.try({
+            try: () => db.delete(failedRows).where(eq(failedRows.jobId, jobId)).run(),
+            catch: (cause) => new DatabaseError({ message: "Failed to delete failed rows", cause }),
+          })
+
+          // Delete the job
+          yield* Effect.try({
+            try: () => db.delete(jobs).where(eq(jobs.id, jobId)).run(),
+            catch: (cause) => new DatabaseError({ message: "Failed to delete job", cause }),
+          })
+        }).pipe(
+          Effect.withSpan("migrationJob.deleteJob", {
+            attributes: { jobId },
+          })
+        ),
     }
   }),
 
@@ -737,6 +770,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
       listJobs: () => Effect.succeed([]),
       getJobFailedRows: () => Effect.succeed([]),
       cancelJob: () => Effect.void,
+      deleteJob: () => Effect.void,
     })
   )
 }

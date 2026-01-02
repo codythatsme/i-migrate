@@ -325,6 +325,15 @@ export const JobSchema = Schema.Struct({
 
 export type Job = typeof JobSchema.Type
 
+// Job with resolved environment names for display
+export const JobWithEnvironmentsSchema = Schema.Struct({
+  ...JobSchema.fields,
+  sourceEnvironmentName: Schema.String,
+  destEnvironmentName: Schema.String,
+})
+
+export type JobWithEnvironments = typeof JobWithEnvironmentsSchema.Type
+
 export const FailedRowStatusSchema = Schema.Literal("pending", "retrying", "resolved")
 
 export type FailedRowStatus = typeof FailedRowStatusSchema.Type
