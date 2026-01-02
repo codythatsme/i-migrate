@@ -3,7 +3,6 @@ import {
   Activity,
   Database,
   Download,
-  GitBranch,
   Home,
   PlayCircle,
   Server,
@@ -39,11 +38,6 @@ const navItems = [
     title: 'Export',
     url: '/export',
     icon: Download,
-  },
-  {
-    title: 'Mappings',
-    url: '/mappings',
-    icon: GitBranch,
   },
   {
     title: 'Jobs',

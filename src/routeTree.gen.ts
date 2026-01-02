@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TracesRouteImport } from './routes/traces'
-import { Route as MappingsRouteImport } from './routes/mappings'
 import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as ExportRouteImport } from './routes/export'
 import { Route as EnvironmentsRouteImport } from './routes/environments'
@@ -19,11 +18,6 @@ import { Route as IndexRouteImport } from './routes/index'
 const TracesRoute = TracesRouteImport.update({
   id: '/traces',
   path: '/traces',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MappingsRoute = MappingsRouteImport.update({
-  id: '/mappings',
-  path: '/mappings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobsRoute = JobsRouteImport.update({
@@ -52,7 +46,6 @@ export interface FileRoutesByFullPath {
   '/environments': typeof EnvironmentsRoute
   '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
-  '/mappings': typeof MappingsRoute
   '/traces': typeof TracesRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +53,6 @@ export interface FileRoutesByTo {
   '/environments': typeof EnvironmentsRoute
   '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
-  '/mappings': typeof MappingsRoute
   '/traces': typeof TracesRoute
 }
 export interface FileRoutesById {
@@ -69,28 +61,14 @@ export interface FileRoutesById {
   '/environments': typeof EnvironmentsRoute
   '/export': typeof ExportRoute
   '/jobs': typeof JobsRoute
-  '/mappings': typeof MappingsRoute
   '/traces': typeof TracesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/environments'
-    | '/export'
-    | '/jobs'
-    | '/mappings'
-    | '/traces'
+  fullPaths: '/' | '/environments' | '/export' | '/jobs' | '/traces'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/environments' | '/export' | '/jobs' | '/mappings' | '/traces'
-  id:
-    | '__root__'
-    | '/'
-    | '/environments'
-    | '/export'
-    | '/jobs'
-    | '/mappings'
-    | '/traces'
+  to: '/' | '/environments' | '/export' | '/jobs' | '/traces'
+  id: '__root__' | '/' | '/environments' | '/export' | '/jobs' | '/traces'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -98,7 +76,6 @@ export interface RootRouteChildren {
   EnvironmentsRoute: typeof EnvironmentsRoute
   ExportRoute: typeof ExportRoute
   JobsRoute: typeof JobsRoute
-  MappingsRoute: typeof MappingsRoute
   TracesRoute: typeof TracesRoute
 }
 
@@ -109,13 +86,6 @@ declare module '@tanstack/react-router' {
       path: '/traces'
       fullPath: '/traces'
       preLoaderRoute: typeof TracesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mappings': {
-      id: '/mappings'
-      path: '/mappings'
-      fullPath: '/mappings'
-      preLoaderRoute: typeof MappingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jobs': {
@@ -154,7 +124,6 @@ const rootRouteChildren: RootRouteChildren = {
   EnvironmentsRoute: EnvironmentsRoute,
   ExportRoute: ExportRoute,
   JobsRoute: JobsRoute,
-  MappingsRoute: MappingsRoute,
   TracesRoute: TracesRoute,
 }
 export const routeTree = rootRouteImport
