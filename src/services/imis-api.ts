@@ -642,7 +642,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((req) => httpClient.execute(req)),
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(GenericEntityDataSchema)(res)
+                return Effect.void
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
