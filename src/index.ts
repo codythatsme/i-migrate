@@ -12,6 +12,7 @@ import {
 import { SessionServiceLive } from "./services/session"
 import { ImisApiServiceLive } from "./services/imis-api"
 import { TraceStoreServiceLive, TracerLive } from "./services/trace-store"
+import { MigrationJobServiceLive } from "./services/migration-job"
 
 // ---------------------
 // Service Layers
@@ -22,7 +23,8 @@ const ServicesLive = Layer.mergeAll(
   PersistenceServiceLive,
   SessionServiceLive,
   ImisApiServiceLive,
-  TraceStoreServiceLive
+  TraceStoreServiceLive,
+  MigrationJobServiceLive
 )
 
 // Handlers layer with all dependencies

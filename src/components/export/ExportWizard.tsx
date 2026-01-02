@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   parseAsString,
   parseAsInteger,
@@ -15,10 +16,14 @@ import {
   Map,
   ListChecks,
   FileSearch,
+  Loader2,
 } from 'lucide-react'
 import { useEnvironmentStore } from '@/stores/environment-store'
 import { queries } from '@/lib/queries'
+import { createJob, runJob } from '@/api/client'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { DataSourceSelector } from './DataSourceSelector'
 import { DestinationPasswordDialog } from './DestinationPasswordDialog'
 import { EnvironmentSelector } from './EnvironmentSelector'
@@ -44,6 +49,7 @@ const exportSearchParams = {
   sourceQueryName: parseAsString,
   destEnv: parseAsString,
   destEntity: parseAsString,
+  jobName: parseAsString,
 }
 
 // ---------------------
@@ -78,9 +84,11 @@ type ExportWizardProps = {
 
 export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   const { selectedId: sourceEnvironmentId } = useEnvironmentStore()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [queryState, setQueryState] = useQueryStates(exportSearchParams)
-  const { step, sourceEntity, sourceQuery, sourceQueryName, destEnv, destEntity } = queryState
+  const { step, sourceEntity, sourceQuery, sourceQueryName, destEnv, destEntity, jobName } = queryState
   
   // Use initialMode from props if provided, otherwise use URL state
   const mode = initialMode ?? queryState.mode
@@ -96,6 +104,50 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
 
   // Fetch environments to check destination password status
   const { data: environments } = useQuery(queries.environments.all())
+
+  // Job creation mutation
+  const createJobMutation = useMutation({
+    mutationFn: async () => {
+      if (!sourceEnvironmentId || !destEnv || !destEntity || !jobName) {
+        throw new Error('Missing required fields')
+      }
+
+      // Build payload conditionally to avoid passing undefined values
+      // Effect Schema's optionalWith({ exact: true }) expects absent properties, not undefined
+      const payload: Parameters<typeof createJob>[0] = {
+        name: jobName,
+        mode,
+        sourceEnvironmentId,
+        destEnvironmentId: destEnv,
+        destEntityType: destEntity,
+        mappings,
+      }
+
+      // Only include sourceQueryPath for query mode
+      if (mode === 'query' && sourceQuery) {
+        payload.sourceQueryPath = sourceQuery
+      }
+
+      // Only include sourceEntityType for datasource mode
+      if (mode === 'datasource' && sourceEntity) {
+        payload.sourceEntityType = sourceEntity
+      }
+
+      // Create the job
+      const { jobId } = await createJob(payload)
+
+      // Start running the job immediately
+      await runJob(jobId)
+
+      return { jobId }
+    },
+    onSuccess: () => {
+      // Invalidate jobs query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      // Navigate to jobs page
+      navigate({ to: '/jobs' })
+    },
+  })
 
   // Fetch source data sources to get the selected entity's structure info (for datasource mode)
   const { data: sourceDataSources } = useQuery({
@@ -204,18 +256,12 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     setMappings([])
   }
 
+  const handleJobNameChange = (name: string) => {
+    setQueryState({ jobName: name || null })
+  }
+
   const handleQueueJob = () => {
-    // TODO: Implement job queuing logic
-    console.log('Queue job:', {
-      mode,
-      sourceEnvironmentId,
-      sourceEntity: mode === 'datasource' ? sourceEntity : undefined,
-      sourceQuery: mode === 'query' ? sourceQuery : undefined,
-      destEnv,
-      destEntity,
-      mappings,
-    })
-    alert('Job queuing not yet implemented. Check console for mapping data.')
+    createJobMutation.mutate()
   }
 
   // ---------------------
@@ -231,7 +277,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
       case 3:
         return !!destEntity
       case 4:
-        return mappings.some((m) => m.destinationProperty !== null)
+        return mappings.some((m) => m.destinationProperty !== null) && !!jobName?.trim()
       default:
         return false
     }
@@ -394,6 +440,36 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
             onMappingsChange={setMappings}
           />
         )}
+
+        {/* Job Name Input - Show on step 4 */}
+        {step === 4 && (
+          <div className="mt-6 pt-6 border-t border-border">
+            <div className="flex flex-col gap-2 max-w-md">
+              <Label htmlFor="jobName" className="text-sm font-medium">
+                Job Name
+              </Label>
+              <Input
+                id="jobName"
+                placeholder="Enter a name for this migration job"
+                value={jobName ?? ''}
+                onChange={(e) => handleJobNameChange(e.target.value)}
+                className="bg-background"
+              />
+              <p className="text-xs text-muted-foreground">
+                Give this migration a meaningful name to identify it on the jobs page.
+              </p>
+            </div>
+
+            {/* Error display */}
+            {createJobMutation.isError && (
+              <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                {createJobMutation.error instanceof Error
+                  ? createJobMutation.error.message
+                  : 'Failed to create job. Please try again.'}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -410,9 +486,21 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               <ArrowRight className="ml-2 size-4" />
             </Button>
           ) : (
-            <Button onClick={handleQueueJob} disabled={!canProceedFromStep(step)}>
-              <ListChecks className="mr-2 size-4" />
-              Queue Migration
+            <Button
+              onClick={handleQueueJob}
+              disabled={!canProceedFromStep(step) || createJobMutation.isPending}
+            >
+              {createJobMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Creating Job...
+                </>
+              ) : (
+                <>
+                  <ListChecks className="mr-2 size-4" />
+                  Queue Migration
+                </>
+              )}
             </Button>
           )}
         </div>

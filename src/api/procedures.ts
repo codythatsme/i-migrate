@@ -27,6 +27,17 @@ import {
   GetTraceRequestSchema,
   TraceNotFoundErrorSchema,
   TraceStoreErrorSchema,
+  // Job schemas
+  JobSchema,
+  FailedRowSchema,
+  CreateJobRequestSchema,
+  CreateJobResponseSchema,
+  JobIdRequestSchema,
+  RunJobResponseSchema,
+  RetryFailedRowsResponseSchema,
+  JobNotFoundErrorSchema,
+  JobAlreadyRunningErrorSchema,
+  MigrationErrorSchema,
 } from "./schemas"
 import {
   BoEntityDefinitionQueryResponseSchema,
@@ -212,6 +223,77 @@ const ClearTraces = Rpc.make("traces.clear", {
 })
 
 // ---------------------
+// Job Procedures
+// ---------------------
+
+/** Create a new migration job */
+const CreateJob = Rpc.make("jobs.create", {
+  payload: CreateJobRequestSchema,
+  success: CreateJobResponseSchema,
+  error: Schema.Union(DatabaseErrorSchema, ValidationErrorSchema),
+})
+
+/** List all jobs */
+const ListJobs = Rpc.make("jobs.list", {
+  success: Schema.Array(JobSchema),
+  error: DatabaseErrorSchema,
+})
+
+/** Get a single job by ID */
+const GetJob = Rpc.make("jobs.get", {
+  payload: JobIdRequestSchema,
+  success: JobSchema,
+  error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
+})
+
+/** Run a queued job */
+const RunJob = Rpc.make("jobs.run", {
+  payload: JobIdRequestSchema,
+  success: RunJobResponseSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    JobNotFoundErrorSchema,
+    JobAlreadyRunningErrorSchema,
+    MigrationErrorSchema,
+    MissingCredentialsErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
+  ),
+})
+
+/** Retry failed rows for a job */
+const RetryFailedRows = Rpc.make("jobs.retry", {
+  payload: JobIdRequestSchema,
+  success: RetryFailedRowsResponseSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    JobNotFoundErrorSchema,
+    MissingCredentialsErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema
+  ),
+})
+
+/** Get failed rows for a job */
+const GetJobFailedRows = Rpc.make("jobs.failedRows", {
+  payload: JobIdRequestSchema,
+  success: Schema.Array(FailedRowSchema),
+  error: DatabaseErrorSchema,
+})
+
+/** Cancel a running job */
+const CancelJob = Rpc.make("jobs.cancel", {
+  payload: JobIdRequestSchema,
+  error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
+})
+
+// ---------------------
 // API Group
 // ---------------------
 
@@ -239,7 +321,15 @@ export const ApiGroup = RpcGroup.make(
   // Traces
   ListTraces,
   GetTrace,
-  ClearTraces
+  ClearTraces,
+  // Jobs
+  CreateJob,
+  ListJobs,
+  GetJob,
+  RunJob,
+  RetryFailedRows,
+  GetJobFailedRows,
+  CancelJob
 )
 
 // Export type for the API group

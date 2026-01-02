@@ -276,3 +276,135 @@ export class TraceStoreErrorSchema extends Schema.TaggedError<TraceStoreErrorSch
   }
 ) {}
 
+// ---------------------
+// Job Schemas
+// ---------------------
+
+export const JobStatusSchema = Schema.Literal(
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "partial",
+  "cancelled"
+)
+
+export type JobStatus = typeof JobStatusSchema.Type
+
+export const JobModeSchema = Schema.Literal("query", "datasource")
+
+export type JobMode = typeof JobModeSchema.Type
+
+export const PropertyMappingSchema = Schema.Struct({
+  sourceProperty: Schema.String,
+  destinationProperty: Schema.NullOr(Schema.String),
+})
+
+export type PropertyMapping = typeof PropertyMappingSchema.Type
+
+export const JobSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  status: JobStatusSchema,
+  mode: JobModeSchema,
+  sourceEnvironmentId: Schema.String,
+  sourceQueryPath: Schema.NullOr(Schema.String),
+  sourceEntityType: Schema.NullOr(Schema.String),
+  destEnvironmentId: Schema.String,
+  destEntityType: Schema.String,
+  mappings: Schema.String, // JSON stringified PropertyMapping[]
+  totalRows: Schema.NullOr(Schema.Number),
+  processedRows: Schema.Number,
+  successfulRows: Schema.Number,
+  failedRowCount: Schema.Number,
+  failedQueryOffsets: Schema.NullOr(Schema.String), // JSON stringified number[]
+  startedAt: Schema.NullOr(Schema.String),
+  completedAt: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+})
+
+export type Job = typeof JobSchema.Type
+
+export const FailedRowStatusSchema = Schema.Literal("pending", "retrying", "resolved")
+
+export type FailedRowStatus = typeof FailedRowStatusSchema.Type
+
+export const FailedRowSchema = Schema.Struct({
+  id: Schema.String,
+  jobId: Schema.String,
+  rowIndex: Schema.Number,
+  encryptedPayload: Schema.String,
+  errorMessage: Schema.String,
+  retryCount: Schema.Number,
+  status: FailedRowStatusSchema,
+  createdAt: Schema.String,
+  resolvedAt: Schema.NullOr(Schema.String),
+})
+
+export type FailedRow = typeof FailedRowSchema.Type
+
+export const CreateJobRequestSchema = Schema.Struct({
+  name: Schema.String,
+  mode: JobModeSchema,
+  sourceEnvironmentId: Schema.String,
+  sourceQueryPath: Schema.optionalWith(Schema.String, { exact: true }),
+  sourceEntityType: Schema.optionalWith(Schema.String, { exact: true }),
+  destEnvironmentId: Schema.String,
+  destEntityType: Schema.String,
+  mappings: Schema.Array(PropertyMappingSchema),
+})
+
+export type CreateJobRequest = typeof CreateJobRequestSchema.Type
+
+export const CreateJobResponseSchema = Schema.Struct({
+  jobId: Schema.String,
+})
+
+export type CreateJobResponse = typeof CreateJobResponseSchema.Type
+
+export const JobIdRequestSchema = Schema.Struct({
+  jobId: Schema.String,
+})
+
+export type JobIdRequest = typeof JobIdRequestSchema.Type
+
+export const RunJobResponseSchema = Schema.Struct({
+  processed: Schema.Number,
+  successful: Schema.Number,
+  failed: Schema.Number,
+  failedOffsets: Schema.Array(Schema.Number),
+  totalRows: Schema.Number,
+})
+
+export type RunJobResponse = typeof RunJobResponseSchema.Type
+
+export const RetryFailedRowsResponseSchema = Schema.Struct({
+  retriedCount: Schema.Number,
+  successCount: Schema.Number,
+  failCount: Schema.Number,
+})
+
+export type RetryFailedRowsResponse = typeof RetryFailedRowsResponseSchema.Type
+
+// Job Error Schemas
+export class JobNotFoundErrorSchema extends Schema.TaggedError<JobNotFoundErrorSchema>()(
+  "JobNotFoundError",
+  {
+    jobId: Schema.String,
+  }
+) {}
+
+export class JobAlreadyRunningErrorSchema extends Schema.TaggedError<JobAlreadyRunningErrorSchema>()(
+  "JobAlreadyRunning",
+  {
+    jobId: Schema.String,
+  }
+) {}
+
+export class MigrationErrorSchema extends Schema.TaggedError<MigrationErrorSchema>()(
+  "MigrationError",
+  {
+    message: Schema.String,
+  }
+) {}
+

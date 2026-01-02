@@ -8,6 +8,9 @@ import {
   getQueryDefinition,
   listTraces,
   getTrace,
+  listJobs,
+  getJob,
+  getJobFailedRows,
 } from "@/api/client"
 
 // Query options factory using RPC client
@@ -86,6 +89,33 @@ export const queries = {
         queryKey: ["traces", traceId],
         queryFn: () => getTrace(traceId!),
         enabled: !!traceId,
+      }),
+  },
+
+  jobs: {
+    // Get all jobs
+    all: () =>
+      queryOptions({
+        queryKey: ["jobs"],
+        queryFn: () => listJobs(),
+        refetchInterval: 3000, // Auto-refresh every 3 seconds for progress updates
+      }),
+
+    // Get a single job by ID
+    byId: (jobId: string | null) =>
+      queryOptions({
+        queryKey: ["jobs", jobId],
+        queryFn: () => getJob(jobId!),
+        enabled: !!jobId,
+        refetchInterval: 2000, // More frequent updates for single job view
+      }),
+
+    // Get failed rows for a job
+    failedRows: (jobId: string | null) =>
+      queryOptions({
+        queryKey: ["jobs", jobId, "failedRows"],
+        queryFn: () => getJobFailedRows(jobId!),
+        enabled: !!jobId,
       }),
   },
 }

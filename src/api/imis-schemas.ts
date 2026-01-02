@@ -474,6 +474,55 @@ export const DocumentSummaryCollectionResultSchema = GenericExecuteCollectionRes
 export const QueryDefinitionResultSchema = GenericExecuteResultSchema(QueryDefinitionSchema)
 
 // ---------------------
+// IQA Query Results
+// ---------------------
+
+/**
+ * Schema for IQA query result rows.
+ * Query results return rows as Record<string, unknown> where keys are property aliases.
+ */
+export const IqaQueryRowSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+
+/**
+ * Schema for IQA query response.
+ */
+export const IqaQueryResponseSchema = QueryResponseSchema(IqaQueryRowSchema)
+
+// ---------------------
+// Generic Entity Data (for inserts)
+// ---------------------
+
+/**
+ * Schema for generic property data used in entity inserts.
+ */
+export const GenericPropertyDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
+  Name: Schema.String,
+  Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null),
+})
+
+/**
+ * Schema for identity data.
+ */
+export const IdentityDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts"),
+  EntityTypeName: Schema.String,
+  IdentityElements: Schema.optionalWith(SoaCollectionSchema(Schema.String), { exact: true }),
+})
+
+/**
+ * Schema for GenericEntityData response from insert operations.
+ */
+export const GenericEntityDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts"),
+  EntityTypeName: Schema.String,
+  PrimaryParentEntityTypeName: Schema.String,
+  Identity: IdentityDataSchema,
+  PrimaryParentIdentity: IdentityDataSchema,
+  Properties: SoaCollectionSchema(GenericPropertyDataSchema),
+})
+
+// ---------------------
 // Inferred Types
 // ---------------------
 
@@ -525,3 +574,12 @@ export type DocumentSummaryResult = typeof DocumentSummaryResultSchema.Type
 export type DocumentSummaryCollectionResult = typeof DocumentSummaryCollectionResultSchema.Type
 export type QueryDefinitionResult = typeof QueryDefinitionResultSchema.Type
 export type QueryPropertyData = typeof QueryPropertyDataSchema.Type
+
+// IQA Query types
+export type IqaQueryRow = typeof IqaQueryRowSchema.Type
+export type IqaQueryResponse = typeof IqaQueryResponseSchema.Type
+
+// Entity insert types
+export type GenericPropertyData = typeof GenericPropertyDataSchema.Type
+export type IdentityData = typeof IdentityDataSchema.Type
+export type GenericEntityData = typeof GenericEntityDataSchema.Type

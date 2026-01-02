@@ -10,6 +10,9 @@ import {
   ImisResponseErrorSchema,
   ImisSchemaErrorSchema,
   TraceStoreErrorSchema,
+  JobNotFoundErrorSchema,
+  JobAlreadyRunningErrorSchema,
+  MigrationErrorSchema,
 } from "./schemas"
 import { PersistenceService, DatabaseError, EnvironmentNotFoundError } from "../services/persistence"
 import { SessionService } from "../services/session"
@@ -22,6 +25,12 @@ import {
   MissingCredentialsError,
 } from "../services/imis-api"
 import { TraceStoreService, TraceStoreError } from "../services/trace-store"
+import {
+  MigrationJobService,
+  JobNotFoundError,
+  JobAlreadyRunningError,
+  MigrationError,
+} from "../services/migration-job"
 import type { NewEnvironment } from "../db/schema"
 
 // ---------------------
@@ -55,6 +64,15 @@ const mapImisSchemaError = (error: ImisSchemaError) =>
 
 const mapTraceStoreError = (error: TraceStoreError) =>
   new TraceStoreErrorSchema({ message: error.message })
+
+const mapJobNotFoundError = (error: JobNotFoundError) =>
+  new JobNotFoundErrorSchema({ jobId: error.jobId })
+
+const mapJobAlreadyRunningError = (error: JobAlreadyRunningError) =>
+  new JobAlreadyRunningErrorSchema({ jobId: error.jobId })
+
+const mapMigrationError = (error: MigrationError) =>
+  new MigrationErrorSchema({ message: error.message })
 
 const mapPersistenceError = (error: DatabaseError | EnvironmentNotFoundError) => {
   if (error._tag === "DatabaseError") {
@@ -298,5 +316,153 @@ export const HandlersLive = ApiGroup.toLayer({
       const traceStore = yield* TraceStoreService
       yield* traceStore.clearTraces()
     }).pipe(Effect.mapError(mapTraceStoreError)),
+
+  // ---------------------
+  // Job Handlers
+  // ---------------------
+
+  "jobs.create": (payload) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      
+      // Validate required fields based on mode
+      if (!payload.name) {
+        return yield* Effect.fail(
+          new ValidationErrorSchema({ message: "Job name is required" })
+        )
+      }
+      if (payload.mode === "query" && !payload.sourceQueryPath) {
+        return yield* Effect.fail(
+          new ValidationErrorSchema({ message: "Source query path is required for query mode" })
+        )
+      }
+      if (payload.mode === "datasource" && !payload.sourceEntityType) {
+        return yield* Effect.fail(
+          new ValidationErrorSchema({ message: "Source entity type is required for datasource mode" })
+        )
+      }
+
+      const result = yield* jobService.createJob({
+        name: payload.name,
+        mode: payload.mode,
+        sourceEnvironmentId: payload.sourceEnvironmentId,
+        sourceQueryPath: payload.sourceQueryPath,
+        sourceEntityType: payload.sourceEntityType,
+        destEnvironmentId: payload.destEnvironmentId,
+        destEntityType: payload.destEntityType,
+        mappings: payload.mappings,
+      })
+      
+      return result
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error instanceof ValidationErrorSchema) return error
+        if (error._tag === "DatabaseError") return mapDatabaseError(error)
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
+      })
+    ),
+
+  "jobs.list": () =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      const jobs = yield* jobService.listJobs()
+      return jobs
+    }).pipe(Effect.mapError(mapDatabaseError)),
+
+  "jobs.get": ({ jobId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      const job = yield* jobService.getJob(jobId)
+      return job
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error._tag === "JobNotFoundError") return mapJobNotFoundError(error)
+        if (error._tag === "DatabaseError") return mapDatabaseError(error)
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
+      })
+    ),
+
+  "jobs.run": ({ jobId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      const result = yield* jobService.runJob(jobId)
+      return result
+    }).pipe(
+      Effect.mapError((error) => {
+        switch (error._tag) {
+          case "JobNotFoundError":
+            return mapJobNotFoundError(error)
+          case "JobAlreadyRunningError":
+            return mapJobAlreadyRunningError(error)
+          case "MigrationError":
+            return mapMigrationError(error)
+          case "DatabaseError":
+            return mapDatabaseError(error)
+          case "EnvironmentNotFoundError":
+            return mapEnvironmentNotFoundError(error)
+          case "MissingCredentialsError":
+            return mapMissingCredentialsError(error)
+          case "ImisAuthError":
+            return mapImisAuthError(error)
+          case "ImisRequestError":
+            return mapImisRequestError(error)
+          case "ImisResponseError":
+            return mapImisResponseError(error)
+          case "ImisSchemaError":
+            return mapImisSchemaError(error)
+          default:
+            return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
+        }
+      })
+    ),
+
+  "jobs.retry": ({ jobId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      const result = yield* jobService.retryFailedRows(jobId)
+      return result
+    }).pipe(
+      Effect.mapError((error) => {
+        switch (error._tag) {
+          case "JobNotFoundError":
+            return mapJobNotFoundError(error)
+          case "DatabaseError":
+            return mapDatabaseError(error)
+          case "EnvironmentNotFoundError":
+            return mapEnvironmentNotFoundError(error)
+          case "MissingCredentialsError":
+            return mapMissingCredentialsError(error)
+          case "ImisAuthError":
+            return mapImisAuthError(error)
+          case "ImisRequestError":
+            return mapImisRequestError(error)
+          case "ImisResponseError":
+            return mapImisResponseError(error)
+          case "ImisSchemaError":
+            return mapImisSchemaError(error)
+          default:
+            return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
+        }
+      })
+    ),
+
+  "jobs.failedRows": ({ jobId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      const failedRows = yield* jobService.getJobFailedRows(jobId)
+      return failedRows
+    }).pipe(Effect.mapError(mapDatabaseError)),
+
+  "jobs.cancel": ({ jobId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService
+      yield* jobService.cancelJob(jobId)
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error._tag === "JobNotFoundError") return mapJobNotFoundError(error)
+        if (error._tag === "DatabaseError") return mapDatabaseError(error)
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
+      })
+    ),
 })
 
