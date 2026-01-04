@@ -27,10 +27,14 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   )
 
   // Derive AES key using PBKDF2
+  // Create a new ArrayBuffer copy to ensure correct type for Web Crypto API
+  const saltBuffer = new ArrayBuffer(salt.byteLength)
+  new Uint8Array(saltBuffer).set(salt)
+
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: saltBuffer,
       iterations: ITERATIONS,
       hash: "SHA-256",
     },

@@ -350,7 +350,7 @@ export const HandlersLive = ApiGroup.toLayer({
         sourceEntityType: payload.sourceEntityType,
         destEnvironmentId: payload.destEnvironmentId,
         destEntityType: payload.destEntityType,
-        mappings: payload.mappings,
+        mappings: [...payload.mappings],
       })
       
       return result
@@ -467,16 +467,6 @@ export const HandlersLive = ApiGroup.toLayer({
             return mapEnvironmentNotFoundError(error)
           case "MissingCredentialsError":
             return mapMissingCredentialsError(error)
-          case "ImisAuthError":
-            return mapImisAuthError(error)
-          case "ImisRequestError":
-            return mapImisRequestError(error)
-          case "ImisResponseError":
-            return mapImisResponseError(error)
-          case "ImisSchemaError":
-            return mapImisSchemaError(error)
-          default:
-            return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
         }
       })
     ),

@@ -83,7 +83,7 @@ function TracesPage() {
   }
 
   // Build span tree from flat list
-  const buildSpanTree = (spans: StoredSpan[]): SpanNode[] => {
+  const buildSpanTree = (spans: readonly StoredSpan[]): SpanNode[] => {
     const spanMap = new Map<string, SpanNode>()
     const roots: SpanNode[] = []
 

@@ -288,7 +288,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
 
     const processRows = (
       jobId: string,
-      rows: Record<string, unknown>[],
+      rows: readonly Record<string, unknown>[],
       mappings: PropertyMapping[],
       destEnvId: string,
       destEntityType: string,
@@ -552,7 +552,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
                 successfulRows: successful,
                 failedRowCount: failed,
                 failedQueryOffsets:
-                  failedOffsets.length > 0 ? JSON.stringify(failedOffsets) : null,
+                  failedOffsets.length > 0 ? JSON.stringify(failedOffsets) : undefined,
                 status: failed > 0 || failedOffsets.length > 0 ? "partial" : "completed",
                 completedAt: new Date().toISOString(),
               })
@@ -755,7 +755,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
   static Test = Layer.succeed(
     this,
     new MigrationJobService({
-      createJob: () => Effect.succeed({ jobId: "test-job-id" }),
+      createJob: () => Effect.succeed({ jobId: "00000000-0000-0000-0000-000000000000" }),
       runJob: () =>
         Effect.succeed({
           processed: 0,
