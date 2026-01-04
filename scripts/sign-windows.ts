@@ -66,19 +66,29 @@ if (!existsSync(certPfx)) {
 
 console.log(`Signing ${executable}...`);
 
-// Sign the executable
-await $`osslsigncode sign \
-  -pkcs12 ${certPfx} \
-  -pass "" \
-  -n "i-migrate" \
-  -h sha256 \
-  -in ${executable} \
-  -out ${signedExecutable}`;
+// Sign the executable using Bun.spawn for reliable argument passing
+const signResult = Bun.spawnSync([
+  "osslsigncode",
+  "sign",
+  "-pkcs12", certPfx,
+  "-pass", "",
+  "-n", "i-migrate",
+  "-h", "sha256",
+  "-in", executable,
+  "-out", signedExecutable,
+]);
+
+if (signResult.exitCode !== 0) {
+  console.error(signResult.stderr.toString());
+  console.error("Failed");
+  process.exit(1);
+}
 
 // Replace original with signed version
 await $`mv ${signedExecutable} ${executable}`;
 
 console.log("Verifying signature...");
-await $`osslsigncode verify ${executable}`;
+// Use the self-signed cert as the CA for verification
+await $`osslsigncode verify -CAfile ${certPem} ${executable}`;
 
 console.log("Windows executable signed successfully!");
