@@ -7,7 +7,6 @@ import {
   Loader2,
   AlertCircle,
   ChevronRight,
-  Home,
   ArrowUp,
 } from 'lucide-react'
 import { queries } from '@/lib/queries'
@@ -181,14 +180,6 @@ export function QueryFileBrowser({
 
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-sm overflow-x-auto pb-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 h-7 px-2"
-          onClick={() => handleNavigateToFolder(ROOT_PATH)}
-        >
-          <Home className="size-3.5" />
-        </Button>
         {breadcrumbs.map((crumb, index) => (
           <div key={crumb.path} className="flex items-center">
             {index > 0 && <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />}
