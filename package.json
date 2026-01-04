@@ -24,7 +24,8 @@
     "format": "oxfmt src .vscode *.ts *.json",
     "format:check": "oxfmt --check src .vscode *.ts *.json",
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "test:integration": "bun test test/imis-api --timeout 30000"
   },
   "dependencies": {
     "@babel/core": "^7.28.5",
