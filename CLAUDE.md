@@ -12,7 +12,13 @@ bun run generate-routes    # Generate TanStack Router routes manually
 # Building
 bun run build              # Build for web (HTML + assets to dist/)
 bun run build:mac          # Build macOS executable (dist/i-migrate)
+bun run build:mac:signed   # Build + self-sign macOS executable
 bun run build:windows      # Build Windows executable (dist/i-migrate.exe)
+bun run build:windows:signed # Build + self-sign Windows executable
+
+# Code Signing (standalone)
+bun run sign:mac           # Sign existing macOS executable (ad-hoc)
+bun run sign:windows       # Sign existing Windows executable (requires osslsigncode)
 
 # Database
 bun run db:generate        # Generate Drizzle migrations
