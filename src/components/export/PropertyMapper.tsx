@@ -35,7 +35,7 @@ type MappingWarning = {
 }
 
 // Properties that cannot be mapped to as they are auto-created on insert
-const RESTRICTED_DESTINATION_PROPERTIES: Record<string, string> = {
+export const RESTRICTED_DESTINATION_PROPERTIES: Record<string, string> = {
   Ordinal: 'Auto-incrementing row ID for multi-instance data sources',
   UpdatedOn: 'Auto-set to the date/time the row is inserted',
   UpdatedBy: 'Auto-set to the username of the logged-in account',
@@ -52,21 +52,21 @@ type PropertyMapperProps = {
 }
 
 // ---------------------
-// Helpers
+// Helpers (Exported for testing)
 // ---------------------
 
-function getPropertyTypeName(prop: BoProperty): string {
+export function getPropertyTypeName(prop: BoProperty): string {
   return prop.PropertyTypeName
 }
 
-function getMaxLength(prop: BoProperty): number | null {
+export function getMaxLength(prop: BoProperty): number | null {
   if (prop.PropertyTypeName === 'String' && 'MaxLength' in prop) {
     return prop.MaxLength
   }
   return null
 }
 
-function checkCompatibility(
+export function checkCompatibility(
   source: BoProperty,
   dest: BoProperty
 ): { compatible: boolean; warnings: MappingWarning[] } {
@@ -99,16 +99,17 @@ function checkCompatibility(
   return { compatible: true, warnings }
 }
 
-function findAutoMappings(
+export function findAutoMappings(
   sourceProps: readonly BoProperty[],
-  destProps: readonly BoProperty[]
+  destProps: readonly BoProperty[],
+  restrictedProperties: Record<string, string> = RESTRICTED_DESTINATION_PROPERTIES
 ): PropertyMapping[] {
   return sourceProps.map((sourceProp) => {
     // Find matching destination property by name and compatible type
     const matchingDest = destProps.find((destProp) => {
       if (destProp.Name !== sourceProp.Name) return false
       // Skip restricted properties
-      if (destProp.Name in RESTRICTED_DESTINATION_PROPERTIES) return false
+      if (destProp.Name in restrictedProperties) return false
       const { compatible } = checkCompatibility(sourceProp, destProp)
       return compatible
     })

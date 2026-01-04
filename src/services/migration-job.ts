@@ -92,13 +92,14 @@ const queryRetrySchedule = Schedule.exponential(Duration.millis(1000), 2).pipe(
 )
 
 // ---------------------
-// Helper Functions
+// Helper Functions (Exported for testing)
 // ---------------------
 
 /**
  * Transform a source row to destination format using property mappings.
+ * Filters out non-primitive values and only includes mappings with a destination.
  */
-const transformRow = (
+export const transformRow = (
   sourceRow: Record<string, unknown>,
   mappings: PropertyMapping[]
 ): RowData => {
@@ -122,8 +123,9 @@ const transformRow = (
 
 /**
  * Generate offsets for paginated queries.
+ * Returns array of offsets starting from 0 up to totalCount.
  */
-const generateOffsets = (totalCount: number, batchSize: number = 500): number[] => {
+export const generateOffsets = (totalCount: number, batchSize: number = 500): number[] => {
   const batches = Math.ceil(totalCount / batchSize)
   return Array.from({ length: batches }, (_, i) => i * batchSize)
 }
