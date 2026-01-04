@@ -208,6 +208,8 @@ export const HandlersLive = ApiGroup.toLayer({
         baseUrl: payload.baseUrl,
         username: payload.username,
         icon,
+        queryConcurrency: payload.queryConcurrency ?? 5,
+        insertConcurrency: payload.insertConcurrency ?? 50,
         createdAt: now,
         updatedAt: now,
       }
@@ -224,10 +226,18 @@ export const HandlersLive = ApiGroup.toLayer({
       const persistence = yield* PersistenceService
 
       // Build updates object with only defined fields
-      const updates: Partial<{ name: string; baseUrl: string; username: string }> = {}
+      const updates: Partial<{
+        name: string
+        baseUrl: string
+        username: string
+        queryConcurrency: number
+        insertConcurrency: number
+      }> = {}
       if (payload.name !== undefined) updates.name = payload.name
       if (payload.baseUrl !== undefined) updates.baseUrl = payload.baseUrl
       if (payload.username !== undefined) updates.username = payload.username
+      if (payload.queryConcurrency !== undefined) updates.queryConcurrency = payload.queryConcurrency
+      if (payload.insertConcurrency !== undefined) updates.insertConcurrency = payload.insertConcurrency
 
       if (Object.keys(updates).length === 0) {
         return yield* Effect.fail(

@@ -62,6 +62,8 @@ export const createEnvironment = (data: {
   name: string
   baseUrl: string
   username: string
+  queryConcurrency?: number
+  insertConcurrency?: number
 }) => withClient((client) => client.environments.create(data))
 
 /** Update an existing environment */
@@ -70,6 +72,8 @@ export const updateEnvironment = (data: {
   name?: string
   baseUrl?: string
   username?: string
+  queryConcurrency?: number
+  insertConcurrency?: number
 }) => withClient((client) => client.environments.update(data))
 
 /** Delete an environment */
