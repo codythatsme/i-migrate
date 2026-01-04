@@ -109,6 +109,45 @@ const mapConnectionError = (
 const generateId = () => crypto.randomUUID()
 
 // ---------------------
+// Helper: Fetch Favicon
+// ---------------------
+
+const fetchFavicon = (baseUrl: string): Effect.Effect<string | null, never, never> =>
+  Effect.gen(function* () {
+    // Parse the URL to get just the origin
+    const url = new URL(baseUrl)
+    const faviconUrl = `${url.origin}/favicon.ico`
+
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(faviconUrl, {
+        signal: AbortSignal.timeout(5000),
+        headers: { "Accept": "image/x-icon, image/png, image/svg+xml, image/*" }
+      }),
+      catch: () => null,
+    })
+
+    if (!response || !response.ok) {
+      return null
+    }
+
+    const contentType = response.headers.get("content-type") || "image/x-icon"
+    const arrayBuffer = yield* Effect.tryPromise({
+      try: () => response.arrayBuffer(),
+      catch: () => null,
+    })
+
+    if (!arrayBuffer) {
+      return null
+    }
+
+    // Convert to base64 data URL
+    const base64 = Buffer.from(arrayBuffer).toString("base64")
+    return `data:${contentType};base64,${base64}`
+  }).pipe(
+    Effect.catchAll(() => Effect.succeed(null))
+  )
+
+// ---------------------
 // Handlers Implementation
 // ---------------------
 
@@ -159,12 +198,16 @@ export const HandlersLive = ApiGroup.toLayer({
         )
       }
 
+      // Fetch favicon from the base URL (non-blocking, returns null on failure)
+      const icon = yield* fetchFavicon(payload.baseUrl)
+
       const now = new Date().toISOString()
       const newEnv: NewEnvironment = {
         id: generateId(),
         name: payload.name,
         baseUrl: payload.baseUrl,
         username: payload.username,
+        icon,
         createdAt: now,
         updatedAt: now,
       }

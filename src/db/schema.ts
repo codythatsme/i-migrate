@@ -6,6 +6,7 @@ export const environments = sqliteTable("environments", {
   name: text("name").notNull(),
   baseUrl: text("base_url").notNull(),
   username: text("username").notNull(),
+  icon: text("icon"), // Base64 encoded favicon or null
   // Concurrency settings for migration jobs
   queryConcurrency: integer("query_concurrency").notNull().default(5),   // Max concurrent 500-row query batches
   insertConcurrency: integer("insert_concurrency").notNull().default(50), // Max concurrent single inserts

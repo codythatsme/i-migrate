@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { NuqsAdapter } from 'nuqs/adapters/tanstack-router'
@@ -10,8 +10,7 @@ import {
 } from '@/components/ui/sidebar'
 import { useEnvironmentStore } from '@/stores/environment-store'
 import { queries } from '@/lib/queries'
-import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
-import { PasswordRequiredDialog } from '@/components/password-required-dialog'
+import { EnvironmentSelectScreen } from '@/components/environment-select-screen'
 import '../index.css'
 
 export const Route = createRootRoute({
@@ -19,6 +18,31 @@ export const Route = createRootRoute({
 })
 
 function RootLayout() {
+  const { selectedId, clearSelection } = useEnvironmentStore()
+  const { data: environments } = useQuery(queries.environments.all())
+  const hasCleared = useRef(false)
+
+  // Clear environment selection on app startup so user must select each session
+  useEffect(() => {
+    if (!hasCleared.current) {
+      hasCleared.current = true
+      clearSelection()
+    }
+  }, [clearSelection])
+
+  // Find current environment and check if it has a password
+  const currentEnvironment = environments?.find((env) => env.id === selectedId)
+  const isReady = selectedId !== null && currentEnvironment?.hasPassword === true
+
+  // Show environment select screen until user has selected and authenticated
+  if (!isReady) {
+    return (
+      <NuqsAdapter>
+        <EnvironmentSelectScreen />
+      </NuqsAdapter>
+    )
+  }
+
   return (
     <NuqsAdapter>
       <SidebarProvider>
@@ -31,37 +55,7 @@ function RootLayout() {
             <Outlet />
           </main>
         </SidebarInset>
-        <FirstRunDialog />
-        <PasswordRequiredDialog />
       </SidebarProvider>
     </NuqsAdapter>
-  )
-}
-
-function FirstRunDialog() {
-  const { selectedId, selectEnvironment } = useEnvironmentStore()
-  const { data: environments } = useQuery(queries.environments.all())
-
-  // Auto-select first environment if none selected
-  useEffect(() => {
-    if (environments && environments.length > 0 && !selectedId) {
-      const selectedExists = environments.some((e) => e.id === selectedId)
-      if (!selectedExists) {
-        const firstId = environments[0]?.id
-        if (firstId) selectEnvironment(firstId)
-      }
-    }
-  }, [environments, selectedId, selectEnvironment])
-
-  // Show dialog only when environments have loaded and none exist
-  const isFirstRun = environments !== undefined && environments.length === 0
-
-  return (
-    <AddEnvironmentDialog
-      open={isFirstRun}
-      onOpenChange={() => {}}
-      isFirstRun
-      onSuccess={selectEnvironment}
-    />
   )
 }

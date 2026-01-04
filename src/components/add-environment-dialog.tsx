@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Server } from 'lucide-react'
 import { useCreateEnvironment, useSetPassword } from '@/lib/mutations'
 import { Button } from '@/components/ui/button'
 import {
@@ -90,7 +91,14 @@ export function AddEnvironmentDialog({
         onPointerDownOutside={isFirstRun ? (e) => e.preventDefault() : undefined}
         onEscapeKeyDown={isFirstRun ? (e) => e.preventDefault() : undefined}
       >
-        <DialogHeader>
+        {/* Icon Placeholder */}
+        <div className="flex justify-center pt-2">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground border-2 border-border">
+            <Server className="h-8 w-8" />
+          </div>
+        </div>
+
+        <DialogHeader className="text-center">
           <DialogTitle>
             {isFirstRun ? 'Add Your First Environment' : 'Add Environment'}
           </DialogTitle>

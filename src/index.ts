@@ -105,4 +105,3 @@ process.on("SIGTERM", async () => {
 })
 
 console.log(`🚀 Server running at ${server.url}`)
-console.log(`📡 RPC endpoint at ${server.url}rpc`)

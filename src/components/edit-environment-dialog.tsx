@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { Server } from 'lucide-react'
 import { useUpdateEnvironment, useSetPassword } from '@/lib/mutations'
 import { Button } from '@/components/ui/button'
 import {
@@ -80,7 +81,22 @@ export function EditEnvironmentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        {/* Icon Display */}
+        <div className="flex justify-center pt-2">
+          {environment?.icon ? (
+            <img
+              src={environment.icon}
+              alt=""
+              className="h-16 w-16 rounded-full object-contain border-2 border-border"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground border-2 border-border">
+              <Server className="h-8 w-8" />
+            </div>
+          )}
+        </div>
+
+        <DialogHeader className="text-center">
           <DialogTitle>Edit Environment</DialogTitle>
           <DialogDescription>
             Update the environment details. Leave the password blank to keep the existing one.
