@@ -144,15 +144,23 @@ function EnvironmentsPage() {
               >
                 <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                   <div className="flex items-start gap-3">
-                    <div
-                      className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                        isSelected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      <Server className="size-5" />
-                    </div>
+                    {env.icon ? (
+                      <img
+                        src={env.icon}
+                        alt=""
+                        className="size-10 shrink-0 rounded-lg object-contain"
+                      />
+                    ) : (
+                      <div
+                        className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        <Server className="size-5" />
+                      </div>
+                    )}
                     <div className="flex flex-col gap-1">
                       <CardTitle className="text-base">{env.name}</CardTitle>
                       <CardDescription className="text-xs">
