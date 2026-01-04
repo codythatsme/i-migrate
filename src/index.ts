@@ -65,21 +65,15 @@ const { handler: rpcHandler, dispose } = RpcServer.toWebHandler(ApiGroup, {
 
 const server = serve({
   routes: {
-    // RPC endpoint
+    // RPC endpoint (must be before wildcard)
     "/rpc": {
       async POST(req) {
         return rpcHandler(req)
       },
     },
-    // Serve index.html at root - Bun automatically handles serving referenced chunks
-    "/": index,
-  },
-
-  // Fallback handler for SPA client-side routes and static assets
-  fetch(req) {
-    // Return the HTML import for SPA routes - Bun handles this as a Response
-    // Static assets (chunks, CSS) are served automatically by Bun's internal routing
-    return index
+    // Serve index.html for all routes (SPA fallback) - works with single-file executables
+    // when built using Bun.build's compile option with Tailwind plugin
+    "/*": index,
   },
 
   development: process.env.NODE_ENV !== "production" && {
