@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import plugin from "bun-plugin-tailwind";
-import { reactCompilerPlugin } from "./src/plugins/react-compiler";
+import { reactCompilerPlugin } from "../src/plugins/react-compiler";
 import { existsSync } from "fs";
 import { rm, mkdir } from "fs/promises";
 import path from "path";
