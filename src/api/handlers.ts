@@ -207,6 +207,7 @@ export const HandlersLive = ApiGroup.toLayer({
         name: payload.name,
         baseUrl: payload.baseUrl,
         username: payload.username,
+        version: payload.version ?? "EMS",
         icon,
         queryConcurrency: payload.queryConcurrency ?? 5,
         insertConcurrency: payload.insertConcurrency ?? 50,
@@ -230,12 +231,14 @@ export const HandlersLive = ApiGroup.toLayer({
         name: string
         baseUrl: string
         username: string
+        version: "EMS" | "2017"
         queryConcurrency: number
         insertConcurrency: number
       }> = {}
       if (payload.name !== undefined) updates.name = payload.name
       if (payload.baseUrl !== undefined) updates.baseUrl = payload.baseUrl
       if (payload.username !== undefined) updates.username = payload.username
+      if (payload.version !== undefined) updates.version = payload.version
       if (payload.queryConcurrency !== undefined) updates.queryConcurrency = payload.queryConcurrency
       if (payload.insertConcurrency !== undefined) updates.insertConcurrency = payload.insertConcurrency
 
