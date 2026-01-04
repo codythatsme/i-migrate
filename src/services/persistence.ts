@@ -82,7 +82,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()("ap
 
       updateEnvironment: (
         id: string,
-        updates: Partial<Pick<Environment, "name" | "baseUrl" | "username" | "icon">>
+        updates: Partial<Pick<Environment, "name" | "baseUrl" | "username" | "icon" | "queryConcurrency" | "insertConcurrency">>
       ) =>
         Effect.gen(function* () {
           // First check if environment exists

@@ -10,6 +10,8 @@ export const EnvironmentSchema = Schema.Struct({
   baseUrl: Schema.String,
   username: Schema.String,
   icon: Schema.NullOr(Schema.String),
+  queryConcurrency: Schema.Number,
+  insertConcurrency: Schema.Number,
   createdAt: Schema.String,
   updatedAt: Schema.String,
 })
@@ -27,6 +29,8 @@ export const CreateEnvironmentSchema = Schema.Struct({
   name: Schema.String,
   baseUrl: Schema.String,
   username: Schema.String,
+  queryConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
+  insertConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
 })
 
 export type CreateEnvironment = typeof CreateEnvironmentSchema.Type
@@ -36,6 +40,8 @@ export const UpdateEnvironmentSchema = Schema.Struct({
   name: Schema.optionalWith(Schema.String, { exact: true }),
   baseUrl: Schema.optionalWith(Schema.String, { exact: true }),
   username: Schema.optionalWith(Schema.String, { exact: true }),
+  queryConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
+  insertConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
 })
 
 export type UpdateEnvironment = typeof UpdateEnvironmentSchema.Type

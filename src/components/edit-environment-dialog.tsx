@@ -12,6 +12,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import type { Environment } from '@/lib/environments'
 
 type EditEnvironmentDialogProps = {
@@ -31,6 +37,8 @@ export function EditEnvironmentDialog({
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPasswordValue] = useState('')
+  const [queryConcurrency, setQueryConcurrency] = useState(5)
+  const [insertConcurrency, setInsertConcurrency] = useState(50)
 
   // Reset form when environment changes
   useEffect(() => {
@@ -38,6 +46,8 @@ export function EditEnvironmentDialog({
       setName(environment.name)
       setBaseUrl(environment.baseUrl)
       setUsername(environment.username)
+      setQueryConcurrency(environment.queryConcurrency)
+      setInsertConcurrency(environment.insertConcurrency)
       // Don't pre-fill password - it's stored server-side and not retrievable
       setPasswordValue('')
     }
@@ -54,6 +64,8 @@ export function EditEnvironmentDialog({
           name: name.trim(),
           baseUrl: baseUrl.trim(),
           username: username.trim(),
+          queryConcurrency,
+          insertConcurrency,
         },
       },
       {
@@ -147,6 +159,42 @@ export function EditEnvironmentDialog({
                 : "No password stored. Enter a password to save it server-side."}
             </p>
           </div>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="advanced" className="border-b-0">
+              <AccordionTrigger className="py-3 text-sm">Advanced</AccordionTrigger>
+              <AccordionContent>
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="edit-env-query-concurrency">Query Concurrency</Label>
+                      <Input
+                        id="edit-env-query-concurrency"
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={queryConcurrency}
+                        onChange={(e) => setQueryConcurrency(Number(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="edit-env-insert-concurrency">Insert Concurrency</Label>
+                      <Input
+                        id="edit-env-insert-concurrency"
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={insertConcurrency}
+                        onChange={(e) => setInsertConcurrency(Number(e.target.value) || 1)}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Controls parallel operations during migration. Higher values may improve speed but increase load.
+                  </p>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           <DialogFooter className="pt-2">
             <Button
               type="button"
