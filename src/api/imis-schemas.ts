@@ -523,6 +523,46 @@ export const GenericEntityDataSchema = Schema.Struct({
 })
 
 // ---------------------
+// 2017 IQA Query Results (GenericEntityData format)
+// ---------------------
+
+/**
+ * Schema for wrapped values in 2017 responses.
+ * For example: { "$type": "System.Int32", "$value": 13280 }
+ */
+const WrappedValueSchema = Schema.Struct({
+  $type: Schema.String,
+  $value: Schema.Unknown,
+})
+
+/**
+ * Schema for property data in 2017 IQA responses.
+ * Values can be primitives OR wrapped objects like { "$type": "System.Int32", "$value": 13280 }
+ */
+export const Iqa2017PropertyDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
+  Name: Schema.String,
+  Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null, WrappedValueSchema),
+})
+
+/**
+ * Schema for 2017 IQA query result rows.
+ * 2017 environments return GenericEntityData with Properties array instead of flat objects.
+ */
+export const Iqa2017RowSchema = Schema.Struct({
+  $type: Schema.String,
+  EntityTypeName: Schema.String,
+  PrimaryParentEntityTypeName: Schema.String,
+  PrimaryParentIdentity: Schema.optionalWith(Schema.Any, { exact: true }),
+  Properties: SoaCollectionSchema(Iqa2017PropertyDataSchema),
+})
+
+/**
+ * Schema for 2017 IQA query response.
+ */
+export const Iqa2017ResponseSchema = QueryResponseSchema(Iqa2017RowSchema)
+
+// ---------------------
 // Inferred Types
 // ---------------------
 
@@ -578,6 +618,10 @@ export type QueryPropertyData = typeof QueryPropertyDataSchema.Type
 // IQA Query types
 export type IqaQueryRow = typeof IqaQueryRowSchema.Type
 export type IqaQueryResponse = typeof IqaQueryResponseSchema.Type
+
+// 2017 IQA Query types
+export type Iqa2017Row = typeof Iqa2017RowSchema.Type
+export type Iqa2017Response = typeof Iqa2017ResponseSchema.Type
 
 // Entity insert types
 export type GenericPropertyData = typeof GenericPropertyDataSchema.Type

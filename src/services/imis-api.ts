@@ -12,6 +12,7 @@ import {
   DocumentSummaryCollectionResultSchema,
   QueryDefinitionResultSchema,
   IqaQueryResponseSchema,
+  Iqa2017ResponseSchema,
   GenericEntityDataSchema,
   type QueryResponse,
   type BoEntityDefinition,
@@ -19,6 +20,7 @@ import {
   type DocumentSummaryCollectionResult,
   type QueryDefinitionResult,
   type IqaQueryResponse,
+  type Iqa2017Response,
   type GenericEntityData,
 } from "../api/imis-schemas"
 
@@ -97,6 +99,43 @@ const formatParseError = (error: ParseResult.ParseError): string => {
     return error.message
   }
 }
+
+// ---------------------
+// 2017 IQA Response Normalization
+// ---------------------
+
+/**
+ * Unwrap values that are wrapped in { $type, $value } objects.
+ * For example: { "$type": "System.Int32", "$value": 13280 } -> 13280
+ * Preserves blob structure for binary data.
+ */
+const unwrapValue = (value: unknown): unknown => {
+  if (typeof value === "object" && value !== null && "$value" in value) {
+    const wrapped = value as { $type: string; $value: unknown }
+    // Preserve blob structure for binary data
+    if (wrapped.$type === "System.Byte[], mscorlib") {
+      return value
+    }
+    return wrapped.$value
+  }
+  return value
+}
+
+/**
+ * Normalize a 2017 IQA response to match the EMS format.
+ * Converts GenericEntityData rows with Properties array to flat Record<string, unknown>.
+ */
+const normalize2017Response = (response: Iqa2017Response): IqaQueryResponse => ({
+  ...response,
+  Items: {
+    ...response.Items,
+    $values: response.Items.$values.map((row) =>
+      Object.fromEntries(
+        row.Properties.$values.map((p) => [p.Name, unwrapValue(p.Value)])
+      )
+    ),
+  },
+})
 
 // ---------------------
 // Schemas
@@ -541,35 +580,54 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       /**
        * Execute an IQA query with pagination.
        * Returns rows as Record<string, unknown> where keys are property aliases.
+       * Uses /api/query for EMS environments, /api/iqa for 2017 environments.
        * @param envId - Environment ID
        * @param queryPath - Full path to the query (e.g., "$/ContactManagement/DefaultContactQuery")
        * @param limit - Maximum rows to return (max 500)
        * @param offset - Starting offset for pagination
        */
       executeQuery: (envId: string, queryPath: string, limit: number = 500, offset: number = 0) =>
-        executeWithAuth(envId, "/api/query", (baseUrl, token) =>
-          HttpClientRequest.get(`${baseUrl}/api/query`).pipe(
-            HttpClientRequest.setUrlParam("queryname", queryPath),
-            HttpClientRequest.setUrlParam("limit", String(Math.min(limit, 500))),
-            HttpClientRequest.setUrlParam("offset", String(offset)),
-            HttpClientRequest.bearerToken(token),
-            HttpClientRequest.setHeader("Accept", "application/json"),
-            httpClient.execute,
-            Effect.flatMap((res) => {
-              if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(IqaQueryResponseSchema)(res)
-              }
-              return Effect.fail(
-                new HttpClientError.ResponseError({
-                  request: HttpClientRequest.get(`${baseUrl}/api/query`),
-                  response: res,
-                  reason: "StatusCode",
-                })
-              )
-            }),
-            Effect.scoped
+        Effect.gen(function* () {
+          // Get environment to determine version
+          const env = yield* persistence.getEnvironmentById(envId)
+          const is2017 = env.version === "2017"
+          const endpoint = is2017 ? "/api/iqa" : "/api/query"
+
+          // Make the request using executeWithAuth
+          const result = yield* executeWithAuth(envId, endpoint, (baseUrl, token) =>
+            HttpClientRequest.get(`${baseUrl}${endpoint}`).pipe(
+              HttpClientRequest.setUrlParam("queryname", queryPath),
+              HttpClientRequest.setUrlParam("limit", String(Math.min(limit, 500))),
+              HttpClientRequest.setUrlParam("offset", String(offset)),
+              HttpClientRequest.bearerToken(token),
+              HttpClientRequest.setHeader("Accept", "application/json"),
+              httpClient.execute,
+              Effect.flatMap((res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  // Use different schema based on version
+                  if (is2017) {
+                    return HttpClientResponse.schemaBodyJson(Iqa2017ResponseSchema)(res)
+                  }
+                  return HttpClientResponse.schemaBodyJson(IqaQueryResponseSchema)(res)
+                }
+                return Effect.fail(
+                  new HttpClientError.ResponseError({
+                    request: HttpClientRequest.get(`${baseUrl}${endpoint}`),
+                    response: res,
+                    reason: "StatusCode",
+                  })
+                )
+              }),
+              Effect.scoped
+            )
           )
-        ).pipe(
+
+          // Normalize 2017 response to match EMS format
+          if (is2017) {
+            return normalize2017Response(result as Iqa2017Response)
+          }
+          return result as IqaQueryResponse
+        }).pipe(
           Effect.withSpan("imis.executeQuery", {
             attributes: {
               environmentId: envId,
