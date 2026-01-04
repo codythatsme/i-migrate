@@ -5,6 +5,8 @@ import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import path from "path";
 
+const isCompileMode = process.argv.includes("--compile");
+
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`
 🏗️  Bun Build Script
@@ -26,10 +28,12 @@ Common Options:
   --banner <text>          Add banner text to output
   --footer <text>          Add footer text to output
   --define <obj>           Define global constants (e.g. --define.VERSION=1.0.0)
+  --compile                Build a standalone executable (uses src/index.ts)
   --help, -h               Show this help message
 
 Example:
   bun run build.ts --outdir=dist --minify --sourcemap=linked --external=react,react-dom
+  bun run build.ts --compile --target=bun-windows-x64 --outfile=dist/app.exe
 `);
   process.exit(0);
 }
@@ -121,17 +125,26 @@ if (existsSync(outdir)) {
 
 const start = performance.now();
 
-const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
-  .map(a => path.resolve("src", a))
-  .filter(dir => !dir.includes("node_modules"));
-console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
+// When compiling to executable, use src/index.ts as entry point (fixes styles not being compiled)
+// See: https://github.com/oven-sh/bun/pull/23748
+const entrypoints = isCompileMode
+  ? [path.resolve("src", "index.ts")]
+  : [...new Bun.Glob("**.html").scanSync("src")]
+      .map(a => path.resolve("src", a))
+      .filter(dir => !dir.includes("node_modules"));
+
+if (isCompileMode) {
+  console.log(`📦 Compile mode: using src/index.ts as entry point\n`);
+} else {
+  console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
+}
 
 const result = await Bun.build({
   entrypoints,
   outdir,
   plugins: [plugin, reactCompilerPlugin()],
   minify: true,
-  target: "browser",
+  target: isCompileMode ? "bun" : "browser",
   sourcemap: "linked",
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
