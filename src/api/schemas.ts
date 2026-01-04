@@ -4,11 +4,16 @@ import { Schema } from "effect"
 // Environment Schemas
 // ---------------------
 
+export const ImisVersionSchema = Schema.Literal("EMS", "2017")
+
+export type ImisVersion = typeof ImisVersionSchema.Type
+
 export const EnvironmentSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   baseUrl: Schema.String,
   username: Schema.String,
+  version: ImisVersionSchema,
   icon: Schema.NullOr(Schema.String),
   queryConcurrency: Schema.Number,
   insertConcurrency: Schema.Number,
@@ -29,6 +34,7 @@ export const CreateEnvironmentSchema = Schema.Struct({
   name: Schema.String,
   baseUrl: Schema.String,
   username: Schema.String,
+  version: Schema.optionalWith(ImisVersionSchema, { exact: true }),
   queryConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
   insertConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
 })
@@ -40,6 +46,7 @@ export const UpdateEnvironmentSchema = Schema.Struct({
   name: Schema.optionalWith(Schema.String, { exact: true }),
   baseUrl: Schema.optionalWith(Schema.String, { exact: true }),
   username: Schema.optionalWith(Schema.String, { exact: true }),
+  version: Schema.optionalWith(ImisVersionSchema, { exact: true }),
   queryConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
   insertConcurrency: Schema.optionalWith(Schema.Number, { exact: true }),
 })

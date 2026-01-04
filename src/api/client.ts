@@ -62,6 +62,7 @@ export const createEnvironment = (data: {
   name: string
   baseUrl: string
   username: string
+  version?: "EMS" | "2017"
   queryConcurrency?: number
   insertConcurrency?: number
 }) => withClient((client) => client.environments.create(data))
@@ -72,6 +73,7 @@ export const updateEnvironment = (data: {
   name?: string
   baseUrl?: string
   username?: string
+  version?: "EMS" | "2017"
   queryConcurrency?: number
   insertConcurrency?: number
 }) => withClient((client) => client.environments.update(data))

@@ -14,7 +14,7 @@ import {
 // Types for mutation inputs
 type UpdateEnvironmentInput = {
   id: string
-  updates: Partial<Pick<Environment, "name" | "baseUrl" | "username" | "queryConcurrency" | "insertConcurrency">>
+  updates: Partial<Pick<Environment, "name" | "baseUrl" | "username" | "version" | "queryConcurrency" | "insertConcurrency">>
 }
 
 // Create environment mutation

@@ -18,7 +18,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { Environment } from '@/lib/environments'
+import type { ImisVersion } from '@/api/schemas'
 
 type EditEnvironmentDialogProps = {
   environment: Environment | null
@@ -37,6 +45,7 @@ export function EditEnvironmentDialog({
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPasswordValue] = useState('')
+  const [version, setVersion] = useState<ImisVersion>('EMS')
   const [queryConcurrency, setQueryConcurrency] = useState(5)
   const [insertConcurrency, setInsertConcurrency] = useState(50)
 
@@ -46,6 +55,7 @@ export function EditEnvironmentDialog({
       setName(environment.name)
       setBaseUrl(environment.baseUrl)
       setUsername(environment.username)
+      setVersion(environment.version)
       setQueryConcurrency(environment.queryConcurrency)
       setInsertConcurrency(environment.insertConcurrency)
       // Don't pre-fill password - it's stored server-side and not retrievable
@@ -64,6 +74,7 @@ export function EditEnvironmentDialog({
           name: name.trim(),
           baseUrl: baseUrl.trim(),
           username: username.trim(),
+          version,
           queryConcurrency,
           insertConcurrency,
         },
@@ -134,6 +145,18 @@ export function EditEnvironmentDialog({
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-env-version">Version</Label>
+            <Select value={version} onValueChange={(v) => setVersion(v as ImisVersion)}>
+              <SelectTrigger id="edit-env-version" className="w-full">
+                <SelectValue placeholder="Select version" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EMS">EMS (Cloud)</SelectItem>
+                <SelectItem value="2017">2017 (On-Premise)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-env-username">Username</Label>

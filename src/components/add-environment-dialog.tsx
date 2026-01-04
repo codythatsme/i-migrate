@@ -12,6 +12,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { ImisVersion } from '@/api/schemas'
 
 type AddEnvironmentDialogProps = {
   open: boolean
@@ -32,12 +40,14 @@ export function AddEnvironmentDialog({
   const [baseUrl, setBaseUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPasswordValue] = useState('')
+  const [version, setVersion] = useState<ImisVersion>('EMS')
 
   const resetForm = () => {
     setName('')
     setBaseUrl('')
     setUsername('')
     setPasswordValue('')
+    setVersion('EMS')
   }
 
   const handleSubmit = (e: FormEvent) => {
@@ -48,6 +58,7 @@ export function AddEnvironmentDialog({
         name: name.trim(),
         baseUrl: baseUrl.trim(),
         username: username.trim(),
+        version,
       },
       {
         onSuccess: (env) => {
@@ -128,6 +139,18 @@ export function AddEnvironmentDialog({
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="env-version">Version</Label>
+            <Select value={version} onValueChange={(v) => setVersion(v as ImisVersion)}>
+              <SelectTrigger id="env-version" className="w-full">
+                <SelectValue placeholder="Select version" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EMS">EMS (Cloud)</SelectItem>
+                <SelectItem value="2017">2017 (On-Premise)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="env-username">Username</Label>

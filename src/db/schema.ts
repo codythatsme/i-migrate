@@ -1,11 +1,15 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
 
+// iMIS version type - EMS (cloud) or 2017 (on-premise)
+export type ImisVersion = "EMS" | "2017"
+
 // Environment table - no password stored (passwords are kept in memory only)
 export const environments = sqliteTable("environments", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   baseUrl: text("base_url").notNull(),
   username: text("username").notNull(),
+  version: text("version").notNull().$type<ImisVersion>().default("EMS"), // iMIS version: EMS or 2017
   icon: text("icon"), // Base64 encoded favicon or null
   // Concurrency settings for migration jobs
   queryConcurrency: integer("query_concurrency").notNull().default(5),   // Max concurrent 500-row query batches
