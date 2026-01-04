@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronsUpDown, Plus, Server } from 'lucide-react'
+import { Activity, Check, ChevronsUpDown, Plus, Server } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import { useEnvironmentStore } from '@/stores/environment-store'
 import { queries } from '@/lib/queries'
 import {
@@ -81,9 +82,17 @@ export function EnvironmentSwitcher() {
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 tooltip={selectedEnvironment.name}
               >
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Server className="size-4" />
-                </div>
+                {selectedEnvironment.icon ? (
+                  <img
+                    src={selectedEnvironment.icon}
+                    alt=""
+                    className="aspect-square size-8 rounded-lg object-contain"
+                  />
+                ) : (
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <Server className="size-4" />
+                  </div>
+                )}
                 <div className="flex flex-1 flex-col gap-0.5 leading-none">
                   <span className="font-medium truncate">
                     {selectedEnvironment.name}
@@ -110,9 +119,17 @@ export function EnvironmentSwitcher() {
                   onClick={() => selectEnvironment(env.id)}
                   className="gap-2 p-2"
                 >
-                  <div className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-                    <Server className="size-3" />
-                  </div>
+                  {env.icon ? (
+                    <img
+                      src={env.icon}
+                      alt=""
+                      className="size-6 rounded-sm object-contain"
+                    />
+                  ) : (
+                    <div className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-foreground">
+                      <Server className="size-3" />
+                    </div>
+                  )}
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{env.name}</span>
                     <span className="text-xs text-muted-foreground">
@@ -133,6 +150,18 @@ export function EnvironmentSwitcher() {
                   <Plus className="size-3" />
                 </div>
                 <span className="text-muted-foreground">Add Environment</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Debugging
+              </DropdownMenuLabel>
+              <DropdownMenuItem asChild className="gap-2 p-2">
+                <Link to="/traces">
+                  <div className="flex size-6 items-center justify-center rounded-sm bg-muted">
+                    <Activity className="size-3" />
+                  </div>
+                  <span>Traces</span>
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

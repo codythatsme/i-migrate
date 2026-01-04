@@ -9,6 +9,7 @@ export const EnvironmentSchema = Schema.Struct({
   name: Schema.String,
   baseUrl: Schema.String,
   username: Schema.String,
+  icon: Schema.NullOr(Schema.String),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 })
