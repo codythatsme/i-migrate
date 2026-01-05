@@ -34,6 +34,108 @@ if (!existsSync(dbDir)) {
 const sqlite = new Database(dbPath, { create: true })
 sqlite.run("PRAGMA journal_mode = WAL;")
 
+// Auto-create tables if they don't exist (for portable executable)
+// This embeds the schema directly since migration files aren't bundled
+function initializeSchema() {
+  // Check if tables exist
+  const tables = sqlite.query("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]
+  const tableNames = new Set(tables.map(t => t.name))
+
+  if (!tableNames.has("environments")) {
+    sqlite.run(`
+      CREATE TABLE environments (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        username TEXT NOT NULL,
+        version TEXT NOT NULL DEFAULT 'EMS',
+        icon TEXT,
+        query_concurrency INTEGER NOT NULL DEFAULT 5,
+        insert_concurrency INTEGER NOT NULL DEFAULT 50,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `)
+  }
+
+  if (!tableNames.has("jobs")) {
+    sqlite.run(`
+      CREATE TABLE jobs (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        source_environment_id TEXT NOT NULL,
+        source_query_path TEXT,
+        source_entity_type TEXT,
+        dest_environment_id TEXT NOT NULL,
+        dest_entity_type TEXT NOT NULL,
+        mappings TEXT NOT NULL,
+        total_rows INTEGER,
+        processed_rows INTEGER NOT NULL DEFAULT 0,
+        successful_rows INTEGER NOT NULL DEFAULT 0,
+        failed_row_count INTEGER NOT NULL DEFAULT 0,
+        failed_query_offsets TEXT,
+        started_at TEXT,
+        completed_at TEXT,
+        created_at TEXT NOT NULL
+      )
+    `)
+  }
+
+  if (!tableNames.has("failed_rows")) {
+    sqlite.run(`
+      CREATE TABLE failed_rows (
+        id TEXT PRIMARY KEY NOT NULL,
+        job_id TEXT NOT NULL,
+        row_index INTEGER NOT NULL,
+        encrypted_payload TEXT NOT NULL,
+        error_message TEXT NOT NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        resolved_at TEXT
+      )
+    `)
+  }
+
+  if (!tableNames.has("traces")) {
+    sqlite.run(`
+      CREATE TABLE traces (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        start_time INTEGER NOT NULL,
+        end_time INTEGER,
+        duration_ms INTEGER,
+        error_message TEXT,
+        created_at TEXT NOT NULL
+      )
+    `)
+  }
+
+  if (!tableNames.has("spans")) {
+    sqlite.run(`
+      CREATE TABLE spans (
+        id TEXT PRIMARY KEY NOT NULL,
+        trace_id TEXT NOT NULL,
+        parent_span_id TEXT,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        start_time INTEGER NOT NULL,
+        end_time INTEGER,
+        duration_ms INTEGER,
+        attributes TEXT,
+        events TEXT,
+        error_cause TEXT
+      )
+    `)
+  }
+}
+
+initializeSchema()
+
 // Create Drizzle instance with schema
 export const db = drizzle(sqlite, { schema })
 
