@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, memo, useCallback, useDeferredValue } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, ArrowRight, Loader2, Search, X, Trash2, Filter, Info, Lock } from 'lucide-react'
 import { queries } from '@/lib/queries'
@@ -146,6 +146,30 @@ export function QueryPropertyMapper({
     return destEntity?.Properties.$values ?? []
   }, [destEntity])
 
+  // Lookup Maps for O(1) access instead of O(n) .find() calls
+  const mappingBySource = useMemo(
+    () => new Map(mappings.map((m) => [m.sourceProperty, m])),
+    [mappings]
+  )
+
+  const queryByName = useMemo(
+    () => new Map(queryProperties.map((p) => [p.Alias || p.PropertyName, p])),
+    [queryProperties]
+  )
+
+  const destByName = useMemo(
+    () => new Map(destProperties.map((p) => [p.Name, p])),
+    [destProperties]
+  )
+
+  // Pre-sort destinations once at parent level (not per-row)
+  const sortedDestinations = useMemo(() => {
+    return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name))
+  }, [destProperties])
+
+  // Deferred search for non-blocking UI
+  const deferredSearch = useDeferredValue(searchQuery)
+
   // IsPrimary validation for Party destinations
   const isPrimaryValidation = useMemo(
     () => checkIsPrimaryRequired(destEntity?.PrimaryParentEntityTypeName, destProperties, mappings),
@@ -176,17 +200,18 @@ export function QueryPropertyMapper({
     }
   }, [queryProperties, destProperties, hasInitialized, onMappingsChange])
 
-  const handleMappingChange = (sourceProperty: string, destinationProperty: string | null) => {
-    const newMappings = mappings.map((m) =>
-      m.sourceProperty === sourceProperty
-        ? { ...m, destinationProperty }
-        : m
-    )
-    onMappingsChange(newMappings)
-  }
+  const handleMappingChange = useCallback(
+    (sourceProperty: string, destinationProperty: string | null) => {
+      const newMappings = mappings.map((m) =>
+        m.sourceProperty === sourceProperty ? { ...m, destinationProperty } : m
+      )
+      onMappingsChange(newMappings)
+    },
+    [mappings, onMappingsChange]
+  )
 
   const handleClearAll = () => {
-    const cleared = mappings.map(m => ({ ...m, destinationProperty: null }))
+    const cleared = mappings.map((m) => ({ ...m, destinationProperty: null }))
     onMappingsChange(cleared)
   }
 
@@ -195,29 +220,30 @@ export function QueryPropertyMapper({
   }, [mappings])
 
   const filteredProperties = useMemo(() => {
+    const search = deferredSearch.toLowerCase()
     return queryProperties.filter((prop) => {
       const name = prop.Alias || prop.PropertyName
-      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase())
-      
+      const matchesSearch = name.toLowerCase().includes(search)
+
       if (showUnmappedOnly) {
-        const mapping = mappings.find(m => m.sourceProperty === name)
+        const mapping = mappingBySource.get(name)
         return matchesSearch && (!mapping || mapping.destinationProperty === null)
       }
-      
+
       return matchesSearch
     })
-  }, [queryProperties, searchQuery, showUnmappedOnly, mappings])
+  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource])
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
       if (!mapping.destinationProperty) return count
-      const queryProp = queryProperties.find((p) => (p.Alias || p.PropertyName) === mapping.sourceProperty)
-      const destProp = destProperties.find((p) => p.Name === mapping.destinationProperty)
+      const queryProp = queryByName.get(mapping.sourceProperty)
+      const destProp = destByName.get(mapping.destinationProperty)
       if (!queryProp || !destProp) return count
       const { warnings } = checkCompatibility(queryProp.DataTypeName, destProp)
       return count + warnings.length
     }, 0)
-  }, [mappings, queryProperties, destProperties])
+  }, [mappings, queryByName, destByName])
 
   if (destLoading) {
     return (
@@ -368,8 +394,10 @@ export function QueryPropertyMapper({
           {filteredProperties.length > 0 ? (
             filteredProperties.map((queryProp) => {
               const propKey = queryProp.Alias || queryProp.PropertyName
-              const mapping = mappings.find((m) => m.sourceProperty === propKey)
-              const destProp = destProperties.find((p) => p.Name === mapping?.destinationProperty)
+              const mapping = mappingBySource.get(propKey)
+              const destProp = mapping?.destinationProperty
+                ? destByName.get(mapping.destinationProperty)
+                : undefined
               const compatibility =
                 destProp ? checkCompatibility(queryProp.DataTypeName, destProp) : null
 
@@ -377,7 +405,7 @@ export function QueryPropertyMapper({
                 <QueryMappingRow
                   key={propKey}
                   queryProperty={queryProp}
-                  destinationProperties={destProperties}
+                  sortedDestinations={sortedDestinations}
                   selectedDestination={mapping?.destinationProperty ?? null}
                   onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
                   compatibility={compatibility}
@@ -407,35 +435,21 @@ export function QueryPropertyMapper({
 
 type QueryMappingRowProps = {
   queryProperty: QueryPropertyData
-  destinationProperties: readonly BoProperty[]
+  sortedDestinations: readonly BoProperty[]
   selectedDestination: string | null
   onDestinationChange: (destination: string | null) => void
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null
 }
 
-function QueryMappingRow({
+const QueryMappingRow = memo(function QueryMappingRow({
   queryProperty,
-  destinationProperties,
+  sortedDestinations,
   selectedDestination,
   onDestinationChange,
   compatibility,
 }: QueryMappingRowProps) {
   const sourceType = queryProperty.DataTypeName
   const boCompatibleType = getBoCompatibleType(sourceType)
-
-  // Sort destination properties to show compatible types first
-  const sortedDestinations = useMemo(() => {
-    return [...destinationProperties].sort((a, b) => {
-      const aType = getBoPropertyTypeName(a)
-      const bType = getBoPropertyTypeName(b)
-      // Same type as source goes first
-      if (aType === boCompatibleType && bType !== boCompatibleType) return -1
-      if (bType === boCompatibleType && aType !== boCompatibleType) return 1
-      // Then alphabetically
-      return a.Name.localeCompare(b.Name)
-    })
-  }, [destinationProperties, boCompatibleType])
-
   const isMapped = selectedDestination !== null
   const displayName = queryProperty.Alias || queryProperty.PropertyName
 
@@ -510,22 +524,22 @@ function QueryMappingRow({
           }`}>
             <SelectValue placeholder="Select destination..." />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__unmapped__">
-              <div className="flex items-center gap-2 text-muted-foreground italic">
-                <Trash2 className="size-3.5" />
-                <span>Not mapped</span>
-              </div>
-            </SelectItem>
-            {sortedDestinations.map((destProp) => {
-              const destType = getBoPropertyTypeName(destProp)
-              const isCompatibleType = destType === boCompatibleType
-              const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
-              const isRestricted = !!restrictedReason
+          <TooltipProvider>
+            <SelectContent>
+              <SelectItem value="__unmapped__">
+                <div className="flex items-center gap-2 text-muted-foreground italic">
+                  <Trash2 className="size-3.5" />
+                  <span>Not mapped</span>
+                </div>
+              </SelectItem>
+              {sortedDestinations.map((destProp) => {
+                const destType = getBoPropertyTypeName(destProp)
+                const isCompatibleType = destType === boCompatibleType
+                const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
+                const isRestricted = !!restrictedReason
 
-              return (
-                <TooltipProvider key={destProp.Name}>
-                  <Tooltip>
+                return (
+                  <Tooltip key={destProp.Name}>
                     <TooltipTrigger asChild>
                       <div>
                         <SelectItem
@@ -554,14 +568,12 @@ function QueryMappingRow({
                       </TooltipContent>
                     )}
                   </Tooltip>
-                </TooltipProvider>
-              )
-            })}
-          </SelectContent>
+                )
+              })}
+            </SelectContent>
+          </TooltipProvider>
         </Select>
       </div>
     </div>
   )
-}
-
-
+})

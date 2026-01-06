@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, memo, useCallback, useDeferredValue } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, ArrowRight, Info, Loader2, Search, X, Trash2, Filter, Lock } from 'lucide-react'
 import { queries } from '@/lib/queries'
@@ -199,6 +199,30 @@ export function PropertyMapper({
     return destEntity?.Properties.$values ?? []
   }, [destEntity])
 
+  // Lookup Maps for O(1) access instead of O(n) .find() calls
+  const mappingBySource = useMemo(
+    () => new Map(mappings.map((m) => [m.sourceProperty, m])),
+    [mappings]
+  )
+
+  const sourceByName = useMemo(
+    () => new Map(sourceProperties.map((p) => [p.Name, p])),
+    [sourceProperties]
+  )
+
+  const destByName = useMemo(
+    () => new Map(destProperties.map((p) => [p.Name, p])),
+    [destProperties]
+  )
+
+  // Pre-sort destinations once at parent level (not per-row)
+  const sortedDestinations = useMemo(() => {
+    return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name))
+  }, [destProperties])
+
+  // Deferred search for non-blocking UI
+  const deferredSearch = useDeferredValue(searchQuery)
+
   // IsPrimary validation for Party destinations
   const isPrimaryValidation = useMemo(
     () => checkIsPrimaryRequired(destEntity?.PrimaryParentEntityTypeName, destProperties, mappings),
@@ -229,17 +253,18 @@ export function PropertyMapper({
     }
   }, [sourceProperties, destProperties, hasInitialized, onMappingsChange])
 
-  const handleMappingChange = (sourceProperty: string, destinationProperty: string | null) => {
-    const newMappings = mappings.map((m) =>
-      m.sourceProperty === sourceProperty
-        ? { ...m, destinationProperty }
-        : m
-    )
-    onMappingsChange(newMappings)
-  }
+  const handleMappingChange = useCallback(
+    (sourceProperty: string, destinationProperty: string | null) => {
+      const newMappings = mappings.map((m) =>
+        m.sourceProperty === sourceProperty ? { ...m, destinationProperty } : m
+      )
+      onMappingsChange(newMappings)
+    },
+    [mappings, onMappingsChange]
+  )
 
   const handleClearAll = () => {
-    const cleared = mappings.map(m => ({ ...m, destinationProperty: null }))
+    const cleared = mappings.map((m) => ({ ...m, destinationProperty: null }))
     onMappingsChange(cleared)
   }
 
@@ -248,28 +273,29 @@ export function PropertyMapper({
   }, [mappings])
 
   const filteredProperties = useMemo(() => {
+    const search = deferredSearch.toLowerCase()
     return sourceProperties.filter((prop) => {
-      const matchesSearch = prop.Name.toLowerCase().includes(searchQuery.toLowerCase())
-      
+      const matchesSearch = prop.Name.toLowerCase().includes(search)
+
       if (showUnmappedOnly) {
-        const mapping = mappings.find(m => m.sourceProperty === prop.Name)
+        const mapping = mappingBySource.get(prop.Name)
         return matchesSearch && (!mapping || mapping.destinationProperty === null)
       }
-      
+
       return matchesSearch
     })
-  }, [sourceProperties, searchQuery, showUnmappedOnly, mappings])
+  }, [sourceProperties, deferredSearch, showUnmappedOnly, mappingBySource])
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
       if (!mapping.destinationProperty) return count
-      const sourceProp = sourceProperties.find((p) => p.Name === mapping.sourceProperty)
-      const destProp = destProperties.find((p) => p.Name === mapping.destinationProperty)
+      const sourceProp = sourceByName.get(mapping.sourceProperty)
+      const destProp = destByName.get(mapping.destinationProperty)
       if (!sourceProp || !destProp) return count
       const { warnings } = checkCompatibility(sourceProp, destProp)
       return count + warnings.length
     }, 0)
-  }, [mappings, sourceProperties, destProperties])
+  }, [mappings, sourceByName, destByName])
 
   if (sourceLoading || destLoading) {
     return (
@@ -417,8 +443,10 @@ export function PropertyMapper({
         <div className="flex flex-col max-h-[500px] overflow-y-auto divide-y divide-border">
           {filteredProperties.length > 0 ? (
             filteredProperties.map((sourceProp) => {
-              const mapping = mappings.find((m) => m.sourceProperty === sourceProp.Name)
-              const destProp = destProperties.find((p) => p.Name === mapping?.destinationProperty)
+              const mapping = mappingBySource.get(sourceProp.Name)
+              const destProp = mapping?.destinationProperty
+                ? destByName.get(mapping.destinationProperty)
+                : undefined
               const compatibility =
                 destProp && sourceProp ? checkCompatibility(sourceProp, destProp) : null
 
@@ -426,7 +454,7 @@ export function PropertyMapper({
                 <MappingRow
                   key={sourceProp.Name}
                   sourceProperty={sourceProp}
-                  destinationProperties={destProperties}
+                  sortedDestinations={sortedDestinations}
                   selectedDestination={mapping?.destinationProperty ?? null}
                   onDestinationChange={(dest) => handleMappingChange(sourceProp.Name, dest)}
                   compatibility={compatibility}
@@ -456,35 +484,21 @@ export function PropertyMapper({
 
 type MappingRowProps = {
   sourceProperty: BoProperty
-  destinationProperties: readonly BoProperty[]
+  sortedDestinations: readonly BoProperty[]
   selectedDestination: string | null
   onDestinationChange: (destination: string | null) => void
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null
 }
 
-function MappingRow({
+const MappingRow = memo(function MappingRow({
   sourceProperty,
-  destinationProperties,
+  sortedDestinations,
   selectedDestination,
   onDestinationChange,
   compatibility,
 }: MappingRowProps) {
   const sourceType = getPropertyTypeName(sourceProperty)
   const sourceMaxLength = getMaxLength(sourceProperty)
-
-  // Filter destination properties to show only compatible types at the top
-  const sortedDestinations = useMemo(() => {
-    return [...destinationProperties].sort((a, b) => {
-      const aType = getPropertyTypeName(a)
-      const bType = getPropertyTypeName(b)
-      // Same type as source goes first
-      if (aType === sourceType && bType !== sourceType) return -1
-      if (bType === sourceType && aType !== sourceType) return 1
-      // Then alphabetically
-      return a.Name.localeCompare(b.Name)
-    })
-  }, [destinationProperties, sourceType])
-
   const isMapped = selectedDestination !== null
 
   return (
@@ -551,23 +565,23 @@ function MappingRow({
           }`}>
             <SelectValue placeholder="Select destination..." />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__unmapped__">
-              <div className="flex items-center gap-2 text-muted-foreground italic">
-                <Trash2 className="size-3.5" />
-                <span>Not mapped</span>
-              </div>
-            </SelectItem>
-            {sortedDestinations.map((destProp) => {
-              const destType = getPropertyTypeName(destProp)
-              const destMaxLength = getMaxLength(destProp)
-              const isCompatibleType = destType === sourceType
-              const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
-              const isRestricted = !!restrictedReason
+          <TooltipProvider>
+            <SelectContent>
+              <SelectItem value="__unmapped__">
+                <div className="flex items-center gap-2 text-muted-foreground italic">
+                  <Trash2 className="size-3.5" />
+                  <span>Not mapped</span>
+                </div>
+              </SelectItem>
+              {sortedDestinations.map((destProp) => {
+                const destType = getPropertyTypeName(destProp)
+                const destMaxLength = getMaxLength(destProp)
+                const isCompatibleType = destType === sourceType
+                const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
+                const isRestricted = !!restrictedReason
 
-              return (
-                <TooltipProvider key={destProp.Name}>
-                  <Tooltip>
+                return (
+                  <Tooltip key={destProp.Name}>
                     <TooltipTrigger asChild>
                       <div>
                         <SelectItem
@@ -603,14 +617,12 @@ function MappingRow({
                       </TooltipContent>
                     )}
                   </Tooltip>
-                </TooltipProvider>
-              )
-            })}
-          </SelectContent>
+                )
+              })}
+            </SelectContent>
+          </TooltipProvider>
         </Select>
       </div>
     </div>
   )
-}
-
-
+})
