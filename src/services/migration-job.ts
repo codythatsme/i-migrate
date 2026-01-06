@@ -255,6 +255,26 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
         })
       )
 
+    const executeDataSourceWithRetry = (
+      envId: string,
+      entityTypeName: string,
+      offset: number
+    ) =>
+      imisApi.fetchDataSource(envId, entityTypeName, 500, offset).pipe(
+        Effect.retry({
+          schedule: queryRetrySchedule,
+          while: (error) => {
+            // Retry on transient errors (5xx, network issues)
+            if (error._tag === "ImisRequestError") return true
+            if (error._tag === "ImisResponseError" && error.status >= 500) return true
+            return false
+          },
+        }),
+        Effect.withSpan("migration.executeDataSourceBatch", {
+          attributes: { entityTypeName, offset },
+        })
+      )
+
     const insertRowWithRetry = (
       envId: string,
       entityTypeName: string,
@@ -541,10 +561,99 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()("
               return { processed, successful, failed, failedOffsets, totalRows }
             }
 
-            // Datasource mode - not implemented yet
+            // Datasource mode execution
+            if (job.mode === "datasource" && job.sourceEntityType) {
+              // First fetch to get total count
+              const firstBatch = yield* executeDataSourceWithRetry(
+                job.sourceEnvironmentId,
+                job.sourceEntityType,
+                0
+              )
+
+              const totalRows = firstBatch.TotalCount
+              yield* updateJobProgress(jobId, { totalRows })
+
+              // Process first batch
+              if (firstBatch.Items.$values.length > 0) {
+                yield* processRows(
+                  jobId,
+                  firstBatch.Items.$values,
+                  mappings,
+                  job.destEnvironmentId,
+                  job.destEntityType,
+                  job.sourceEnvironmentId,
+                  insertConcurrency,
+                  processedRef,
+                  successRef,
+                  failedRef
+                )
+              }
+
+              // Generate remaining offsets
+              const remainingOffsets = generateOffsets(totalRows).slice(1)
+
+              // Execute remaining fetches with concurrency control
+              yield* Effect.forEach(
+                remainingOffsets,
+                (offset) =>
+                  Effect.gen(function* () {
+                    const batch = yield* executeDataSourceWithRetry(
+                      job.sourceEnvironmentId,
+                      job.sourceEntityType!,
+                      offset
+                    ).pipe(
+                      Effect.catchAll((error) => {
+                        // Record failed offset for retry
+                        return Effect.gen(function* () {
+                          yield* Ref.update(failedOffsetsRef, (offsets) => [...offsets, offset])
+                          // Return empty result to continue with other batches
+                          return {
+                            $type: "",
+                            Items: { $type: "", $values: [] as Record<string, unknown>[] },
+                            Offset: offset,
+                            Limit: 500,
+                            Count: 0,
+                            TotalCount: totalRows,
+                            NextPageLink: null,
+                            HasNext: false,
+                            NextOffset: offset + 500,
+                          }
+                        })
+                      })
+                    )
+
+                    // Process the batch
+                    if (batch.Items.$values.length > 0) {
+                      yield* processRows(
+                        jobId,
+                        batch.Items.$values,
+                        mappings,
+                        job.destEnvironmentId,
+                        job.destEntityType,
+                        job.sourceEnvironmentId,
+                        insertConcurrency,
+                        processedRef,
+                        successRef,
+                        failedRef
+                      )
+                    }
+                  }),
+                { concurrency: queryConcurrency }
+              )
+
+              // Get final counts
+              const processed = yield* Ref.get(processedRef)
+              const successful = yield* Ref.get(successRef)
+              const failed = yield* Ref.get(failedRef)
+              const failedOffsets = yield* Ref.get(failedOffsetsRef)
+
+              return { processed, successful, failed, failedOffsets, totalRows }
+            }
+
+            // Should not reach here - invalid mode configuration
             return yield* Effect.fail(
               new MigrationError({
-                message: "Datasource mode migration not yet implemented",
+                message: `Invalid job configuration: mode=${job.mode}, sourceQueryPath=${job.sourceQueryPath}, sourceEntityType=${job.sourceEntityType}`,
               })
             )
           }).pipe(

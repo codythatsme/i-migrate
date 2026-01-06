@@ -13,6 +13,7 @@ import {
   QueryDefinitionResultSchema,
   IqaQueryResponseSchema,
   Iqa2017ResponseSchema,
+  DataSourceResponseSchema,
   GenericEntityDataSchema,
   type QueryResponse,
   type BoEntityDefinition,
@@ -21,6 +22,7 @@ import {
   type QueryDefinitionResult,
   type IqaQueryResponse,
   type Iqa2017Response,
+  type DataSourceResponse,
   type GenericEntityData,
 } from "../api/imis-schemas"
 
@@ -135,6 +137,32 @@ const normalize2017Response = (response: Iqa2017Response): IqaQueryResponse => (
       )
     ),
   },
+})
+
+/**
+ * Normalize a data source response to match the IQA query format.
+ * Converts GenericEntityData rows with Properties array to flat Record<string, unknown>.
+ * Very similar to normalize2017Response but handles optional Value fields.
+ */
+const normalizeDataSourceResponse = (response: DataSourceResponse): IqaQueryResponse => ({
+  $type: response.$type,
+  Items: {
+    $type: response.Items.$type,
+    $values: response.Items.$values.map((row) =>
+      Object.fromEntries(
+        row.Properties.$values
+          .filter((p) => p.Value !== undefined) // Skip properties with no value
+          .map((p) => [p.Name, unwrapValue(p.Value)])
+      )
+    ),
+  },
+  Offset: response.Offset,
+  Limit: response.Limit,
+  Count: response.Count,
+  TotalCount: response.TotalCount,
+  NextPageLink: response.NextPageLink,
+  HasNext: response.HasNext,
+  NextOffset: response.NextOffset,
 })
 
 // ---------------------
@@ -640,6 +668,55 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         ),
 
       /**
+       * Fetch data from a data source entity type with pagination.
+       * Normalizes nested Properties to flat Record<string, unknown>.
+       * @param envId - Environment ID
+       * @param entityTypeName - The data source entity type name (e.g., "CsContact")
+       * @param limit - Maximum rows to return (max 500)
+       * @param offset - Starting offset for pagination
+       */
+      fetchDataSource: (envId: string, entityTypeName: string, limit: number = 500, offset: number = 0) =>
+        Effect.gen(function* () {
+          // Make the request using executeWithAuth (same pattern as executeQuery)
+          const result = yield* executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) =>
+            HttpClientRequest.get(`${baseUrl}/api/${entityTypeName}`).pipe(
+              HttpClientRequest.setUrlParam("limit", String(Math.min(limit, 500))),
+              HttpClientRequest.setUrlParam("offset", String(offset)),
+              HttpClientRequest.bearerToken(token),
+              HttpClientRequest.setHeader("Accept", "application/json"),
+              httpClient.execute,
+              Effect.flatMap((res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  return HttpClientResponse.schemaBodyJson(DataSourceResponseSchema)(res)
+                }
+                // Same error pattern as executeQuery
+                return Effect.fail(
+                  new HttpClientError.ResponseError({
+                    request: HttpClientRequest.get(`${baseUrl}/api/${entityTypeName}`),
+                    response: res,
+                    reason: "StatusCode",
+                  })
+                )
+              }),
+              Effect.scoped
+            )
+          )
+
+          // Normalize to flat format (matches query response)
+          return normalizeDataSourceResponse(result)
+        }).pipe(
+          Effect.withSpan("imis.fetchDataSource", {
+            attributes: {
+              environmentId: envId,
+              endpoint: `/api/${entityTypeName}`,
+              entityTypeName,
+              limit,
+              offset,
+            },
+          })
+        ),
+
+      /**
        * Insert a single entity into an IMIS data source.
        * @param envId - Environment ID
        * @param entityTypeName - The entity type (e.g., "CsContact")
@@ -762,6 +839,18 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           Result: null,
         }),
       executeQuery: () =>
+        Effect.succeed({
+          $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
+          Items: { $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib", $values: [] },
+          Offset: 0,
+          Limit: 500,
+          Count: 0,
+          TotalCount: 0,
+          NextPageLink: null,
+          HasNext: false,
+          NextOffset: 0,
+        }),
+      fetchDataSource: () =>
         Effect.succeed({
           $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
           Items: { $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib", $values: [] },
