@@ -64,6 +64,7 @@ const { handler: rpcHandler, dispose } = RpcServer.toWebHandler(ApiGroup, {
 // ---------------------
 
 const server = serve({
+  port: 0, // Let OS pick an available port
   routes: {
     // RPC endpoint (must be before wildcard)
     "/rpc": {
@@ -84,6 +85,17 @@ const server = serve({
     console: true,
   },
 })
+
+// Open browser automatically
+function openBrowser(url: string) {
+  const platform = process.platform
+  const command =
+    platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open"
+
+  Bun.spawn([command, url], { stdio: ["ignore", "ignore", "ignore"] })
+}
+
+openBrowser(server.url.href)
 
 // Handle graceful shutdown
 process.on("SIGINT", async () => {
