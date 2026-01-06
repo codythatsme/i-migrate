@@ -56,12 +56,17 @@ export function DataSourceSelector({
 
     for (const source of dataSources) {
       const matchesObjectType = source.ObjectTypeName === compatibilityFilter.objectTypeName
-      // Party and Event sources can migrate into Standalone destinations
+      // Allow migrations between compatible parent types
       const matchesParent =
         source.PrimaryParentEntityTypeName === compatibilityFilter.primaryParentEntityTypeName ||
+        // Allow Party/Event sources -> Standalone destinations
         ((compatibilityFilter.primaryParentEntityTypeName === 'Party' ||
           compatibilityFilter.primaryParentEntityTypeName === 'Event') &&
-          source.PrimaryParentEntityTypeName === 'Standalone')
+          source.PrimaryParentEntityTypeName === 'Standalone') ||
+        // Allow Standalone/Event sources -> Party destinations (requires IsPrimary mapping)
+        ((compatibilityFilter.primaryParentEntityTypeName === 'Standalone' ||
+          compatibilityFilter.primaryParentEntityTypeName === 'Event') &&
+          source.PrimaryParentEntityTypeName === 'Party')
 
       if (matchesObjectType && matchesParent) {
         compatible.push(source)
@@ -159,9 +164,11 @@ export function DataSourceSelector({
                 <p className="text-amber-800 dark:text-amber-200">
                   Only data sources with matching structure can be used as destinations.
                   Compatible sources must have the same <strong>ObjectTypeName</strong> ({compatibilityFilter.objectTypeName})
-                  and <strong>PrimaryParentEntityTypeName</strong> ({compatibilityFilter.primaryParentEntityTypeName || 'none'})
+                  and a compatible <strong>PrimaryParentEntityTypeName</strong> ({compatibilityFilter.primaryParentEntityTypeName || 'none'})
                   {(compatibilityFilter.primaryParentEntityTypeName === 'Party' ||
-                    compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' (or Standalone)'}.
+                    compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' (or Standalone)'}
+                  {(compatibilityFilter.primaryParentEntityTypeName === 'Standalone' ||
+                    compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' (or Party, requires IsPrimary mapping)'}.
                 </p>
               </div>
               <div className="max-h-32 overflow-y-auto">
@@ -215,7 +222,9 @@ export function DataSourceSelector({
               (ObjectTypeName: {compatibilityFilter.objectTypeName},
               Parent: {compatibilityFilter.primaryParentEntityTypeName || 'none'}
               {(compatibilityFilter.primaryParentEntityTypeName === 'Party' ||
-                compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' or Standalone'}).
+                compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' or Standalone'}
+              {(compatibilityFilter.primaryParentEntityTypeName === 'Standalone' ||
+                compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' or Party'}).
             </p>
           )}
         </div>

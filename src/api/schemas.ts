@@ -407,11 +407,7 @@ export const JobIdRequestSchema = Schema.Struct({
 export type JobIdRequest = typeof JobIdRequestSchema.Type
 
 export const RunJobResponseSchema = Schema.Struct({
-  processed: Schema.Number,
-  successful: Schema.Number,
-  failed: Schema.Number,
-  failedOffsets: Schema.Array(Schema.Number),
-  totalRows: Schema.Number,
+  started: Schema.Boolean,
 })
 
 export type RunJobResponse = typeof RunJobResponseSchema.Type

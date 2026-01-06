@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { NuqsAdapter } from 'nuqs/adapters/tanstack-router'
@@ -19,17 +18,8 @@ export const Route = createRootRoute({
 })
 
 function RootLayout() {
-  const { selectedId, clearSelection } = useEnvironmentStore()
+  const selectedId = useEnvironmentStore((s) => s.selectedId)
   const { data: environments } = useQuery(queries.environments.all())
-  const hasCleared = useRef(false)
-
-  // Clear environment selection on app startup so user must select each session
-  useEffect(() => {
-    if (!hasCleared.current) {
-      hasCleared.current = true
-      clearSelection()
-    }
-  }, [clearSelection])
 
   // Find current environment and check if it has a password
   const currentEnvironment = environments?.find((env) => env.id === selectedId)

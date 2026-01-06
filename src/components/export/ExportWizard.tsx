@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { useEnvironmentStore } from '@/stores/environment-store'
 import { queries } from '@/lib/queries'
-import { createJob, runJob } from '@/api/client'
+import { createJob } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -96,8 +96,19 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   // Local state for property mappings (not persisted to URL due to complexity)
   const [mappings, setMappings] = useState<PropertyMapping[]>([])
 
+  // State for mapper validation (e.g., IsPrimary required for Party destinations)
+  const [mapperValidation, setMapperValidation] = useState<{
+    isValid: boolean
+    errors: string[]
+  }>({ isValid: true, errors: [] })
+
   // State for destination password dialog
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+
+  // Memoized callback for validation changes to prevent infinite loops
+  const handleValidationChange = useCallback((isValid: boolean, errors: string[]) => {
+    setMapperValidation({ isValid, errors })
+  }, [])
 
   // Get the current steps based on mode
   const STEPS = mode === 'query' ? QUERY_STEPS : DATASOURCE_STEPS
@@ -133,11 +144,8 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
         payload.sourceEntityType = sourceEntity
       }
 
-      // Create the job
+      // Create the job (server will start it in the background)
       const { jobId } = await createJob(payload)
-
-      // Start running the job immediately
-      await runJob(jobId)
 
       return { jobId }
     },
@@ -277,7 +285,11 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
       case 3:
         return !!destEntity
       case 4:
-        return mappings.some((m) => m.destinationProperty !== null) && !!jobName?.trim()
+        return (
+          mappings.some((m) => m.destinationProperty !== null) &&
+          !!jobName?.trim() &&
+          mapperValidation.isValid
+        )
       default:
         return false
     }
@@ -428,6 +440,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
             destinationEntityType={destEntity}
             mappings={mappings}
             onMappingsChange={setMappings}
+            onValidationChange={handleValidationChange}
           />
         )}
 
@@ -438,6 +451,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
             destinationEntityType={destEntity}
             mappings={mappings}
             onMappingsChange={setMappings}
+            onValidationChange={handleValidationChange}
           />
         )}
 
