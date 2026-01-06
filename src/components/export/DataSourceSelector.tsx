@@ -56,7 +56,12 @@ export function DataSourceSelector({
 
     for (const source of dataSources) {
       const matchesObjectType = source.ObjectTypeName === compatibilityFilter.objectTypeName
-      const matchesParent = source.PrimaryParentEntityTypeName === compatibilityFilter.primaryParentEntityTypeName
+      // Party and Event sources can migrate into Standalone destinations
+      const matchesParent =
+        source.PrimaryParentEntityTypeName === compatibilityFilter.primaryParentEntityTypeName ||
+        ((compatibilityFilter.primaryParentEntityTypeName === 'Party' ||
+          compatibilityFilter.primaryParentEntityTypeName === 'Event') &&
+          source.PrimaryParentEntityTypeName === 'Standalone')
 
       if (matchesObjectType && matchesParent) {
         compatible.push(source)
@@ -152,9 +157,11 @@ export function DataSourceSelector({
               <div className="flex items-start gap-2 mb-3">
                 <Info className="size-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-amber-800 dark:text-amber-200">
-                  Only data sources with matching structure can be used as destinations. 
-                  Compatible sources must have the same <strong>ObjectTypeName</strong> ({compatibilityFilter.objectTypeName}) 
-                  and <strong>PrimaryParentEntityTypeName</strong> ({compatibilityFilter.primaryParentEntityTypeName || 'none'}).
+                  Only data sources with matching structure can be used as destinations.
+                  Compatible sources must have the same <strong>ObjectTypeName</strong> ({compatibilityFilter.objectTypeName})
+                  and <strong>PrimaryParentEntityTypeName</strong> ({compatibilityFilter.primaryParentEntityTypeName || 'none'})
+                  {(compatibilityFilter.primaryParentEntityTypeName === 'Party' ||
+                    compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' (or Standalone)'}.
                 </p>
               </div>
               <div className="max-h-32 overflow-y-auto">
@@ -204,9 +211,11 @@ export function DataSourceSelector({
           </p>
           {compatibilityFilter && !search && compatibleSources.length === 0 && (
             <p className="text-sm mt-2 text-center max-w-md">
-              None of the data sources in this environment match the required structure 
-              (ObjectTypeName: {compatibilityFilter.objectTypeName}, 
-              Parent: {compatibilityFilter.primaryParentEntityTypeName || 'none'}).
+              None of the data sources in this environment match the required structure
+              (ObjectTypeName: {compatibilityFilter.objectTypeName},
+              Parent: {compatibilityFilter.primaryParentEntityTypeName || 'none'}
+              {(compatibilityFilter.primaryParentEntityTypeName === 'Party' ||
+                compatibilityFilter.primaryParentEntityTypeName === 'Event') && ' or Standalone'}).
             </p>
           )}
         </div>
