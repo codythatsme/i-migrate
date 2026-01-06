@@ -194,8 +194,6 @@ export function EditEnvironmentDialog({
                       <Input
                         id="edit-env-query-concurrency"
                         type="number"
-                        min={1}
-                        max={50}
                         value={queryConcurrency}
                         onChange={(e) => setQueryConcurrency(Number(e.target.value) || 1)}
                       />
@@ -205,8 +203,6 @@ export function EditEnvironmentDialog({
                       <Input
                         id="edit-env-insert-concurrency"
                         type="number"
-                        min={1}
-                        max={200}
                         value={insertConcurrency}
                         onChange={(e) => setInsertConcurrency(Number(e.target.value) || 1)}
                       />
