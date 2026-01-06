@@ -563,6 +563,42 @@ export const Iqa2017RowSchema = Schema.Struct({
 export const Iqa2017ResponseSchema = QueryResponseSchema(Iqa2017RowSchema)
 
 // ---------------------
+// Data Source Query Results (GenericEntityData format)
+// ---------------------
+
+/**
+ * Schema for property data in data source responses.
+ * Similar to Iqa2017PropertyDataSchema but Value is optional (some properties may not have a value).
+ * Values can be primitives, wrapped objects, or missing entirely.
+ */
+export const DataSourcePropertyDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
+  Name: Schema.String,
+  Value: Schema.optionalWith(
+    Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null, WrappedValueSchema),
+    { exact: true }
+  ),
+})
+
+/**
+ * Schema for data source query result rows.
+ * Returns GenericEntityData with Properties array.
+ */
+export const DataSourceRowSchema = Schema.Struct({
+  $type: Schema.String,
+  EntityTypeName: Schema.String,
+  PrimaryParentEntityTypeName: Schema.String,
+  Identity: Schema.optionalWith(Schema.Any, { exact: true }),
+  PrimaryParentIdentity: Schema.optionalWith(Schema.Any, { exact: true }),
+  Properties: SoaCollectionSchema(DataSourcePropertyDataSchema),
+})
+
+/**
+ * Schema for data source query response.
+ */
+export const DataSourceResponseSchema = QueryResponseSchema(DataSourceRowSchema)
+
+// ---------------------
 // Inferred Types
 // ---------------------
 
@@ -622,6 +658,11 @@ export type IqaQueryResponse = typeof IqaQueryResponseSchema.Type
 // 2017 IQA Query types
 export type Iqa2017Row = typeof Iqa2017RowSchema.Type
 export type Iqa2017Response = typeof Iqa2017ResponseSchema.Type
+
+// Data Source Query types
+export type DataSourcePropertyData = typeof DataSourcePropertyDataSchema.Type
+export type DataSourceRow = typeof DataSourceRowSchema.Type
+export type DataSourceResponse = typeof DataSourceResponseSchema.Type
 
 // Entity insert types
 export type GenericPropertyData = typeof GenericPropertyDataSchema.Type
