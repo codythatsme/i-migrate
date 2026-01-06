@@ -94,15 +94,23 @@ export function EnvironmentSelector({
             >
               <CardHeader className="p-4 pb-2">
                 <div className="flex items-start gap-3">
-                  <div
-                    className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-                      isSelected
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    <Server className="size-4" />
-                  </div>
+                  {env.icon ? (
+                    <img
+                      src={env.icon}
+                      alt=""
+                      className="size-9 shrink-0 rounded-lg object-contain"
+                    />
+                  ) : (
+                    <div
+                      className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      <Server className="size-4" />
+                    </div>
+                  )}
                   <div className="flex flex-col gap-0.5 overflow-hidden">
                     <CardTitle className="text-sm truncate">{env.name}</CardTitle>
                     <CardDescription className="text-xs truncate">{env.username}</CardDescription>
