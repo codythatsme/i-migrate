@@ -17,6 +17,8 @@ import {
   ImisRequestErrorSchema,
   ImisResponseErrorSchema,
   ImisSchemaErrorSchema,
+  InvalidCredentialsErrorSchema,
+  NotStaffAccountErrorSchema,
   ListDataSourcesRequestSchema,
   GetDocumentByPathRequestSchema,
   GetDocumentsInFolderRequestSchema,
@@ -95,7 +97,14 @@ const DeleteEnvironment = Rpc.make("environments.delete", {
 /** Set password for an environment (stored in server memory) */
 const SetPassword = Rpc.make("password.set", {
   payload: SetPasswordSchema,
-  error: Schema.Union(DatabaseErrorSchema, EnvironmentNotFoundErrorSchema),
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    InvalidCredentialsErrorSchema,
+    NotStaffAccountErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema
+  ),
 })
 
 /** Clear password for an environment */

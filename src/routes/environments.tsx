@@ -56,10 +56,14 @@ function EnvironmentsPage() {
           setTestStatuses((prev) => ({ ...prev, [envId]: { status: 'idle' } }))
         }, 5000)
       },
-      onError: (error) => {
+      onError: (err: unknown) => {
+        // Effect RPC errors are objects with _tag and fields, extract message
+        const error = err as { message?: string; _tag?: string }
+        const message = error.message ||
+          (error._tag ? `Error: ${error._tag}` : 'Connection failed')
         setTestStatuses((prev) => ({
           ...prev,
-          [envId]: { status: 'error', message: error.message || 'Connection failed' },
+          [envId]: { status: 'error', message },
         }))
         // Clear status after 8 seconds (longer for errors so user can read)
         setTimeout(() => {

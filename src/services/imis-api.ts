@@ -14,16 +14,11 @@ import {
   IqaQueryResponseSchema,
   Iqa2017ResponseSchema,
   DataSourceResponseSchema,
-  GenericEntityDataSchema,
-  type QueryResponse,
-  type BoEntityDefinition,
-  type DocumentSummaryResult,
-  type DocumentSummaryCollectionResult,
-  type QueryDefinitionResult,
+  GetUserRolesResponseSchema,
   type IqaQueryResponse,
   type Iqa2017Response,
   type DataSourceResponse,
-  type GenericEntityData,
+  type UserRoleData,
 } from "../api/imis-schemas"
 
 // ---------------------
@@ -60,6 +55,16 @@ export class MissingCredentialsError extends Data.TaggedError("MissingCredential
     return `Password not set for environment: ${this.environmentId}`
   }
 }
+
+export class InvalidCredentialsError extends Data.TaggedError("InvalidCredentialsError")<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}
+
+export class NotStaffAccountError extends Data.TaggedError("NotStaffAccountError")<{
+  readonly username: string
+  readonly message: string
+}> {}
 
 // ---------------------
 // Retry Configuration
@@ -362,6 +367,117 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         )
       })
 
+    // Authenticate with a password directly (without storing it first)
+    // Used for credential validation before storing the password
+    const authenticateWithPassword = (baseUrl: string, username: string, password: string) =>
+      Effect.gen(function* () {
+        const body = new URLSearchParams({
+          grant_type: "password",
+          username: username,
+          password: password,
+        })
+
+        const request = HttpClientRequest.post(`${baseUrl}/token`).pipe(
+          HttpClientRequest.setHeader("Content-Type", "application/x-www-form-urlencoded"),
+          HttpClientRequest.setHeader("Accept", "application/json"),
+          HttpClientRequest.bodyText(body.toString(), "application/x-www-form-urlencoded")
+        )
+
+        const response = yield* httpClient.execute(request).pipe(
+          Effect.retry({
+            schedule: transientRetrySchedule,
+            while: isTransientHttpError,
+          }),
+          Effect.scoped
+        )
+
+        if (response.status < 200 || response.status >= 300) {
+          return yield* Effect.fail(
+            new InvalidCredentialsError({
+              message: "Authentication failed. Please check your username and password.",
+            })
+          )
+        }
+
+        const tokenData = yield* HttpClientResponse.schemaBodyJson(TokenResponse)(response).pipe(
+          Effect.mapError(() =>
+            new InvalidCredentialsError({
+              message: "Authentication failed. Please check your username and password.",
+            })
+          )
+        )
+
+        return tokenData.access_token
+      }).pipe(
+        Effect.mapError((error) => {
+          if (error instanceof InvalidCredentialsError) return error
+          return new InvalidCredentialsError({
+            message: "Authentication failed. Please check your username and password.",
+            cause: error,
+          })
+        })
+      )
+
+    // Get user roles using a provided token
+    // Used for credential validation to check staff role
+    const getUserRolesWithToken = (baseUrl: string, username: string, token: string) =>
+      Effect.gen(function* () {
+        const request = yield* HttpClientRequest.post(`${baseUrl}/api/UserSecurity/_execute`).pipe(
+          HttpClientRequest.bearerToken(token),
+          HttpClientRequest.setHeader("Accept", "application/json"),
+          HttpClientRequest.setHeader("Content-Type", "application/json"),
+          HttpClientRequest.bodyJson({
+            $type: "Asi.Soa.Core.DataContracts.GenericExecuteRequest, Asi.Contracts",
+            OperationName: "GetUserRoles",
+            EntityTypeName: "UserSecurity",
+            Parameters: {
+              $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+              $values: [{ $type: "System.String", $value: username }],
+            },
+            ParameterTypeName: {
+              $type: "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+            },
+            UseJson: false,
+          })
+        )
+
+        const response = yield* httpClient.execute(request).pipe(
+          Effect.retry({
+            schedule: transientRetrySchedule,
+            while: isTransientHttpError,
+          }),
+          Effect.scoped
+        )
+
+        if (response.status < 200 || response.status >= 300) {
+          return yield* Effect.fail(
+            new ImisRequestError({ message: `Failed to get user roles: HTTP ${response.status}` })
+          )
+        }
+
+        const result = yield* HttpClientResponse.schemaBodyJson(GetUserRolesResponseSchema)(response).pipe(
+          Effect.mapError((error) =>
+            new ImisRequestError({ message: "Failed to parse user roles response", cause: error })
+          )
+        )
+
+        if (!result.IsSuccessStatusCode || !result.Result) {
+          return yield* Effect.fail(
+            new ImisRequestError({ message: result.Message || "Failed to get user roles" })
+          )
+        }
+
+        return result.Result
+      }).pipe(
+        Effect.mapError((error) => {
+          if (error instanceof ImisRequestError) return error
+          return new ImisRequestError({
+            message: "Failed to get user roles",
+            cause: error,
+          })
+        })
+      )
+
     // ---------------------
     // Public API
     // ---------------------
@@ -375,6 +491,47 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         fetchToken(envId).pipe(
           Effect.asVoid,
           Effect.withSpan("imis.authenticate", {
+            attributes: { environmentId: envId },
+          })
+        ),
+
+      /**
+       * Validate credentials for an environment.
+       * This method authenticates WITHOUT storing the password first,
+       * used to validate passwords before storing them.
+       *
+       * @returns Effect that succeeds if credentials are valid and user has Staff role
+       * @throws InvalidCredentialsError if authentication fails
+       * @throws NotStaffAccountError if user is not a staff account
+       */
+      validateCredentials: (envId: string, password: string) =>
+        Effect.gen(function* () {
+          // Get environment config
+          const env = yield* persistence.getEnvironmentById(envId)
+
+          // Step 1: Try to authenticate and get token
+          const token = yield* authenticateWithPassword(env.baseUrl, env.username, password)
+
+          // Step 2: Get user roles using the obtained token
+          const roles = yield* getUserRolesWithToken(env.baseUrl, env.username, token)
+
+          // Step 3: Check for SysAdmin role (case-insensitive)
+          const hasSysAdminRole = roles.$values.some(
+            (role: UserRoleData) => role.RoleName.toLowerCase() === "sysadmin"
+          )
+
+          if (!hasSysAdminRole) {
+            return yield* Effect.fail(
+              new NotStaffAccountError({
+                username: env.username,
+                message: `Account "${env.username}" does not have the SysAdmin role required for migrations`,
+              })
+            )
+          }
+
+          return { success: true }
+        }).pipe(
+          Effect.withSpan("imis.validateCredentials", {
             attributes: { environmentId: envId },
           })
         ),
@@ -810,6 +967,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     this,
     new ImisApiService({
       authenticate: () => Effect.void,
+      validateCredentials: () => Effect.succeed({ success: true }),
       healthCheck: () => Effect.succeed({ success: true }),
       getBoEntityDefinitions: () =>
         Effect.succeed({
