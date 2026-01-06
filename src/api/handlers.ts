@@ -9,6 +9,8 @@ import {
   ImisRequestErrorSchema,
   ImisResponseErrorSchema,
   ImisSchemaErrorSchema,
+  InvalidCredentialsErrorSchema,
+  NotStaffAccountErrorSchema,
   TraceStoreErrorSchema,
   JobNotFoundErrorSchema,
   JobAlreadyRunningErrorSchema,
@@ -23,6 +25,8 @@ import {
   ImisResponseError,
   ImisSchemaError,
   MissingCredentialsError,
+  InvalidCredentialsError,
+  NotStaffAccountError,
 } from "../services/imis-api"
 import { TraceStoreService, TraceStoreError } from "../services/trace-store"
 import {
@@ -73,6 +77,31 @@ const mapJobAlreadyRunningError = (error: JobAlreadyRunningError) =>
 
 const mapMigrationError = (error: MigrationError) =>
   new MigrationErrorSchema({ message: error.message })
+
+const mapInvalidCredentialsError = (error: InvalidCredentialsError) =>
+  new InvalidCredentialsErrorSchema({ message: error.message })
+
+const mapNotStaffAccountError = (error: NotStaffAccountError) =>
+  new NotStaffAccountErrorSchema({ username: error.username, message: error.message })
+
+const mapCredentialValidationError = (
+  error: DatabaseError | EnvironmentNotFoundError | InvalidCredentialsError | NotStaffAccountError | ImisRequestError | ImisResponseError
+) => {
+  switch (error._tag) {
+    case "DatabaseError":
+      return mapDatabaseError(error)
+    case "EnvironmentNotFoundError":
+      return mapEnvironmentNotFoundError(error)
+    case "InvalidCredentialsError":
+      return mapInvalidCredentialsError(error)
+    case "NotStaffAccountError":
+      return mapNotStaffAccountError(error)
+    case "ImisRequestError":
+      return mapImisRequestError(error)
+    case "ImisResponseError":
+      return mapImisResponseError(error)
+  }
+}
 
 const mapPersistenceError = (error: DatabaseError | EnvironmentNotFoundError) => {
   if (error._tag === "DatabaseError") {
@@ -275,13 +304,19 @@ export const HandlersLive = ApiGroup.toLayer({
     Effect.gen(function* () {
       const persistence = yield* PersistenceService
       const session = yield* SessionService
+      const imisApi = yield* ImisApiService
 
       // Verify environment exists first
       yield* persistence.getEnvironmentById(environmentId).pipe(
         Effect.mapError(mapPersistenceError)
       )
 
-      // Store password in server-side memory
+      // Validate credentials and check staff role before storing
+      yield* imisApi.validateCredentials(environmentId, password).pipe(
+        Effect.mapError(mapCredentialValidationError)
+      )
+
+      // Store password in server-side memory (only after validation succeeds)
       yield* session.setPassword(environmentId, password)
     }),
 

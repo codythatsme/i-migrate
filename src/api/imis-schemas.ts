@@ -599,6 +599,31 @@ export const DataSourceRowSchema = Schema.Struct({
 export const DataSourceResponseSchema = QueryResponseSchema(DataSourceRowSchema)
 
 // ---------------------
+// User Role Schemas (for GetUserRoles)
+// ---------------------
+
+/**
+ * Schema for user role data returned by GetUserRoles operation.
+ */
+export const UserRoleDataSchema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Membership.DataContracts.User.RoleData, Asi.Contracts"),
+  Description: Schema.String,
+  RoleKey: Schema.String,
+  RoleName: Schema.String,
+})
+
+/**
+ * Schema for GetUserRoles response.
+ * Returns a GenericExecuteResult with Result being a collection of UserRoleData.
+ */
+export const GetUserRolesResponseSchema = Schema.Struct({
+  $type: Schema.String,
+  Result: Schema.NullOr(SoaCollectionSchema(UserRoleDataSchema)),
+  IsSuccessStatusCode: Schema.Boolean,
+  Message: Schema.NullOr(Schema.String),
+})
+
+// ---------------------
 // Inferred Types
 // ---------------------
 
@@ -668,3 +693,7 @@ export type DataSourceResponse = typeof DataSourceResponseSchema.Type
 export type GenericPropertyData = typeof GenericPropertyDataSchema.Type
 export type IdentityData = typeof IdentityDataSchema.Type
 export type GenericEntityData = typeof GenericEntityDataSchema.Type
+
+// User role types
+export type UserRoleData = typeof UserRoleDataSchema.Type
+export type GetUserRolesResponse = typeof GetUserRolesResponseSchema.Type

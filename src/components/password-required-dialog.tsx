@@ -45,8 +45,12 @@ export function PasswordRequiredDialog() {
           setPasswordValue('')
           setError(null)
         },
-        onError: (err) => {
-          setError(err.message || 'Failed to set password')
+        onError: (err: unknown) => {
+          // Effect RPC errors are objects with _tag and fields, extract message
+          const error = err as { message?: string; _tag?: string }
+          const message = error.message ||
+            (error._tag ? `Error: ${error._tag}` : 'Failed to set password')
+          setError(message)
         },
       }
     )

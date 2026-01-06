@@ -118,6 +118,21 @@ export class ImisAuthErrorSchema extends Schema.TaggedError<ImisAuthErrorSchema>
   }
 ) {}
 
+export class InvalidCredentialsErrorSchema extends Schema.TaggedError<InvalidCredentialsErrorSchema>()(
+  "InvalidCredentialsError",
+  {
+    message: Schema.String,
+  }
+) {}
+
+export class NotStaffAccountErrorSchema extends Schema.TaggedError<NotStaffAccountErrorSchema>()(
+  "NotStaffAccountError",
+  {
+    username: Schema.String,
+    message: Schema.String,
+  }
+) {}
+
 export class ImisRequestErrorSchema extends Schema.TaggedError<ImisRequestErrorSchema>()(
   "ImisRequestError",
   {
