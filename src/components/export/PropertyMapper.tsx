@@ -220,6 +220,17 @@ export function PropertyMapper({
     return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name))
   }, [destProperties])
 
+  // Track which destination properties are already mapped
+  const usedDestinations = useMemo(() => {
+    const used = new Set<string>()
+    for (const m of mappings) {
+      if (m.destinationProperty) {
+        used.add(m.destinationProperty)
+      }
+    }
+    return used
+  }, [mappings])
+
   // Deferred search for non-blocking UI
   const deferredSearch = useDeferredValue(searchQuery)
 
@@ -458,6 +469,7 @@ export function PropertyMapper({
                   selectedDestination={mapping?.destinationProperty ?? null}
                   onDestinationChange={(dest) => handleMappingChange(sourceProp.Name, dest)}
                   compatibility={compatibility}
+                  usedDestinations={usedDestinations}
                 />
               )
             })
@@ -488,6 +500,7 @@ type MappingRowProps = {
   selectedDestination: string | null
   onDestinationChange: (destination: string | null) => void
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null
+  usedDestinations: Set<string>
 }
 
 const MappingRow = memo(function MappingRow({
@@ -496,6 +509,7 @@ const MappingRow = memo(function MappingRow({
   selectedDestination,
   onDestinationChange,
   compatibility,
+  usedDestinations,
 }: MappingRowProps) {
   const sourceType = getPropertyTypeName(sourceProperty)
   const sourceMaxLength = getMaxLength(sourceProperty)
@@ -555,8 +569,6 @@ const MappingRow = memo(function MappingRow({
         <Select
           value={selectedDestination ?? '__unmapped__'}
           onValueChange={(value) => {
-            // Prevent selecting restricted properties
-            if (value !== '__unmapped__' && value in RESTRICTED_DESTINATION_PROPERTIES) return
             onDestinationChange(value === '__unmapped__' ? null : value)
           }}
         >
@@ -579,6 +591,9 @@ const MappingRow = memo(function MappingRow({
                 const isCompatibleType = destType === sourceType
                 const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
                 const isRestricted = !!restrictedReason
+                // Disable if already mapped to another source (but allow if it's the current selection)
+                const isAlreadyUsed = usedDestinations.has(destProp.Name) && destProp.Name !== selectedDestination
+                const isDisabled = isRestricted || isAlreadyUsed
 
                 return (
                   <Tooltip key={destProp.Name}>
@@ -586,7 +601,8 @@ const MappingRow = memo(function MappingRow({
                       <div>
                         <SelectItem
                           value={destProp.Name}
-                          className={isRestricted ? 'opacity-50 cursor-not-allowed pointer-events-none' : !isCompatibleType ? 'opacity-50' : ''}
+                          disabled={isDisabled}
+                          className={isDisabled ? 'opacity-50 cursor-not-allowed' : !isCompatibleType ? 'opacity-50' : ''}
                         >
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{destProp.Name}</span>
@@ -602,6 +618,8 @@ const MappingRow = memo(function MappingRow({
                             </div>
                             {isRestricted ? (
                               <Lock className="size-3 text-muted-foreground" />
+                            ) : isAlreadyUsed ? (
+                              <Check className="size-3 text-muted-foreground" />
                             ) : !isCompatibleType && (
                               <AlertTriangle className="size-3 text-destructive" />
                             )}
@@ -609,10 +627,10 @@ const MappingRow = memo(function MappingRow({
                         </SelectItem>
                       </div>
                     </TooltipTrigger>
-                    {(isRestricted || !isCompatibleType) && (
+                    {(isRestricted || isAlreadyUsed || !isCompatibleType) && (
                       <TooltipContent>
                         <p className="text-xs">
-                          {isRestricted ? restrictedReason : `Type mismatch: ${sourceType} → ${destType}`}
+                          {isRestricted ? restrictedReason : isAlreadyUsed ? 'Already mapped to another source property' : `Type mismatch: ${sourceType} → ${destType}`}
                         </p>
                       </TooltipContent>
                     )}
