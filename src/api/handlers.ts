@@ -415,7 +415,7 @@ export const HandlersLive = ApiGroup.toLayer({
   "jobs.create": (payload) =>
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService
-      
+
       // Validate required fields based on mode
       if (!payload.name) {
         return yield* Effect.fail(
@@ -443,7 +443,18 @@ export const HandlersLive = ApiGroup.toLayer({
         destEntityType: payload.destEntityType,
         mappings: [...payload.mappings],
       })
-      
+
+      // Fork job to run in the background (completely independent of HTTP request)
+      // Using forkDaemon ensures the job continues even after the request completes
+      yield* Effect.forkDaemon(
+        jobService.runJob(result.jobId).pipe(
+          Effect.catchAllCause((cause) => {
+            console.error(`[MigrationJob] Background job ${result.jobId} failed:`, cause)
+            return Effect.void
+          })
+        )
+      )
+
       return result
     }).pipe(
       Effect.mapError((error) => {
@@ -511,8 +522,24 @@ export const HandlersLive = ApiGroup.toLayer({
   "jobs.run": ({ jobId }) =>
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService
-      const result = yield* jobService.runJob(jobId)
-      return result
+
+      // Verify job exists and is in a runnable state (will throw if not found or already running)
+      const job = yield* jobService.getJob(jobId)
+      if (job.status !== "queued" && job.status !== "failed" && job.status !== "partial") {
+        return yield* Effect.fail(new JobAlreadyRunningError({ jobId }))
+      }
+
+      // Fork job to run in the background (completely independent of HTTP request)
+      yield* Effect.forkDaemon(
+        jobService.runJob(jobId).pipe(
+          Effect.catchAllCause((cause) => {
+            console.error(`[MigrationJob] Background job ${jobId} failed:`, cause)
+            return Effect.void
+          })
+        )
+      )
+
+      return { started: true }
     }).pipe(
       Effect.mapError((error) => {
         switch (error._tag) {
@@ -520,24 +547,8 @@ export const HandlersLive = ApiGroup.toLayer({
             return mapJobNotFoundError(error)
           case "JobAlreadyRunningError":
             return mapJobAlreadyRunningError(error)
-          case "MigrationError":
-            return mapMigrationError(error)
           case "DatabaseError":
             return mapDatabaseError(error)
-          case "EnvironmentNotFoundError":
-            return mapEnvironmentNotFoundError(error)
-          case "MissingCredentialsError":
-            return mapMissingCredentialsError(error)
-          case "ImisAuthError":
-            return mapImisAuthError(error)
-          case "ImisRequestError":
-            return mapImisRequestError(error)
-          case "ImisResponseError":
-            return mapImisResponseError(error)
-          case "ImisSchemaError":
-            return mapImisSchemaError(error)
-          default:
-            return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }))
         }
       })
     ),

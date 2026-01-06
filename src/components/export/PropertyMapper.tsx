@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Check, ArrowRight, Info, Loader2, Search, X, Trash2, Filter, Lock } from 'lucide-react'
 import { queries } from '@/lib/queries'
@@ -49,6 +49,7 @@ type PropertyMapperProps = {
   destinationEntityType: string
   mappings: PropertyMapping[]
   onMappingsChange: (mappings: PropertyMapping[]) => void
+  onValidationChange?: (isValid: boolean, errors: string[]) => void
 }
 
 // ---------------------
@@ -121,6 +122,42 @@ export function findAutoMappings(
   })
 }
 
+type IsPrimaryValidationResult = {
+  required: boolean
+  isMapped: boolean
+  error: string | null
+}
+
+/**
+ * Check if IsPrimary mapping is required for a Party destination.
+ * Exported for testing.
+ */
+export function checkIsPrimaryRequired(
+  destPrimaryParentEntityTypeName: string | null | undefined,
+  destProperties: readonly BoProperty[],
+  mappings: PropertyMapping[]
+): IsPrimaryValidationResult {
+  // Only required when destination is a Party-linked entity
+  if (destPrimaryParentEntityTypeName !== 'Party') {
+    return { required: false, isMapped: true, error: null }
+  }
+
+  // Check if IsPrimary exists in destination properties
+  const isPrimaryExists = destProperties.some((p) => p.Name === 'IsPrimary')
+  if (!isPrimaryExists) {
+    return { required: false, isMapped: true, error: null }
+  }
+
+  // Check if IsPrimary is mapped
+  const isPrimaryMapped = mappings.some((m) => m.destinationProperty === 'IsPrimary')
+
+  return {
+    required: true,
+    isMapped: isPrimaryMapped,
+    error: isPrimaryMapped ? null : 'IsPrimary must be mapped for Party destinations',
+  }
+}
+
 // ---------------------
 // Components
 // ---------------------
@@ -132,6 +169,7 @@ export function PropertyMapper({
   destinationEntityType,
   mappings,
   onMappingsChange,
+  onValidationChange,
 }: PropertyMapperProps) {
   const [hasInitialized, setHasInitialized] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -160,6 +198,27 @@ export function PropertyMapper({
   const destProperties = useMemo(() => {
     return destEntity?.Properties.$values ?? []
   }, [destEntity])
+
+  // IsPrimary validation for Party destinations
+  const isPrimaryValidation = useMemo(
+    () => checkIsPrimaryRequired(destEntity?.PrimaryParentEntityTypeName, destProperties, mappings),
+    [destEntity, destProperties, mappings]
+  )
+
+  // Track previous validation state to avoid infinite loops
+  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>()
+
+  // Report validation state to parent only when it actually changes
+  useEffect(() => {
+    if (onValidationChange) {
+      const prev = prevValidationRef.current
+      if (!prev || prev.isMapped !== isPrimaryValidation.isMapped || prev.error !== isPrimaryValidation.error) {
+        prevValidationRef.current = { isMapped: isPrimaryValidation.isMapped, error: isPrimaryValidation.error }
+        const errors = isPrimaryValidation.error ? [isPrimaryValidation.error] : []
+        onValidationChange(isPrimaryValidation.isMapped, errors)
+      }
+    }
+  }, [isPrimaryValidation, onValidationChange])
 
   // Auto-map on initial load
   useEffect(() => {
@@ -329,6 +388,22 @@ export function PropertyMapper({
           </div>
         </div>
       </div>
+
+      {/* IsPrimary validation warning */}
+      {isPrimaryValidation.required && !isPrimaryValidation.isMapped && (
+        <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="size-5 text-destructive mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-destructive">Required Mapping Missing</span>
+              <p className="text-sm text-destructive/80">
+                When migrating to a Party destination, you must map a source property to{' '}
+                <strong>IsPrimary</strong> to identify the primary instance for each contact.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mapping list */}
       <div className="flex flex-col rounded-xl border overflow-hidden">

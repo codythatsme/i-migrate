@@ -13,12 +13,14 @@ import {
   findAutoMappings,
   getPropertyTypeName,
   getMaxLength,
+  checkIsPrimaryRequired,
   RESTRICTED_DESTINATION_PROPERTIES,
 } from "../src/components/export/PropertyMapper"
 import {
   createStringProperty,
   createIntegerProperty,
   createBooleanProperty,
+  createPropertyMapping,
 } from "./setup"
 
 describe("getPropertyTypeName", () => {
@@ -325,6 +327,133 @@ describe("findAutoMappings", () => {
       expect(mappings).toEqual([
         { sourceProperty: "Description", destinationProperty: "Description" },
       ])
+    })
+  })
+})
+
+describe("checkIsPrimaryRequired", () => {
+  describe("when destination is Party type", () => {
+    it("should require IsPrimary mapping when destination has IsPrimary property", () => {
+      const destProperties = [
+        createStringProperty("Name"),
+        createBooleanProperty("IsPrimary"),
+      ]
+      const mappings = [createPropertyMapping("SourceName", "Name")]
+
+      const result = checkIsPrimaryRequired("Party", destProperties, mappings)
+
+      expect(result.required).toBe(true)
+      expect(result.isMapped).toBe(false)
+      expect(result.error).toBe("IsPrimary must be mapped for Party destinations")
+    })
+
+    it("should pass validation when IsPrimary is mapped", () => {
+      const destProperties = [
+        createStringProperty("Name"),
+        createBooleanProperty("IsPrimary"),
+      ]
+      const mappings = [
+        createPropertyMapping("SourceName", "Name"),
+        createPropertyMapping("SourcePrimary", "IsPrimary"),
+      ]
+
+      const result = checkIsPrimaryRequired("Party", destProperties, mappings)
+
+      expect(result.required).toBe(true)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+
+    it("should not require IsPrimary if destination doesn't have IsPrimary property", () => {
+      const destProperties = [
+        createStringProperty("Name"),
+        createStringProperty("Email"),
+      ]
+      const mappings = [createPropertyMapping("SourceName", "Name")]
+
+      const result = checkIsPrimaryRequired("Party", destProperties, mappings)
+
+      expect(result.required).toBe(false)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+  })
+
+  describe("when destination is Standalone type", () => {
+    it("should not require IsPrimary mapping", () => {
+      const destProperties = [
+        createStringProperty("Name"),
+        createBooleanProperty("IsPrimary"),
+      ]
+      const mappings = [createPropertyMapping("SourceName", "Name")]
+
+      const result = checkIsPrimaryRequired("Standalone", destProperties, mappings)
+
+      expect(result.required).toBe(false)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+  })
+
+  describe("when destination is Event type", () => {
+    it("should not require IsPrimary mapping", () => {
+      const destProperties = [
+        createStringProperty("Name"),
+        createBooleanProperty("IsPrimary"),
+      ]
+      const mappings = [createPropertyMapping("SourceName", "Name")]
+
+      const result = checkIsPrimaryRequired("Event", destProperties, mappings)
+
+      expect(result.required).toBe(false)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+  })
+
+  describe("edge cases", () => {
+    it("should handle null PrimaryParentEntityTypeName", () => {
+      const destProperties = [createBooleanProperty("IsPrimary")]
+      const mappings: ReturnType<typeof createPropertyMapping>[] = []
+
+      const result = checkIsPrimaryRequired(null, destProperties, mappings)
+
+      expect(result.required).toBe(false)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+
+    it("should handle undefined PrimaryParentEntityTypeName", () => {
+      const destProperties = [createBooleanProperty("IsPrimary")]
+      const mappings: ReturnType<typeof createPropertyMapping>[] = []
+
+      const result = checkIsPrimaryRequired(undefined, destProperties, mappings)
+
+      expect(result.required).toBe(false)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+
+    it("should handle empty destination properties", () => {
+      const destProperties: ReturnType<typeof createBooleanProperty>[] = []
+      const mappings = [createPropertyMapping("Source", "Dest")]
+
+      const result = checkIsPrimaryRequired("Party", destProperties, mappings)
+
+      expect(result.required).toBe(false)
+      expect(result.isMapped).toBe(true)
+      expect(result.error).toBeNull()
+    })
+
+    it("should handle empty mappings with Party destination that has IsPrimary", () => {
+      const destProperties = [createBooleanProperty("IsPrimary")]
+      const mappings: ReturnType<typeof createPropertyMapping>[] = []
+
+      const result = checkIsPrimaryRequired("Party", destProperties, mappings)
+
+      expect(result.required).toBe(true)
+      expect(result.isMapped).toBe(false)
+      expect(result.error).toBe("IsPrimary must be mapped for Party destinations")
     })
   })
 })
