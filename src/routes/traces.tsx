@@ -207,6 +207,8 @@ function TracesPage() {
                     <span className="font-medium">{selectedTrace.name}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-muted-foreground">ID</div>
+                    <div className="font-mono text-xs">{selectedTrace.id}</div>
                     <div className="text-muted-foreground">Duration</div>
                     <div className="font-mono">
                       {formatDuration(selectedTrace.durationMs)}
@@ -286,7 +288,10 @@ function TraceListItem({
       <div className="flex items-center gap-3">
         <StatusIcon status={trace.status} />
         <div className="flex-1 min-w-0">
-          <div className="font-medium truncate">{trace.name}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium truncate">{trace.name}</span>
+            <span className="text-xs text-muted-foreground font-mono">#{trace.id.slice(0, 8)}</span>
+          </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="size-3" />
