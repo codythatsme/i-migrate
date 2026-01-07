@@ -1,45 +1,47 @@
-import { Database } from "bun:sqlite"
-import { drizzle } from "drizzle-orm/bun-sqlite"
-import * as schema from "./schema"
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import * as schema from "./schema";
 
 // Ensure data directory exists
-import { mkdirSync, existsSync } from "node:fs"
-import { dirname, join, basename } from "node:path"
+import { mkdirSync, existsSync } from "node:fs";
+import { dirname, join, basename } from "node:path";
 
 // Determine database path based on execution context
 // - Compiled executable: store in .i-migrate folder next to the executable (portable)
 // - Development (bun run): use project's data/ folder
 function getDbPath(): string {
-  const execName = basename(process.execPath)
-  const isCompiled = execName === "i-migrate" || execName === "i-migrate.exe"
+  const execName = basename(process.execPath);
+  const isCompiled = execName === "i-migrate" || execName === "i-migrate.exe";
 
   if (isCompiled) {
     // Portable mode: create hidden data folder next to executable
-    const execDir = dirname(process.execPath)
-    return join(execDir, ".i-migrate", "i-migrate.db")
+    const execDir = dirname(process.execPath);
+    return join(execDir, ".i-migrate", "i-migrate.db");
   } else {
     // Development mode: use project's data folder
-    return join(import.meta.dir, "..", "..", "data", "i-migrate.db")
+    return join(import.meta.dir, "..", "..", "data", "i-migrate.db");
   }
 }
 
-const dbPath = getDbPath()
-const dbDir = dirname(dbPath)
+const dbPath = getDbPath();
+const dbDir = dirname(dbPath);
 
 if (!existsSync(dbDir)) {
-  mkdirSync(dbDir, { recursive: true })
+  mkdirSync(dbDir, { recursive: true });
 }
 
 // Initialize SQLite database with WAL mode for better concurrency
-const sqlite = new Database(dbPath, { create: true })
-sqlite.run("PRAGMA journal_mode = WAL;")
+const sqlite = new Database(dbPath, { create: true });
+sqlite.run("PRAGMA journal_mode = WAL;");
 
 // Auto-create tables if they don't exist (for portable executable)
 // This embeds the schema directly since migration files aren't bundled
 function initializeSchema() {
   // Check if tables exist
-  const tables = sqlite.query("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]
-  const tableNames = new Set(tables.map(t => t.name))
+  const tables = sqlite.query("SELECT name FROM sqlite_master WHERE type='table'").all() as {
+    name: string;
+  }[];
+  const tableNames = new Set(tables.map((t) => t.name));
 
   if (!tableNames.has("environments")) {
     sqlite.run(`
@@ -55,7 +57,7 @@ function initializeSchema() {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
-    `)
+    `);
   }
 
   if (!tableNames.has("jobs")) {
@@ -76,11 +78,19 @@ function initializeSchema() {
         successful_rows INTEGER NOT NULL DEFAULT 0,
         failed_row_count INTEGER NOT NULL DEFAULT 0,
         failed_query_offsets TEXT,
+        identity_field_names TEXT,
         started_at TEXT,
         completed_at TEXT,
         created_at TEXT NOT NULL
       )
-    `)
+    `);
+  } else {
+    // Migration: add identity_field_names column if it doesn't exist
+    const jobColumns = sqlite.query("PRAGMA table_info(jobs)").all() as { name: string }[];
+    const jobColumnNames = new Set(jobColumns.map((c) => c.name));
+    if (!jobColumnNames.has("identity_field_names")) {
+      sqlite.run("ALTER TABLE jobs ADD COLUMN identity_field_names TEXT");
+    }
   }
 
   if (!tableNames.has("failed_rows")) {
@@ -96,7 +106,19 @@ function initializeSchema() {
         created_at TEXT NOT NULL,
         resolved_at TEXT
       )
-    `)
+    `);
+  }
+
+  if (!tableNames.has("success_rows")) {
+    sqlite.run(`
+      CREATE TABLE success_rows (
+        id TEXT PRIMARY KEY NOT NULL,
+        job_id TEXT NOT NULL,
+        row_index INTEGER NOT NULL,
+        identity_elements TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
   }
 
   if (!tableNames.has("traces")) {
@@ -111,7 +133,7 @@ function initializeSchema() {
         error_message TEXT,
         created_at TEXT NOT NULL
       )
-    `)
+    `);
   }
 
   if (!tableNames.has("spans")) {
@@ -130,15 +152,14 @@ function initializeSchema() {
         events TEXT,
         error_cause TEXT
       )
-    `)
+    `);
   }
 }
 
-initializeSchema()
+initializeSchema();
 
 // Create Drizzle instance with schema
-export const db = drizzle(sqlite, { schema })
+export const db = drizzle(sqlite, { schema });
 
 // Export the raw sqlite instance if needed for advanced operations
-export { sqlite }
-
+export { sqlite };

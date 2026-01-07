@@ -1,11 +1,11 @@
-import { Effect, Layer, Data, Schema, ParseResult, Schedule, Duration } from "effect"
-import * as HttpClient from "@effect/platform/HttpClient"
-import * as HttpClientRequest from "@effect/platform/HttpClientRequest"
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse"
-import * as HttpClientError from "@effect/platform/HttpClientError"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import { SessionService } from "./session"
-import { PersistenceService, EnvironmentNotFoundError, DatabaseError } from "./persistence"
+import { Effect, Layer, Data, Schema, ParseResult, Schedule, Duration } from "effect";
+import * as HttpClient from "@effect/platform/HttpClient";
+import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
+import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
+import * as HttpClientError from "@effect/platform/HttpClientError";
+import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
+import { SessionService } from "./session";
+import { PersistenceService, EnvironmentNotFoundError, DatabaseError } from "./persistence";
 import {
   BoEntityDefinitionQueryResponseSchema,
   DocumentSummaryResultSchema,
@@ -15,55 +15,61 @@ import {
   Iqa2017ResponseSchema,
   DataSourceResponseSchema,
   GetUserRolesResponseSchema,
+  GenericEntityDataSchema,
   type IqaQueryResponse,
   type Iqa2017Response,
   type DataSourceResponse,
   type UserRoleData,
-} from "../api/imis-schemas"
+} from "../api/imis-schemas";
 
 // ---------------------
 // Domain Errors
 // ---------------------
 
 export class ImisAuthError extends Data.TaggedError("ImisAuthError")<{
-  readonly message: string
-  readonly cause?: unknown
+  readonly message: string;
+  readonly cause?: unknown;
 }> {}
 
 export class ImisRequestError extends Data.TaggedError("ImisRequestError")<{
-  readonly message: string
-  readonly cause?: unknown
+  readonly message: string;
+  readonly cause?: unknown;
 }> {}
 
 export class ImisResponseError extends Data.TaggedError("ImisResponseError")<{
-  readonly message: string
-  readonly status: number
-  readonly cause?: unknown
+  readonly message: string;
+  readonly status: number;
+  readonly cause?: unknown;
 }> {}
 
 export class ImisSchemaError extends Data.TaggedError("ImisSchemaError")<{
-  readonly message: string
-  readonly endpoint: string
-  readonly parseError: string
-  readonly cause?: unknown
+  readonly message: string;
+  readonly endpoint: string;
+  readonly parseError: string;
+  readonly cause?: unknown;
 }> {}
 
+// Result type for entity insertion
+export type InsertEntityResult = {
+  identityElements: string[];
+};
+
 export class MissingCredentialsError extends Data.TaggedError("MissingCredentialsError")<{
-  readonly environmentId: string
+  readonly environmentId: string;
 }> {
   override get message() {
-    return `Password not set for environment: ${this.environmentId}`
+    return `Password not set for environment: ${this.environmentId}`;
   }
 }
 
 export class InvalidCredentialsError extends Data.TaggedError("InvalidCredentialsError")<{
-  readonly message: string
-  readonly cause?: unknown
+  readonly message: string;
+  readonly cause?: unknown;
 }> {}
 
 export class NotStaffAccountError extends Data.TaggedError("NotStaffAccountError")<{
-  readonly username: string
-  readonly message: string
+  readonly username: string;
+  readonly message: string;
 }> {}
 
 // ---------------------
@@ -73,39 +79,39 @@ export class NotStaffAccountError extends Data.TaggedError("NotStaffAccountError
 // Retry schedule: exponential backoff starting at 500ms, factor of 2, up to 3 retries
 // This gives delays of: 500ms, 1000ms, 2000ms
 const transientRetrySchedule = Schedule.exponential(Duration.millis(500), 2).pipe(
-  Schedule.intersect(Schedule.recurs(3))
-)
+  Schedule.intersect(Schedule.recurs(3)),
+);
 
 // Determines if an HTTP error is transient (worth retrying)
 const isTransientHttpError = (error: unknown): boolean => {
   if (HttpClientError.isHttpClientError(error)) {
     // Network/connection errors are transient
     if (error._tag === "RequestError") {
-      return true
+      return true;
     }
     // 5xx server errors and 429 (rate limit) are transient
     if (error._tag === "ResponseError") {
-      const status = error.response.status
-      return status >= 500 || status === 429
+      const status = error.response.status;
+      return status >= 500 || status === 429;
     }
   }
-  return false
-}
+  return false;
+};
 
 // ---------------------
 // Error Detection Helpers
 // ---------------------
 
 const isParseError = (error: unknown): error is ParseResult.ParseError =>
-  error instanceof Error && error.name === "ParseError"
+  error instanceof Error && error.name === "ParseError";
 
 const formatParseError = (error: ParseResult.ParseError): string => {
   try {
-    return ParseResult.TreeFormatter.formatErrorSync(error)
+    return ParseResult.TreeFormatter.formatErrorSync(error);
   } catch {
-    return error.message
+    return error.message;
   }
-}
+};
 
 // ---------------------
 // 2017 IQA Response Normalization
@@ -118,15 +124,15 @@ const formatParseError = (error: ParseResult.ParseError): string => {
  */
 const unwrapValue = (value: unknown): unknown => {
   if (typeof value === "object" && value !== null && "$value" in value) {
-    const wrapped = value as { $type: string; $value: unknown }
+    const wrapped = value as { $type: string; $value: unknown };
     // Preserve blob structure for binary data
     if (wrapped.$type === "System.Byte[], mscorlib") {
-      return value
+      return value;
     }
-    return wrapped.$value
+    return wrapped.$value;
   }
-  return value
-}
+  return value;
+};
 
 /**
  * Normalize a 2017 IQA response to match the EMS format.
@@ -137,12 +143,10 @@ const normalize2017Response = (response: Iqa2017Response): IqaQueryResponse => (
   Items: {
     ...response.Items,
     $values: response.Items.$values.map((row) =>
-      Object.fromEntries(
-        row.Properties.$values.map((p) => [p.Name, unwrapValue(p.Value)])
-      )
+      Object.fromEntries(row.Properties.$values.map((p) => [p.Name, unwrapValue(p.Value)])),
     ),
   },
-})
+});
 
 /**
  * Normalize a data source response to match the IQA query format.
@@ -157,8 +161,8 @@ const normalizeDataSourceResponse = (response: DataSourceResponse): IqaQueryResp
       Object.fromEntries(
         row.Properties.$values
           .filter((p) => p.Value !== undefined) // Skip properties with no value
-          .map((p) => [p.Name, unwrapValue(p.Value)])
-      )
+          .map((p) => [p.Name, unwrapValue(p.Value)]),
+      ),
     ),
   },
   Offset: response.Offset,
@@ -168,7 +172,7 @@ const normalizeDataSourceResponse = (response: DataSourceResponse): IqaQueryResp
   NextPageLink: response.NextPageLink,
   HasNext: response.HasNext,
   NextOffset: response.NextOffset,
-})
+});
 
 // ---------------------
 // Schemas
@@ -178,9 +182,9 @@ const TokenResponse = Schema.Struct({
   access_token: Schema.String,
   token_type: Schema.String,
   expires_in: Schema.Number,
-})
+});
 
-type TokenResponse = typeof TokenResponse.Type
+type TokenResponse = typeof TokenResponse.Type;
 
 // ---------------------
 // Service Definition
@@ -190,9 +194,9 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
   accessors: true,
 
   effect: Effect.gen(function* () {
-    const session = yield* SessionService
-    const persistence = yield* PersistenceService
-    const httpClient = yield* HttpClient.HttpClient
+    const session = yield* SessionService;
+    const persistence = yield* PersistenceService;
+    const httpClient = yield* HttpClient.HttpClient;
 
     // ---------------------
     // Internal Helpers
@@ -202,21 +206,21 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     const fetchToken = (envId: string) =>
       Effect.gen(function* () {
         // Get environment config
-        const env = yield* persistence.getEnvironmentById(envId)
+        const env = yield* persistence.getEnvironmentById(envId);
 
         // Get password from session
-        const password = yield* session.getPassword(envId)
+        const password = yield* session.getPassword(envId);
         if (!password) {
-          return yield* Effect.fail(new MissingCredentialsError({ environmentId: envId }))
+          return yield* Effect.fail(new MissingCredentialsError({ environmentId: envId }));
         }
 
         // Build token request
-        const tokenUrl = `${env.baseUrl}/token`
+        const tokenUrl = `${env.baseUrl}/token`;
         const body = new URLSearchParams({
           grant_type: "password",
           username: env.username,
           password: password,
-        })
+        });
 
         // Make token request with retry for transient errors
         const response = yield* HttpClientRequest.post(tokenUrl).pipe(
@@ -230,8 +234,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               : Effect.fail(
                   new ImisAuthError({
                     message: `Authentication failed with status ${res.status}`,
-                  })
-                )
+                  }),
+                ),
           ),
           Effect.flatMap((res) => HttpClientResponse.schemaBodyJson(TokenResponse)(res)),
           // Retry transient errors (network issues, 5xx, 429) with exponential backoff
@@ -240,59 +244,63 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             while: isTransientHttpError,
           }),
           Effect.mapError((error) => {
-            if (error instanceof ImisAuthError) return error
-            if (error instanceof MissingCredentialsError) return error
-            if (error instanceof EnvironmentNotFoundError) return error
-            if (error instanceof DatabaseError) return error
+            if (error instanceof ImisAuthError) return error;
+            if (error instanceof MissingCredentialsError) return error;
+            if (error instanceof EnvironmentNotFoundError) return error;
+            if (error instanceof DatabaseError) return error;
             return new ImisAuthError({
               message: "Failed to authenticate with IMIS",
               cause: error,
-            })
+            });
           }),
-          Effect.scoped
-        )
+          Effect.scoped,
+        );
 
         // Store token in session (no expiry tracking - we handle 401 instead)
-        yield* session.setImisToken(envId, response.access_token, Date.now() + response.expires_in * 1000)
+        yield* session.setImisToken(
+          envId,
+          response.access_token,
+          Date.now() + response.expires_in * 1000,
+        );
 
-        return response.access_token
+        return response.access_token;
       }).pipe(
         Effect.withSpan("imis.fetchToken", {
           attributes: { environmentId: envId, endpoint: "/token" },
-        })
-      )
+        }),
+      );
 
     // Ensure we have a valid token, fetching one if needed
     const ensureToken = (envId: string) =>
       Effect.gen(function* () {
-        const existingToken = yield* session.getImisToken(envId)
+        const existingToken = yield* session.getImisToken(envId);
         if (existingToken) {
-          return existingToken
+          return existingToken;
         }
-        return yield* fetchToken(envId)
-      })
+        return yield* fetchToken(envId);
+      });
 
     // Clear token and fetch a fresh one (preserves password)
     const refreshToken = (envId: string) =>
       Effect.gen(function* () {
         // Preserve password before clearing session
-        const password = yield* session.getPassword(envId)
-        yield* session.clearSession(envId)
+        const password = yield* session.getPassword(envId);
+        yield* session.clearSession(envId);
         if (password) {
-          yield* session.setPassword(envId, password)
+          yield* session.setPassword(envId, password);
         }
-        return yield* fetchToken(envId)
-      })
+        return yield* fetchToken(envId);
+      });
 
     // Execute an authenticated request with 401 retry and transient error retry
     const executeWithAuth = <A, E>(
       envId: string,
       endpoint: string,
-      makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, E>
+      makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, E>,
     ) =>
       Effect.gen(function* () {
-        const env = yield* persistence.getEnvironmentById(envId)
-        const token = yield* ensureToken(envId)
+        const env = yield* persistence.getEnvironmentById(envId);
+        const token = yield* ensureToken(envId);
 
         return yield* makeRequest(env.baseUrl, token).pipe(
           // Retry transient errors (network issues, 5xx, 429) with exponential backoff
@@ -308,28 +316,28 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               error.response.status === 401
             ) {
               return Effect.gen(function* () {
-                const newToken = yield* refreshToken(envId)
+                const newToken = yield* refreshToken(envId);
                 // Also retry the new request for transient errors
                 return yield* makeRequest(env.baseUrl, newToken).pipe(
                   Effect.retry({
                     schedule: transientRetrySchedule,
                     while: isTransientHttpError,
-                  })
-                )
-              })
+                  }),
+                );
+              });
             }
             // Re-raise other errors
-            return Effect.fail(error)
+            return Effect.fail(error);
           }),
           Effect.mapError((error) => {
             // Pass through known error types
-            if (error instanceof ImisAuthError) return error
-            if (error instanceof ImisRequestError) return error
-            if (error instanceof ImisResponseError) return error
-            if (error instanceof ImisSchemaError) return error
-            if (error instanceof MissingCredentialsError) return error
-            if (error instanceof EnvironmentNotFoundError) return error
-            if (error instanceof DatabaseError) return error
+            if (error instanceof ImisAuthError) return error;
+            if (error instanceof ImisRequestError) return error;
+            if (error instanceof ImisResponseError) return error;
+            if (error instanceof ImisSchemaError) return error;
+            if (error instanceof MissingCredentialsError) return error;
+            if (error instanceof EnvironmentNotFoundError) return error;
+            if (error instanceof DatabaseError) return error;
 
             // Handle HTTP client errors
             if (HttpClientError.isHttpClientError(error)) {
@@ -338,34 +346,34 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                   message: `IMIS request failed with status ${error.response.status}`,
                   status: error.response.status,
                   cause: error,
-                })
+                });
               }
               return new ImisRequestError({
                 message: "Failed to connect to IMIS",
                 cause: error,
-              })
+              });
             }
 
             // Handle schema parse errors with detailed formatting
             if (isParseError(error)) {
-              const formattedError = formatParseError(error)
+              const formattedError = formatParseError(error);
               return new ImisSchemaError({
                 message: `Response from ${endpoint} did not match expected schema`,
                 endpoint,
                 parseError: formattedError,
                 cause: error,
-              })
+              });
             }
 
             // Unknown error - log and wrap
-            console.error("[ImisApi] Unknown error:", error)
+            console.error("[ImisApi] Unknown error:", error);
             return new ImisRequestError({
               message: `Unknown error during IMIS request to ${endpoint}`,
               cause: error,
-            })
-          })
-        )
-      })
+            });
+          }),
+        );
+      });
 
     // Authenticate with a password directly (without storing it first)
     // Used for credential validation before storing the password
@@ -375,48 +383,49 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           grant_type: "password",
           username: username,
           password: password,
-        })
+        });
 
         const request = HttpClientRequest.post(`${baseUrl}/token`).pipe(
           HttpClientRequest.setHeader("Content-Type", "application/x-www-form-urlencoded"),
           HttpClientRequest.setHeader("Accept", "application/json"),
-          HttpClientRequest.bodyText(body.toString(), "application/x-www-form-urlencoded")
-        )
+          HttpClientRequest.bodyText(body.toString(), "application/x-www-form-urlencoded"),
+        );
 
         const response = yield* httpClient.execute(request).pipe(
           Effect.retry({
             schedule: transientRetrySchedule,
             while: isTransientHttpError,
           }),
-          Effect.scoped
-        )
+          Effect.scoped,
+        );
 
         if (response.status < 200 || response.status >= 300) {
           return yield* Effect.fail(
             new InvalidCredentialsError({
               message: "Authentication failed. Please check your username and password.",
-            })
-          )
+            }),
+          );
         }
 
         const tokenData = yield* HttpClientResponse.schemaBodyJson(TokenResponse)(response).pipe(
-          Effect.mapError(() =>
-            new InvalidCredentialsError({
-              message: "Authentication failed. Please check your username and password.",
-            })
-          )
-        )
+          Effect.mapError(
+            () =>
+              new InvalidCredentialsError({
+                message: "Authentication failed. Please check your username and password.",
+              }),
+          ),
+        );
 
-        return tokenData.access_token
+        return tokenData.access_token;
       }).pipe(
         Effect.mapError((error) => {
-          if (error instanceof InvalidCredentialsError) return error
+          if (error instanceof InvalidCredentialsError) return error;
           return new InvalidCredentialsError({
             message: "Authentication failed. Please check your username and password.",
             cause: error,
-          })
-        })
-      )
+          });
+        }),
+      );
 
     // Get user roles using a provided token
     // Used for credential validation to check staff role
@@ -431,52 +440,60 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             OperationName: "GetUserRoles",
             EntityTypeName: "UserSecurity",
             Parameters: {
-              $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+              $type:
+                "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
               $values: [{ $type: "System.String", $value: username }],
             },
             ParameterTypeName: {
-              $type: "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+              $type:
+                "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
             },
             UseJson: false,
-          })
-        )
+          }),
+        );
 
         const response = yield* httpClient.execute(request).pipe(
           Effect.retry({
             schedule: transientRetrySchedule,
             while: isTransientHttpError,
           }),
-          Effect.scoped
-        )
+          Effect.scoped,
+        );
 
         if (response.status < 200 || response.status >= 300) {
           return yield* Effect.fail(
-            new ImisRequestError({ message: `Failed to get user roles: HTTP ${response.status}` })
-          )
+            new ImisRequestError({ message: `Failed to get user roles: HTTP ${response.status}` }),
+          );
         }
 
-        const result = yield* HttpClientResponse.schemaBodyJson(GetUserRolesResponseSchema)(response).pipe(
-          Effect.mapError((error) =>
-            new ImisRequestError({ message: "Failed to parse user roles response", cause: error })
-          )
-        )
+        const result = yield* HttpClientResponse.schemaBodyJson(GetUserRolesResponseSchema)(
+          response,
+        ).pipe(
+          Effect.mapError(
+            (error) =>
+              new ImisRequestError({
+                message: "Failed to parse user roles response",
+                cause: error,
+              }),
+          ),
+        );
 
         if (!result.IsSuccessStatusCode || !result.Result) {
           return yield* Effect.fail(
-            new ImisRequestError({ message: result.Message || "Failed to get user roles" })
-          )
+            new ImisRequestError({ message: result.Message || "Failed to get user roles" }),
+          );
         }
 
-        return result.Result
+        return result.Result;
       }).pipe(
         Effect.mapError((error) => {
-          if (error instanceof ImisRequestError) return error
+          if (error instanceof ImisRequestError) return error;
           return new ImisRequestError({
             message: "Failed to get user roles",
             cause: error,
-          })
-        })
-      )
+          });
+        }),
+      );
 
     // ---------------------
     // Public API
@@ -492,7 +509,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           Effect.asVoid,
           Effect.withSpan("imis.authenticate", {
             attributes: { environmentId: envId },
-          })
+          }),
         ),
 
       /**
@@ -507,33 +524,33 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       validateCredentials: (envId: string, password: string) =>
         Effect.gen(function* () {
           // Get environment config
-          const env = yield* persistence.getEnvironmentById(envId)
+          const env = yield* persistence.getEnvironmentById(envId);
 
           // Step 1: Try to authenticate and get token
-          const token = yield* authenticateWithPassword(env.baseUrl, env.username, password)
+          const token = yield* authenticateWithPassword(env.baseUrl, env.username, password);
 
           // Step 2: Get user roles using the obtained token
-          const roles = yield* getUserRolesWithToken(env.baseUrl, env.username, token)
+          const roles = yield* getUserRolesWithToken(env.baseUrl, env.username, token);
 
           // Step 3: Check for SysAdmin role (case-insensitive)
           const hasSysAdminRole = roles.$values.some(
-            (role: UserRoleData) => role.RoleName.toLowerCase() === "sysadmin"
-          )
+            (role: UserRoleData) => role.RoleName.toLowerCase() === "sysadmin",
+          );
 
           if (!hasSysAdminRole) {
             return yield* Effect.fail(
               new NotStaffAccountError({
                 username: env.username,
                 message: `Account "${env.username}" does not have the SysAdmin role required for migrations`,
-              })
-            )
+              }),
+            );
           }
 
-          return { success: true }
+          return { success: true };
         }).pipe(
           Effect.withSpan("imis.validateCredentials", {
             attributes: { environmentId: envId },
-          })
+          }),
         ),
 
       /**
@@ -549,22 +566,22 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             httpClient.execute,
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return Effect.succeed({ success: true })
+                return Effect.succeed({ success: true });
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
                   request: HttpClientRequest.get(`${baseUrl}/api/party`),
                   response: res,
                   reason: "StatusCode",
-                })
-              )
+                }),
+              );
             }),
-            Effect.scoped
-          )
+            Effect.scoped,
+          ),
         ).pipe(
           Effect.withSpan("imis.healthCheck", {
             attributes: { environmentId: envId, endpoint: "/api/party" },
-          })
+          }),
         ),
 
       /**
@@ -580,22 +597,24 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             httpClient.execute,
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(BoEntityDefinitionQueryResponseSchema)(res)
+                return HttpClientResponse.schemaBodyJson(BoEntityDefinitionQueryResponseSchema)(
+                  res,
+                );
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
                   request: HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`),
                   response: res,
                   reason: "StatusCode",
-                })
-              )
+                }),
+              );
             }),
-            Effect.scoped
-          )
+            Effect.scoped,
+          ),
         ).pipe(
           Effect.withSpan("imis.getBoEntityDefinitions", {
             attributes: { environmentId: envId, endpoint: "/api/BoEntityDefinition", limit },
-          })
+          }),
         ),
 
       /**
@@ -613,7 +632,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               EntityTypeName: "DocumentSummary",
               OperationName: "FindByPath",
               Parameters: {
-                $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                $type:
+                  "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
                 $values: [
                   {
                     $type: "System.String",
@@ -625,18 +645,18 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((req) => httpClient.execute(req)),
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(DocumentSummaryResultSchema)(res)
+                return HttpClientResponse.schemaBodyJson(DocumentSummaryResultSchema)(res);
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
                   request: HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`),
                   response: res,
                   reason: "StatusCode",
-                })
-              )
+                }),
+              );
             }),
-            Effect.scoped
-          )
+            Effect.scoped,
+          ),
         ).pipe(
           Effect.withSpan("imis.getDocumentByPath", {
             attributes: {
@@ -645,7 +665,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               operation: "FindByPath",
               path,
             },
-          })
+          }),
         ),
 
       /**
@@ -663,7 +683,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               EntityTypeName: "DocumentSummary",
               OperationName: "FindDocumentsInFolder",
               Parameters: {
-                $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                $type:
+                  "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
                 $values: [
                   {
                     $type: "System.String",
@@ -683,18 +704,20 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((req) => httpClient.execute(req)),
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(DocumentSummaryCollectionResultSchema)(res)
+                return HttpClientResponse.schemaBodyJson(DocumentSummaryCollectionResultSchema)(
+                  res,
+                );
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
                   request: HttpClientRequest.post(`${baseUrl}/api/DocumentSummary/_execute`),
                   response: res,
                   reason: "StatusCode",
-                })
-              )
+                }),
+              );
             }),
-            Effect.scoped
-          )
+            Effect.scoped,
+          ),
         ).pipe(
           Effect.withSpan("imis.getDocumentsInFolder", {
             attributes: {
@@ -704,7 +727,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               folderId,
               fileTypesCount: fileTypes.length,
             },
-          })
+          }),
         ),
 
       /**
@@ -722,7 +745,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               OperationName: "FindByPath",
               EntityTypeName: "QueryDefinition",
               Parameters: {
-                $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                $type:
+                  "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
                 $values: [
                   {
                     $type: "System.String",
@@ -731,7 +755,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 ],
               },
               ParameterTypeName: {
-                $type: "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                $type:
+                  "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
                 $values: ["System.String"],
               },
               UseJson: false,
@@ -739,18 +764,18 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((req) => httpClient.execute(req)),
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(QueryDefinitionResultSchema)(res)
+                return HttpClientResponse.schemaBodyJson(QueryDefinitionResultSchema)(res);
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
                   request: HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`),
                   response: res,
                   reason: "StatusCode",
-                })
-              )
+                }),
+              );
             }),
-            Effect.scoped
-          )
+            Effect.scoped,
+          ),
         ).pipe(
           Effect.withSpan("imis.getQueryDefinition", {
             attributes: {
@@ -759,7 +784,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               operation: "FindByPath",
               path,
             },
-          })
+          }),
         ),
 
       /**
@@ -774,9 +799,9 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       executeQuery: (envId: string, queryPath: string, limit: number = 500, offset: number = 0) =>
         Effect.gen(function* () {
           // Get environment to determine version
-          const env = yield* persistence.getEnvironmentById(envId)
-          const is2017 = env.version === "2017"
-          const endpoint = is2017 ? "/api/iqa" : "/api/query"
+          const env = yield* persistence.getEnvironmentById(envId);
+          const is2017 = env.version === "2017";
+          const endpoint = is2017 ? "/api/iqa" : "/api/query";
 
           // Make the request using executeWithAuth
           const result = yield* executeWithAuth(envId, endpoint, (baseUrl, token) =>
@@ -791,27 +816,27 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 if (res.status >= 200 && res.status < 300) {
                   // Use different schema based on version
                   if (is2017) {
-                    return HttpClientResponse.schemaBodyJson(Iqa2017ResponseSchema)(res)
+                    return HttpClientResponse.schemaBodyJson(Iqa2017ResponseSchema)(res);
                   }
-                  return HttpClientResponse.schemaBodyJson(IqaQueryResponseSchema)(res)
+                  return HttpClientResponse.schemaBodyJson(IqaQueryResponseSchema)(res);
                 }
                 return Effect.fail(
                   new HttpClientError.ResponseError({
                     request: HttpClientRequest.get(`${baseUrl}${endpoint}`),
                     response: res,
                     reason: "StatusCode",
-                  })
-                )
+                  }),
+                );
               }),
-              Effect.scoped
-            )
-          )
+              Effect.scoped,
+            ),
+          );
 
           // Normalize 2017 response to match EMS format
           if (is2017) {
-            return normalize2017Response(result as Iqa2017Response)
+            return normalize2017Response(result as Iqa2017Response);
           }
-          return result as IqaQueryResponse
+          return result as IqaQueryResponse;
         }).pipe(
           Effect.withSpan("imis.executeQuery", {
             attributes: {
@@ -821,7 +846,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               limit,
               offset,
             },
-          })
+          }),
         ),
 
       /**
@@ -832,7 +857,12 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * @param limit - Maximum rows to return (max 500)
        * @param offset - Starting offset for pagination
        */
-      fetchDataSource: (envId: string, entityTypeName: string, limit: number = 500, offset: number = 0) =>
+      fetchDataSource: (
+        envId: string,
+        entityTypeName: string,
+        limit: number = 500,
+        offset: number = 0,
+      ) =>
         Effect.gen(function* () {
           // Make the request using executeWithAuth (same pattern as executeQuery)
           const result = yield* executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) =>
@@ -844,7 +874,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               httpClient.execute,
               Effect.flatMap((res) => {
                 if (res.status >= 200 && res.status < 300) {
-                  return HttpClientResponse.schemaBodyJson(DataSourceResponseSchema)(res)
+                  return HttpClientResponse.schemaBodyJson(DataSourceResponseSchema)(res);
                 }
                 // Same error pattern as executeQuery
                 return Effect.fail(
@@ -852,15 +882,15 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                     request: HttpClientRequest.get(`${baseUrl}/api/${entityTypeName}`),
                     response: res,
                     reason: "StatusCode",
-                  })
-                )
+                  }),
+                );
               }),
-              Effect.scoped
-            )
-          )
+              Effect.scoped,
+            ),
+          );
 
           // Normalize to flat format (matches query response)
-          return normalizeDataSourceResponse(result)
+          return normalizeDataSourceResponse(result);
         }).pipe(
           Effect.withSpan("imis.fetchDataSource", {
             attributes: {
@@ -870,7 +900,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               limit,
               offset,
             },
-          })
+          }),
         ),
 
       /**
@@ -886,7 +916,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         entityTypeName: string,
         parentEntityTypeName: string,
         parentId: string | null,
-        properties: Record<string, string | number | boolean | null>
+        properties: Record<string, string | number | boolean | null>,
       ) =>
         executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) => {
           // Build properties array
@@ -894,7 +924,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             $type: "Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts",
             Name: name,
             Value: value,
-          }))
+          }));
 
           // Build identity structure based on parent type
           const parentIdentity = parentId
@@ -902,14 +932,15 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                 $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
                 EntityTypeName: parentEntityTypeName,
                 IdentityElements: {
-                  $type: "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                  $type:
+                    "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
                   $values: [parentId],
                 },
               }
             : {
                 $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
                 EntityTypeName: parentEntityTypeName,
-              }
+              };
 
           const body = {
             $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
@@ -924,7 +955,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts",
               $values: propertyData,
             },
-          }
+          };
 
           return HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
             HttpClientRequest.bearerToken(token),
@@ -934,18 +965,46 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((req) => httpClient.execute(req)),
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
-                return Effect.void
+                // Parse response body as JSON to extract identity elements
+                return HttpClientResponse.json(res).pipe(
+                  Effect.map((data): InsertEntityResult => {
+                    // Try to extract identity elements from the response
+                    // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
+                    const identityElements: string[] = [];
+                    if (
+                      data &&
+                      typeof data === "object" &&
+                      "Identity" in data &&
+                      data.Identity &&
+                      typeof data.Identity === "object" &&
+                      "IdentityElements" in data.Identity &&
+                      data.Identity.IdentityElements &&
+                      typeof data.Identity.IdentityElements === "object" &&
+                      "$values" in data.Identity.IdentityElements &&
+                      Array.isArray(data.Identity.IdentityElements.$values)
+                    ) {
+                      identityElements.push(
+                        ...data.Identity.IdentityElements.$values.map(String),
+                      );
+                    }
+                    return { identityElements };
+                  }),
+                  // Fallback for edge cases where response body is empty or malformed
+                  Effect.catchAll(() =>
+                    Effect.succeed({ identityElements: [] } as InsertEntityResult),
+                  ),
+                );
               }
               return Effect.fail(
                 new HttpClientError.ResponseError({
                   request: HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`),
                   response: res,
                   reason: "StatusCode",
-                })
-              )
+                }),
+              );
             }),
-            Effect.scoped
-          )
+            Effect.scoped,
+          );
         }).pipe(
           Effect.withSpan("imis.insertEntity", {
             attributes: {
@@ -955,9 +1014,56 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               parentEntityTypeName,
               hasParentId: parentId !== null,
             },
-          })
+          }),
         ),
-    }
+
+      /**
+       * Get the names of identity fields for an entity type.
+       * @param envId - Environment ID
+       * @param entityTypeName - The entity type name
+       * @returns Array of identity field names (e.g., ["ID", "Ordinal"])
+       */
+      getIdentityFieldNames: (envId: string, entityTypeName: string) =>
+        executeWithAuth(envId, "/api/BoEntityDefinition", (baseUrl, token) =>
+          HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`).pipe(
+            HttpClientRequest.setUrlParam("limit", "500"),
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            httpClient.execute,
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(BoEntityDefinitionQueryResponseSchema)(
+                  res,
+                );
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.get(`${baseUrl}/api/BoEntityDefinition`),
+                  response: res,
+                  reason: "StatusCode",
+                }),
+              );
+            }),
+            Effect.map((definitions) => {
+              const entityDef = definitions.Items.$values.find(
+                (d) => d.EntityTypeName === entityTypeName,
+              );
+              if (!entityDef) return [] as string[];
+              return entityDef.Properties.$values
+                .filter((p) => p.IsIdentity === true)
+                .map((p) => p.Name);
+            }),
+            Effect.scoped,
+          ),
+        ).pipe(
+          Effect.withSpan("imis.getIdentityFieldNames", {
+            attributes: {
+              environmentId: envId,
+              entityTypeName,
+            },
+          }),
+        ),
+    };
   }),
 
   dependencies: [SessionService.Default, PersistenceService.Default, FetchHttpClient.layer],
@@ -971,8 +1077,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       healthCheck: () => Effect.succeed({ success: true }),
       getBoEntityDefinitions: () =>
         Effect.succeed({
-          $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts]], Asi.Contracts",
-          Items: { $type: "System.Collections.Generic.List`1[[Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts]], mscorlib", $values: [] },
+          $type:
+            "Asi.Soa.Core.DataContracts.PagedResult`1[[Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts]], Asi.Contracts",
+          Items: {
+            $type:
+              "System.Collections.Generic.List`1[[Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts]], mscorlib",
+            $values: [],
+          },
           Offset: 0,
           Limit: 500,
           Count: 0,
@@ -989,7 +1100,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       getDocumentsInFolder: () =>
         Effect.succeed({
           $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts",
-          Result: { $type: "System.Collections.Generic.List`1[[Asi.Soa.Core.DataContracts.DocumentSummaryData, Asi.Contracts]], mscorlib", $values: [] },
+          Result: {
+            $type:
+              "System.Collections.Generic.List`1[[Asi.Soa.Core.DataContracts.DocumentSummaryData, Asi.Contracts]], mscorlib",
+            $values: [],
+          },
         }),
       getQueryDefinition: () =>
         Effect.succeed({
@@ -998,8 +1113,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         }),
       executeQuery: () =>
         Effect.succeed({
-          $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
-          Items: { $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib", $values: [] },
+          $type:
+            "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
+          Items: {
+            $type:
+              "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+            $values: [],
+          },
           Offset: 0,
           Limit: 500,
           Count: 0,
@@ -1010,8 +1130,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         }),
       fetchDataSource: () =>
         Effect.succeed({
-          $type: "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
-          Items: { $type: "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib", $values: [] },
+          $type:
+            "Asi.Soa.Core.DataContracts.PagedResult`1[[System.Object, mscorlib]], Asi.Contracts",
+          Items: {
+            $type:
+              "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+            $values: [],
+          },
           Offset: 0,
           Limit: 500,
           Count: 0,
@@ -1020,28 +1145,14 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           HasNext: false,
           NextOffset: 0,
         }),
-      insertEntity: () =>
-        Effect.succeed({
-          $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
-          EntityTypeName: "TestEntity",
-          PrimaryParentEntityTypeName: "Party",
-          Identity: {
-            $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-            EntityTypeName: "TestEntity",
-          },
-          PrimaryParentIdentity: {
-            $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-            EntityTypeName: "Party",
-          },
-          Properties: { $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts", $values: [] },
-        }),
-    })
-  )
+      insertEntity: () => Effect.succeed({ identityElements: ["12345"] }),
+      getIdentityFieldNames: () => Effect.succeed(["ID"]),
+    }),
+  );
 }
 
 // ---------------------
 // Convenience Alias
 // ---------------------
 
-export const ImisApiServiceLive = ImisApiService.Default
-
+export const ImisApiServiceLive = ImisApiService.Default;

@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   AlertTriangle,
@@ -18,11 +18,11 @@ import {
   ArrowRight,
   FileSearch,
   Trash2,
-} from 'lucide-react'
+} from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -30,150 +30,174 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { queries } from '@/lib/queries'
-import { runJob, retryFailedRows, cancelJob, deleteJob } from '@/api/client'
-import type { JobWithEnvironments, FailedRow, JobStatus } from '@/api/client'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { queries } from "@/lib/queries";
+import { runJob, retryFailedRows, cancelJob, deleteJob } from "@/api/client";
+import type { JobWithEnvironments, FailedRow, SuccessRow, JobStatus } from "@/api/client";
+import { cn } from "@/lib/utils";
 
 type JobsSearch = {
-  status?: JobStatus | 'all'
-}
+  status?: JobStatus | "all";
+};
 
-export const Route = createFileRoute('/jobs')({
+export const Route = createFileRoute("/jobs")({
   component: JobsPage,
   validateSearch: (search: Record<string, unknown>): JobsSearch => ({
-    status: (search.status as JobStatus | 'all') || 'all',
+    status: (search.status as JobStatus | "all") || "all",
   }),
-})
+});
 
 function JobsPage() {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate({ from: '/jobs' })
-  const { status: statusFilter } = Route.useSearch()
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [jobToDelete, setJobToDelete] = useState<JobWithEnvironments | null>(null)
+  const queryClient = useQueryClient();
+  const navigate = useNavigate({ from: "/jobs" });
+  const { status: statusFilter } = Route.useSearch();
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<JobWithEnvironments | null>(null);
+  const [rowResultsLimit, setRowResultsLimit] = useState(100);
 
-  const { data: jobs, isLoading, refetch, isFetching } = useQuery(queries.jobs.all())
+  const { data: jobs, isLoading, refetch, isFetching } = useQuery(queries.jobs.all());
 
   // Filter jobs by status
   const filteredJobs = useMemo(() => {
-    if (!jobs) return []
-    if (!statusFilter || statusFilter === 'all') return jobs
-    return jobs.filter((job) => job.status === statusFilter)
-  }, [jobs, statusFilter])
+    if (!jobs) return [];
+    if (!statusFilter || statusFilter === "all") return jobs;
+    return jobs.filter((job) => job.status === statusFilter);
+  }, [jobs, statusFilter]);
 
   // Compute job stats
   const jobStats = useMemo(() => {
     if (!jobs || jobs.length === 0) {
-      return { total: 0, completed: 0, partial: 0, failed: 0, running: 0, successRate: 0 }
+      return { total: 0, completed: 0, partial: 0, failed: 0, running: 0, successRate: 0 };
     }
-    const completed = jobs.filter((j) => j.status === 'completed').length
-    const partial = jobs.filter((j) => j.status === 'partial').length
-    const failed = jobs.filter((j) => j.status === 'failed').length
-    const running = jobs.filter((j) => j.status === 'running').length
-    const finished = completed + partial + failed
-    const successRate = finished > 0 ? Math.round((completed / finished) * 100) : 0
-    return { total: jobs.length, completed, partial, failed, running, successRate }
-  }, [jobs])
+    const completed = jobs.filter((j) => j.status === "completed").length;
+    const partial = jobs.filter((j) => j.status === "partial").length;
+    const failed = jobs.filter((j) => j.status === "failed").length;
+    const running = jobs.filter((j) => j.status === "running").length;
+    const finished = completed + partial + failed;
+    const successRate = finished > 0 ? Math.round((completed / finished) * 100) : 0;
+    return { total: jobs.length, completed, partial, failed, running, successRate };
+  }, [jobs]);
 
-  const setStatusFilter = (status: JobStatus | 'all') => {
+  const setStatusFilter = (status: JobStatus | "all") => {
     navigate({
-      search: (prev) => ({ ...prev, status: status === 'all' ? undefined : status }),
-    })
-  }
-  const { data: selectedJob } = useQuery(queries.jobs.byId(selectedJobId))
-  const { data: failedRows } = useQuery(queries.jobs.failedRows(selectedJobId))
+      search: (prev) => ({ ...prev, status: status === "all" ? undefined : status }),
+    });
+  };
+  const { data: selectedJob } = useQuery(queries.jobs.byId(selectedJobId));
+  const { data: failedRows } = useQuery(queries.jobs.failedRows(selectedJobId));
+  const { data: successRows } = useQuery(queries.jobs.successRows(selectedJobId));
+
+  // Parse identity field names from the job
+  const identityFieldNames = useMemo(() => {
+    if (!selectedJob?.identityFieldNames) return [] as string[];
+    try {
+      return JSON.parse(selectedJob.identityFieldNames) as string[];
+    } catch {
+      return [] as string[];
+    }
+  }, [selectedJob?.identityFieldNames]);
+
+  // Create combined timeline of success and failed rows sorted by rowIndex
+  const rowResults = useMemo(() => {
+    const results: Array<
+      { type: "success"; row: SuccessRow } | { type: "failure"; row: FailedRow }
+    > = [];
+
+    if (successRows) {
+      results.push(...successRows.map((row) => ({ type: "success" as const, row })));
+    }
+    if (failedRows) {
+      results.push(...failedRows.map((row) => ({ type: "failure" as const, row })));
+    }
+
+    // Sort by rowIndex
+    return results.sort((a, b) => a.row.rowIndex - b.row.rowIndex);
+  }, [successRows, failedRows]);
 
   const runJobMutation = useMutation({
     mutationFn: runJob,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
-  })
+  });
 
   const retryMutation = useMutation({
     mutationFn: retryFailedRows,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
-      queryClient.invalidateQueries({ queryKey: ['jobs', selectedJobId, 'failedRows'] })
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["jobs", selectedJobId, "failedRows"] });
     },
-  })
+  });
 
   const cancelMutation = useMutation({
     mutationFn: cancelJob,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
-  })
+  });
 
   const deleteMutation = useMutation({
     mutationFn: deleteJob,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] })
-      setSelectedJobId(null)
-      setDeleteDialogOpen(false)
-      setJobToDelete(null)
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      setSelectedJobId(null);
+      setDeleteDialogOpen(false);
+      setJobToDelete(null);
     },
-  })
+  });
 
   const handleDeleteClick = (job: JobWithEnvironments) => {
-    setJobToDelete(job)
-    setDeleteDialogOpen(true)
-  }
+    setJobToDelete(job);
+    setDeleteDialogOpen(true);
+  };
 
   const handleConfirmDelete = () => {
     if (jobToDelete) {
-      deleteMutation.mutate(jobToDelete.id)
+      deleteMutation.mutate(jobToDelete.id);
     }
-  }
+  };
 
   const formatDuration = (startedAt: string | null, completedAt: string | null) => {
-    if (!startedAt) return '—'
-    const start = new Date(startedAt).getTime()
-    const end = completedAt ? new Date(completedAt).getTime() : Date.now()
-    const ms = end - start
-    if (ms < 1000) return `${Math.round(ms)}ms`
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
-    return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`
-  }
+    if (!startedAt) return "—";
+    const start = new Date(startedAt).getTime();
+    const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+    const ms = end - start;
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+    return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
+  };
 
   const formatRelativeTime = (timestamp: string) => {
-    const now = Date.now()
-    const date = new Date(timestamp).getTime()
-    const diff = now - date
-    if (diff < 60000) return 'Just now'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    return new Date(timestamp).toLocaleDateString()
-  }
+    const now = Date.now();
+    const date = new Date(timestamp).getTime();
+    const diff = now - date;
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   const formatFullDateTime = (timestamp: string | null) => {
-    if (!timestamp) return '—'
-    const date = new Date(timestamp)
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
+    if (!timestamp) return "—";
+    const date = new Date(timestamp);
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
       hour12: true,
-    }).format(date)
-  }
+    }).format(date);
+  };
 
   const getProgressPercent = (job: JobWithEnvironments) => {
-    if (!job.totalRows || job.totalRows === 0) return 0
-    return Math.round((job.processedRows / job.totalRows) * 100)
-  }
+    if (!job.totalRows || job.totalRows === 0) return 0;
+    return Math.round((job.processedRows / job.totalRows) * 100);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -186,13 +210,8 @@ function JobsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn('size-4', isFetching && 'animate-spin')} />
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
             Refresh
           </Button>
         </div>
@@ -233,7 +252,8 @@ function JobsPage() {
               Migration Jobs
               {jobs && (
                 <span className="text-muted-foreground font-normal">
-                  ({filteredJobs.length}{statusFilter && statusFilter !== 'all' ? ` of ${jobs.length}` : ''})
+                  ({filteredJobs.length}
+                  {statusFilter && statusFilter !== "all" ? ` of ${jobs.length}` : ""})
                 </span>
               )}
             </CardTitle>
@@ -241,28 +261,30 @@ function JobsPage() {
 
           {/* Status Filters */}
           <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-            {(['all', 'completed', 'partial', 'failed', 'running', 'queued', 'cancelled'] as const).map((status) => (
+            {(
+              ["all", "completed", "partial", "failed", "running", "queued", "cancelled"] as const
+            ).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
                 className={cn(
-                  'px-2.5 py-1 text-xs font-medium rounded-full transition-colors',
-                  (statusFilter || 'all') === status
-                    ? status === 'all'
-                      ? 'bg-primary text-primary-foreground'
-                      : status === 'completed'
-                        ? 'bg-green-500/20 text-green-600 ring-1 ring-green-500/30'
-                        : status === 'partial'
-                          ? 'bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30'
-                          : status === 'failed'
-                            ? 'bg-destructive/20 text-destructive ring-1 ring-destructive/30'
-                            : status === 'running'
-                              ? 'bg-primary/20 text-primary ring-1 ring-primary/30'
-                              : 'bg-muted text-muted-foreground ring-1 ring-muted-foreground/30'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  "px-2.5 py-1 text-xs font-medium rounded-full transition-colors",
+                  (statusFilter || "all") === status
+                    ? status === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : status === "completed"
+                        ? "bg-green-500/20 text-green-600 ring-1 ring-green-500/30"
+                        : status === "partial"
+                          ? "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30"
+                          : status === "failed"
+                            ? "bg-destructive/20 text-destructive ring-1 ring-destructive/30"
+                            : status === "running"
+                              ? "bg-primary/20 text-primary ring-1 ring-primary/30"
+                              : "bg-muted text-muted-foreground ring-1 ring-muted-foreground/30"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
                 )}
               >
-                {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
           </div>
@@ -282,7 +304,7 @@ function JobsPage() {
               <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                 <p className="text-sm">No {statusFilter} jobs found</p>
                 <button
-                  onClick={() => setStatusFilter('all')}
+                  onClick={() => setStatusFilter("all")}
                   className="text-xs text-primary hover:underline mt-1"
                 >
                   Show all jobs
@@ -295,7 +317,10 @@ function JobsPage() {
                     key={job.id}
                     job={job}
                     isSelected={selectedJobId === job.id}
-                    onSelect={() => setSelectedJobId(job.id)}
+                    onSelect={() => {
+                      setSelectedJobId(job.id);
+                      setRowResultsLimit(100); // Reset limit when selecting a new job
+                    }}
                     formatDuration={formatDuration}
                     formatRelativeTime={formatRelativeTime}
                     getProgressPercent={getProgressPercent}
@@ -336,12 +361,16 @@ function JobsPage() {
                   <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                     <div className="flex flex-col flex-1 min-w-0">
                       <span className="text-xs text-muted-foreground">Source</span>
-                      <span className="font-medium truncate">{selectedJob.sourceEnvironmentName}</span>
+                      <span className="font-medium truncate">
+                        {selectedJob.sourceEnvironmentName}
+                      </span>
                     </div>
                     <ArrowRight className="size-5 text-muted-foreground shrink-0" />
                     <div className="flex flex-col flex-1 min-w-0 text-right">
                       <span className="text-xs text-muted-foreground">Destination</span>
-                      <span className="font-medium truncate">{selectedJob.destEnvironmentName}</span>
+                      <span className="font-medium truncate">
+                        {selectedJob.destEnvironmentName}
+                      </span>
                     </div>
                   </div>
 
@@ -351,15 +380,15 @@ function JobsPage() {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Progress</span>
                         <span className="font-mono">
-                          {selectedJob.processedRows} / {selectedJob.totalRows} rows
-                          ({getProgressPercent(selectedJob)}%)
+                          {selectedJob.processedRows} / {selectedJob.totalRows} rows (
+                          {getProgressPercent(selectedJob)}%)
                         </span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className={cn(
-                            'h-full transition-all duration-500',
-                            selectedJob.failedRowCount > 0 ? 'bg-amber-500' : 'bg-primary'
+                            "h-full transition-all duration-500",
+                            selectedJob.failedRowCount > 0 ? "bg-amber-500" : "bg-primary",
                           )}
                           style={{ width: `${getProgressPercent(selectedJob)}%` }}
                         />
@@ -420,17 +449,21 @@ function JobsPage() {
                           <div className="flex flex-col gap-1 p-3 bg-muted/30 rounded-lg cursor-help">
                             <span className="text-xs text-muted-foreground">Mode</span>
                             <span className="text-sm flex items-center gap-1.5">
-                              {selectedJob.mode === 'query' ? (
+                              {selectedJob.mode === "query" ? (
                                 <FileSearch className="size-3.5" />
                               ) : (
                                 <Database className="size-3.5" />
                               )}
-                              {selectedJob.mode === 'query' ? 'Query' : 'Data Source'}
+                              {selectedJob.mode === "query" ? "Query" : "Data Source"}
                             </span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{selectedJob.mode === 'query' ? 'Source data from IQD query' : 'Source data from Business Object'}</p>
+                          <p>
+                            {selectedJob.mode === "query"
+                              ? "Source data from IQD query"
+                              : "Source data from Business Object"}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -442,11 +475,15 @@ function JobsPage() {
                             <span className="text-sm font-mono">
                               {(() => {
                                 try {
-                                  const mappings = JSON.parse(selectedJob.mappings) as Array<{ destinationProperty: string | null }>
-                                  const active = mappings.filter(m => m.destinationProperty !== null).length
-                                  return `${active} fields`
+                                  const mappings = JSON.parse(selectedJob.mappings) as Array<{
+                                    destinationProperty: string | null;
+                                  }>;
+                                  const active = mappings.filter(
+                                    (m) => m.destinationProperty !== null,
+                                  ).length;
+                                  return `${active} fields`;
                                 } catch {
-                                  return '—'
+                                  return "—";
                                 }
                               })()}
                             </span>
@@ -457,34 +494,40 @@ function JobsPage() {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    {selectedJob.status === 'running' && selectedJob.startedAt && selectedJob.processedRows > 0 && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex flex-col gap-1 p-3 bg-primary/10 rounded-lg cursor-help">
-                              <span className="text-xs text-primary">Rate</span>
-                              <span className="text-sm font-mono text-primary">
-                                {(() => {
-                                  const elapsed = (Date.now() - new Date(selectedJob.startedAt!).getTime()) / 1000
-                                  if (elapsed < 1) return '—'
-                                  const rate = selectedJob.processedRows / elapsed
-                                  return rate >= 1 ? `${Math.round(rate)}/sec` : `${(rate * 60).toFixed(1)}/min`
-                                })()}
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Current processing rate</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+                    {selectedJob.status === "running" &&
+                      selectedJob.startedAt &&
+                      selectedJob.processedRows > 0 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex flex-col gap-1 p-3 bg-primary/10 rounded-lg cursor-help">
+                                <span className="text-xs text-primary">Rate</span>
+                                <span className="text-sm font-mono text-primary">
+                                  {(() => {
+                                    const elapsed =
+                                      (Date.now() - new Date(selectedJob.startedAt!).getTime()) /
+                                      1000;
+                                    if (elapsed < 1) return "—";
+                                    const rate = selectedJob.processedRows / elapsed;
+                                    return rate >= 1
+                                      ? `${Math.round(rate)}/sec`
+                                      : `${(rate * 60).toFixed(1)}/min`;
+                                  })()}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Current processing rate</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                   </div>
 
                   {/* Source/Destination Data Info */}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted/20 rounded-lg">
                     <span className="font-mono text-xs truncate flex-1">
-                      {selectedJob.mode === 'query'
+                      {selectedJob.mode === "query"
                         ? selectedJob.sourceQueryPath
                         : selectedJob.sourceEntityType}
                     </span>
@@ -503,15 +546,21 @@ function JobsPage() {
                     <div className="grid grid-cols-1 gap-2 text-sm">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Created</span>
-                        <span className="font-mono text-xs">{formatFullDateTime(selectedJob.createdAt)}</span>
+                        <span className="font-mono text-xs">
+                          {formatFullDateTime(selectedJob.createdAt)}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Started</span>
-                        <span className="font-mono text-xs">{formatFullDateTime(selectedJob.startedAt)}</span>
+                        <span className="font-mono text-xs">
+                          {formatFullDateTime(selectedJob.startedAt)}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Completed</span>
-                        <span className="font-mono text-xs">{formatFullDateTime(selectedJob.completedAt)}</span>
+                        <span className="font-mono text-xs">
+                          {formatFullDateTime(selectedJob.completedAt)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -519,7 +568,7 @@ function JobsPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2 mb-4">
-                  {selectedJob.status === 'queued' && (
+                  {selectedJob.status === "queued" && (
                     <Button
                       size="sm"
                       onClick={() => runJobMutation.mutate(selectedJob.id)}
@@ -533,7 +582,7 @@ function JobsPage() {
                       Run Job
                     </Button>
                   )}
-                  {selectedJob.status === 'running' && (
+                  {selectedJob.status === "running" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -545,9 +594,9 @@ function JobsPage() {
                     </Button>
                   )}
                   {selectedJob.failedRowCount > 0 &&
-                    (selectedJob.status === 'completed' ||
-                      selectedJob.status === 'partial' ||
-                      selectedJob.status === 'failed') && (
+                    (selectedJob.status === "completed" ||
+                      selectedJob.status === "partial" ||
+                      selectedJob.status === "failed") && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -562,7 +611,7 @@ function JobsPage() {
                         Retry Failed ({selectedJob.failedRowCount})
                       </Button>
                     )}
-                  {selectedJob.status !== 'running' && (
+                  {selectedJob.status !== "running" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -577,29 +626,52 @@ function JobsPage() {
 
                 <Separator className="my-4" />
 
-                {/* Failed Rows */}
-                {selectedJob.failedRowCount > 0 && (
+                {/* Row Results */}
+                {(selectedJob.successfulRows > 0 || selectedJob.failedRowCount > 0) && (
                   <div className="flex flex-col gap-2">
-                    <h4 className="text-sm font-medium">
-                      Failed Records ({failedRows?.length ?? 0})
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      Row Results
+                      {successRows && successRows.length > 0 && (
+                        <span className="text-green-600 text-xs">
+                          ({successRows.length} success)
+                        </span>
+                      )}
+                      {failedRows && failedRows.length > 0 && (
+                        <span className="text-destructive text-xs">
+                          ({failedRows.length} failed)
+                        </span>
+                      )}
                     </h4>
-                    {!failedRows ? (
+                    {!successRows && !failedRows ? (
                       <div className="flex items-center justify-center py-4">
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
                       </div>
-                    ) : failedRows.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No failed records to display
-                      </p>
+                    ) : rowResults.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No row results to display</p>
                     ) : (
                       <div className="flex flex-col gap-1 max-h-64 overflow-auto">
-                        {failedRows.slice(0, 50).map((row) => (
-                          <FailedRowItem key={row.id} row={row} />
-                        ))}
-                        {failedRows.length > 50 && (
-                          <p className="text-xs text-muted-foreground text-center py-2">
-                            ... and {failedRows.length - 50} more
-                          </p>
+                        {rowResults
+                          .slice(0, rowResultsLimit)
+                          .map((result) =>
+                            result.type === "success" ? (
+                              <SuccessRowItem
+                                key={`s-${result.row.id}`}
+                                row={result.row}
+                                identityFieldNames={identityFieldNames}
+                              />
+                            ) : (
+                              <FailedRowItem key={`f-${result.row.id}`} row={result.row} />
+                            ),
+                          )}
+                        {rowResults.length > rowResultsLimit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setRowResultsLimit((prev) => prev + 100)}
+                          >
+                            Load next 100 ({rowResults.length - rowResultsLimit} remaining)
+                          </Button>
                         )}
                       </div>
                     )}
@@ -624,14 +696,15 @@ function JobsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {jobToDelete?.status === 'partial' && (
+          {jobToDelete?.status === "partial" && (
             <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
               <div className="text-sm">
                 <p className="font-medium text-amber-600">Warning: Partial Job</p>
                 <p className="text-muted-foreground mt-1">
-                  This job has {jobToDelete.failedRowCount} failed records that haven't been retried.
-                  Deleting will permanently remove these records and you won't be able to retry them.
+                  This job has {jobToDelete.failedRowCount} failed records that haven't been
+                  retried. Deleting will permanently remove these records and you won't be able to
+                  retry them.
                 </p>
               </div>
             </div>
@@ -661,7 +734,7 @@ function JobsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
 
 // ---------------------
@@ -670,43 +743,36 @@ function JobsPage() {
 
 function StatusIcon({ status, className }: { status: JobStatus; className?: string }) {
   switch (status) {
-    case 'completed':
-      return <CheckCircle className={cn('size-4 text-green-600', className)} />
-    case 'failed':
-      return <XCircle className={cn('size-4 text-destructive', className)} />
-    case 'partial':
-      return <AlertCircle className={cn('size-4 text-amber-500', className)} />
-    case 'cancelled':
-      return <XCircle className={cn('size-4 text-muted-foreground', className)} />
-    case 'running':
-      return <Loader2 className={cn('size-4 animate-spin text-primary', className)} />
-    case 'queued':
+    case "completed":
+      return <CheckCircle className={cn("size-4 text-green-600", className)} />;
+    case "failed":
+      return <XCircle className={cn("size-4 text-destructive", className)} />;
+    case "partial":
+      return <AlertCircle className={cn("size-4 text-amber-500", className)} />;
+    case "cancelled":
+      return <XCircle className={cn("size-4 text-muted-foreground", className)} />;
+    case "running":
+      return <Loader2 className={cn("size-4 animate-spin text-primary", className)} />;
+    case "queued":
     default:
-      return <Clock className={cn('size-4 text-muted-foreground', className)} />
+      return <Clock className={cn("size-4 text-muted-foreground", className)} />;
   }
 }
 
 function StatusBadge({ status }: { status: JobStatus }) {
   const config: Record<JobStatus, { label: string; className: string }> = {
-    queued: { label: 'Queued', className: 'bg-muted text-muted-foreground' },
-    running: { label: 'Running', className: 'bg-primary/10 text-primary' },
-    completed: { label: 'Completed', className: 'bg-green-500/10 text-green-600' },
-    failed: { label: 'Failed', className: 'bg-destructive/10 text-destructive' },
-    partial: { label: 'Partial', className: 'bg-amber-500/10 text-amber-600' },
-    cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground' },
-  }
-  const { label, className } = config[status]
+    queued: { label: "Queued", className: "bg-muted text-muted-foreground" },
+    running: { label: "Running", className: "bg-primary/10 text-primary" },
+    completed: { label: "Completed", className: "bg-green-500/10 text-green-600" },
+    failed: { label: "Failed", className: "bg-destructive/10 text-destructive" },
+    partial: { label: "Partial", className: "bg-amber-500/10 text-amber-600" },
+    cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground" },
+  };
+  const { label, className } = config[status];
 
   return (
-    <span
-      className={cn(
-        'px-2 py-0.5 rounded-full text-xs font-medium',
-        className
-      )}
-    >
-      {label}
-    </span>
-  )
+    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", className)}>{label}</span>
+  );
 }
 
 function JobListItem({
@@ -717,32 +783,32 @@ function JobListItem({
   formatRelativeTime,
   getProgressPercent,
 }: {
-  job: JobWithEnvironments
-  isSelected: boolean
-  onSelect: () => void
-  formatDuration: (start: string | null, end: string | null) => string
-  formatRelativeTime: (ts: string) => string
-  getProgressPercent: (job: JobWithEnvironments) => number
+  job: JobWithEnvironments;
+  isSelected: boolean;
+  onSelect: () => void;
+  formatDuration: (start: string | null, end: string | null) => string;
+  formatRelativeTime: (ts: string) => string;
+  getProgressPercent: (job: JobWithEnvironments) => number;
 }) {
-  const progress = getProgressPercent(job)
+  const progress = getProgressPercent(job);
 
   // Calculate progress rate for running jobs
   const getProgressRate = () => {
-    if (job.status !== 'running' || !job.startedAt || job.processedRows === 0) return null
-    const elapsed = (Date.now() - new Date(job.startedAt).getTime()) / 1000
-    if (elapsed < 1) return null
-    const rate = job.processedRows / elapsed
-    return rate >= 1 ? `${Math.round(rate)}/s` : `${(rate * 60).toFixed(1)}/min`
-  }
+    if (job.status !== "running" || !job.startedAt || job.processedRows === 0) return null;
+    const elapsed = (Date.now() - new Date(job.startedAt).getTime()) / 1000;
+    if (elapsed < 1) return null;
+    const rate = job.processedRows / elapsed;
+    return rate >= 1 ? `${Math.round(rate)}/s` : `${(rate * 60).toFixed(1)}/min`;
+  };
 
-  const progressRate = getProgressRate()
+  const progressRate = getProgressRate();
 
   return (
     <button
       onClick={onSelect}
       className={cn(
-        'w-full px-4 py-3 text-left transition-colors hover:bg-accent/50',
-        isSelected && 'bg-accent'
+        "w-full px-4 py-3 text-left transition-colors hover:bg-accent/50",
+        isSelected && "bg-accent",
       )}
     >
       <div className="flex items-center gap-3">
@@ -766,20 +832,14 @@ function JobListItem({
               <Clock className="size-3" />
               {formatRelativeTime(job.createdAt)}
             </span>
-            {job.status !== 'queued' && (
-              <span className="font-mono">
-                {formatDuration(job.startedAt, job.completedAt)}
-              </span>
+            {job.status !== "queued" && (
+              <span className="font-mono">{formatDuration(job.startedAt, job.completedAt)}</span>
             )}
-            {job.totalRows !== null && (
-              <span>{progress}%</span>
-            )}
-            {progressRate && (
-              <span className="text-primary font-mono">{progressRate}</span>
-            )}
+            {job.totalRows !== null && <span>{progress}%</span>}
+            {progressRate && <span className="text-primary font-mono">{progressRate}</span>}
           </div>
           {/* Compact progress bar */}
-          {job.status === 'running' && job.totalRows !== null && (
+          {job.status === "running" && job.totalRows !== null && (
             <div className="h-1 bg-muted rounded-full overflow-hidden mt-2">
               <div
                 className="h-full bg-primary transition-all duration-500"
@@ -788,20 +848,52 @@ function JobListItem({
             </div>
           )}
           {job.failedRowCount > 0 && (
-            <div className="text-xs text-amber-500 mt-1">
-              {job.failedRowCount} failed records
-            </div>
+            <div className="text-xs text-amber-500 mt-1">{job.failedRowCount} failed records</div>
           )}
         </div>
         <ChevronRight className="size-4 text-muted-foreground shrink-0" />
       </div>
     </button>
-  )
+  );
+}
+
+function SuccessRowItem({
+  row,
+  identityFieldNames,
+}: {
+  row: SuccessRow;
+  identityFieldNames: string[];
+}) {
+  // Parse identity elements from JSON string
+  let identityElements: string[] = [];
+  try {
+    identityElements = JSON.parse(row.identityElements);
+  } catch {
+    identityElements = [];
+  }
+
+  // Format identity display: "ID: 23204, Ordinal: 21" or "23204, 21" if no field names
+  const identityDisplay = identityElements
+    .map((value, i) => {
+      const fieldName = identityFieldNames[i];
+      return fieldName ? `${fieldName}: ${value}` : value;
+    })
+    .join(", ");
+
+  return (
+    <div className="flex items-start gap-2 p-2 bg-green-500/10 rounded text-xs">
+      <CheckCircle className="size-3.5 text-green-600 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <div className="font-medium">Row #{row.rowIndex + 1}</div>
+        {identityDisplay && <div className="text-muted-foreground">{identityDisplay}</div>}
+      </div>
+    </div>
+  );
 }
 
 function FailedRowItem({ row }: { row: FailedRow }) {
   return (
-    <div className="flex items-start gap-2 p-2 bg-muted/30 rounded text-xs">
+    <div className="flex items-start gap-2 p-2 bg-destructive/10 rounded text-xs">
       <AlertCircle className="size-3.5 text-destructive shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="font-medium">Row #{row.rowIndex + 1}</div>
@@ -811,5 +903,5 @@ function FailedRowItem({ row }: { row: FailedRow }) {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -5,37 +5,37 @@
  * It is included in `src/index.html`.
  */
 
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { QueryClientProvider } from '@tanstack/react-query'
-import { RouterProvider, createRouter } from '@tanstack/react-router'
-import { routeTree } from './routeTree.gen'
-import { queryClient } from './lib/query-client'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { routeTree } from "./routeTree.gen";
+import { queryClient } from "./lib/query-client";
 
 // Create the router instance
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree });
 
 // Register the router for type safety
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface Register {
-    router: typeof router
+    router: typeof router;
   }
 }
 
-const elem = document.getElementById('root')!
+const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>
-)
+);
 
 if (import.meta.hot) {
   // With hot module reloading, `import.meta.hot.data` is persisted.
-  const root = (import.meta.hot.data.root ??= createRoot(elem))
-  root.render(app)
+  const root = (import.meta.hot.data.root ??= createRoot(elem));
+  root.render(app);
 } else {
   // The hot module reloading API is not available in production.
-  createRoot(elem).render(app)
+  createRoot(elem).render(app);
 }

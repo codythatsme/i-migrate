@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Schema } from "effect";
 
 // ---------------------
 // Common iMIS / SOA Schemas
@@ -11,8 +11,8 @@ export const BoPropertyTypeNameSchema = Schema.Literal(
   "Decimal",
   "Integer",
   "Monetary",
-  "String"
-)
+  "String",
+);
 
 export const DbDataTypeSchema = Schema.Literal(
   "Bit",
@@ -25,8 +25,8 @@ export const DbDataTypeSchema = Schema.Literal(
   "TinyInt",
   "UniqueIdentifier",
   "VarBinary",
-  "VarChar"
-)
+  "VarChar",
+);
 
 /**
  * Data type names used in IQA query properties.
@@ -42,8 +42,8 @@ export const QueryDataTypeNameSchema = Schema.Literal(
   "Int32",
   "Int64",
   "SByte",
-  "String"
-)
+  "String",
+);
 
 /**
  * Display format codes used in IQA query properties.
@@ -61,28 +61,28 @@ export const DisplayFormatSchema = Schema.Literal(
   "d",
   "g",
   "t",
-  "" // Empty string is valid
-)
+  "", // Empty string is valid
+);
 
 /**
  * Relation types for query joins.
  */
-export const RelationTypeSchema = Schema.Literal("Cross", "Equal", "Left", "NotExist")
+export const RelationTypeSchema = Schema.Literal("Cross", "Equal", "Left", "NotExist");
 
 /**
  * Query source types (1 = BusinessObject, 2 = IQA Query).
  */
-export const QuerySourceTypeSchema = Schema.Literal(1, 2)
+export const QuerySourceTypeSchema = Schema.Literal(1, 2);
 
 /**
  * Document status values.
  */
-export const DocumentStatusSchema = Schema.Literal("Published", "Draft", "Archived")
+export const DocumentStatusSchema = Schema.Literal("Published", "Draft", "Archived");
 
 /**
  * Business object type names.
  */
-export const ObjectTypeNameSchema = Schema.Literal("Multi", "SINGLE", "Single", "Standard")
+export const ObjectTypeNameSchema = Schema.Literal("Multi", "SINGLE", "Single", "Standard");
 
 /**
  * Represents the standard collection wrapper used in iMIS / SOA contracts.
@@ -91,7 +91,7 @@ export const SoaCollectionSchema = <S extends Schema.Schema.Any>(element: S) =>
   Schema.Struct({
     $type: Schema.String,
     $values: Schema.Array(element),
-  })
+  });
 
 /**
  * Standard value wrapper for polymorphic values.
@@ -103,10 +103,10 @@ export const SoaValueSchema = Schema.Struct({
     "System.Decimal",
     "System.Guid",
     "System.Int32",
-    "System.SByte"
+    "System.SByte",
   ),
   $value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-})
+});
 
 /**
  * iMIS property values can be primitives or wrapped objects.
@@ -116,8 +116,8 @@ export const SoaDefaultValueSchema = Schema.Union(
   Schema.Number,
   Schema.Boolean,
   SoaValueSchema,
-  Schema.Null
-)
+  Schema.Null,
+);
 
 // ---------------------
 // Property Rules
@@ -127,7 +127,7 @@ export const GenericPropertySchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
   Name: Schema.String,
   Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null),
-})
+});
 
 /**
  * A rule that provides a fixed list of values (e.g., a dropdown).
@@ -135,7 +135,7 @@ export const GenericPropertySchema = Schema.Struct({
 export const PropertyRuleValueListSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyRuleValueListData, Asi.Contracts"),
   ValueList: SoaCollectionSchema(GenericPropertySchema),
-})
+});
 
 // ---------------------
 // Query Schemas
@@ -148,7 +148,7 @@ export const CriteriaDataSchema = Schema.Struct({
   Prompt: Schema.optionalWith(Schema.String, { exact: true }),
   AllowMultiple: Schema.optionalWith(Schema.Boolean, { exact: true }),
   Values: Schema.Union(SoaCollectionSchema(Schema.String), Schema.Any),
-})
+});
 
 export const EntityUpdateInformationSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.EntityUpdateInformationData, Asi.Contracts"),
@@ -156,7 +156,7 @@ export const EntityUpdateInformationSchema = Schema.Struct({
   CreatedOn: Schema.optionalWith(Schema.String, { exact: true }),
   UpdatedBy: Schema.optionalWith(Schema.String, { exact: true }),
   UpdatedOn: Schema.optionalWith(Schema.String, { exact: true }),
-})
+});
 
 /**
  * Document summary data for file browser navigation.
@@ -175,7 +175,7 @@ export const DocumentSummaryDataSchema = Schema.Struct({
   IsSystem: Schema.optionalWith(Schema.Boolean, { exact: true }),
   IsFolder: Schema.optionalWith(Schema.Boolean, { exact: true }),
   UpdateInfo: Schema.optionalWith(EntityUpdateInformationSchema, { exact: true }),
-})
+});
 
 export const DocumentDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.DocumentData, Asi.Contracts"),
@@ -184,7 +184,7 @@ export const DocumentDataSchema = Schema.Struct({
       $type: Schema.String,
       $value: Schema.String,
     }),
-    { exact: true }
+    { exact: true },
   ),
   AccessId: Schema.String,
   DocumentCode: Schema.optionalWith(Schema.String, { exact: true }),
@@ -201,7 +201,7 @@ export const DocumentDataSchema = Schema.Struct({
   Status: DocumentStatusSchema,
   IsSystem: Schema.optionalWith(Schema.Boolean, { exact: true }),
   UpdateInfo: EntityUpdateInformationSchema,
-})
+});
 
 export const QueryPropertyDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryPropertyData, Asi.Contracts"),
@@ -214,7 +214,7 @@ export const QueryPropertyDataSchema = Schema.Struct({
   DisplayOrder: Schema.Number,
   Link: Schema.String,
   DataTypeName: QueryDataTypeNameSchema,
-})
+});
 
 export const QueryRelationDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryRelationData, Asi.Contracts"),
@@ -223,7 +223,7 @@ export const QueryRelationDataSchema = Schema.Struct({
   RightQuerySourceId: Schema.String,
   RightPropertyName: Schema.String,
   RelationType: RelationTypeSchema,
-})
+});
 
 export const QuerySourceDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.QuerySourceData, Asi.Contracts"),
@@ -232,7 +232,7 @@ export const QuerySourceDataSchema = Schema.Struct({
   Name: Schema.String,
   Description: Schema.optionalWith(Schema.String, { exact: true }),
   BusinessControllerName: Schema.String,
-})
+});
 
 export const QueryDefinitionSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.IqaQueryDefinitionData, Asi.Contracts"),
@@ -244,13 +244,13 @@ export const QueryDefinitionSchema = Schema.Struct({
   Sources: SoaCollectionSchema(QuerySourceDataSchema),
   QueryDefinitionId: Schema.String,
   LimitResultsCount: Schema.optionalWith(Schema.Number, { exact: true }),
-})
+});
 
 export const QueryDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryData, Asi.Contracts"),
   Criteria: SoaCollectionSchema(CriteriaDataSchema),
   EntityTypeName: Schema.String,
-})
+});
 
 /**
  * A rule that executes a query to get values (e.g., from an IQA).
@@ -260,30 +260,37 @@ export const PropertyRuleQuerySchema = Schema.Struct({
   Query: QueryDataSchema,
   ValuePropertyName: Schema.optionalWith(Schema.String, { exact: true }),
   DescriptionPropertyName: Schema.optionalWith(Schema.String, { exact: true }),
-})
+});
 
-export const PropertyRuleSchema = Schema.Union(PropertyRuleValueListSchema, PropertyRuleQuerySchema)
+export const PropertyRuleSchema = Schema.Union(
+  PropertyRuleValueListSchema,
+  PropertyRuleQuerySchema,
+);
 
 // ---------------------
 // Property Components
 // ---------------------
 
 export const PropertyRenderingInformationSchema = Schema.Struct({
-  $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyRenderingInformationData, Asi.Contracts"),
+  $type: Schema.Literal(
+    "Asi.Soa.Core.DataContracts.PropertyRenderingInformationData, Asi.Contracts",
+  ),
   HelpText: Schema.String,
   ToolTip: Schema.String,
   WatermarkText: Schema.String,
   ControlType: Schema.Literal(1, 3, 4, 7, 8, 12, 14, 18),
-})
+});
 
 export const ExtendedPropertyInformationSchema = Schema.Struct({
-  $type: Schema.Literal("Asi.Soa.Core.DataContracts.ExtendedPropertyInformationData, Asi.Contracts"),
+  $type: Schema.Literal(
+    "Asi.Soa.Core.DataContracts.ExtendedPropertyInformationData, Asi.Contracts",
+  ),
   DatabaseColumnName: Schema.String,
   DbDataType: DbDataTypeSchema,
   IsReadOnly: Schema.optionalWith(Schema.Boolean, { exact: true }),
   IsDbIdentity: Schema.optionalWith(Schema.Boolean, { exact: true }),
   IsNullable: Schema.optionalWith(Schema.Boolean, { exact: true }),
-})
+});
 
 // ---------------------
 // Business Object Properties
@@ -303,39 +310,39 @@ const PropertyBaseFields = {
   RenderingInformation: PropertyRenderingInformationSchema,
   ExtendedPropertyInformation: ExtendedPropertyInformationSchema,
   Rule: Schema.optionalWith(PropertyRuleSchema, { exact: true }),
-}
+};
 
 export const PropertyTypeStringSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeStringData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("String"),
   MaxLength: Schema.Number,
-})
+});
 
 export const PropertyTypeIntegerSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeIntegerData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("Integer"),
-})
+});
 
 export const PropertyTypeBooleanSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeBooleanData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("Boolean"),
-})
+});
 
 export const PropertyTypeDateTimeSchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeDateTimeData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("Date"),
   DateTimeDataType: Schema.Literal(0),
-})
+});
 
 export const PropertyTypeBinarySchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeBinaryData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("Binary"),
-})
+});
 
 export const PropertyTypeDecimalSchema = Schema.Struct({
   ...PropertyBaseFields,
@@ -343,13 +350,13 @@ export const PropertyTypeDecimalSchema = Schema.Struct({
   PropertyTypeName: Schema.Literal("Decimal"),
   Precision: Schema.optionalWith(Schema.Number, { exact: true }),
   Scale: Schema.optionalWith(Schema.Number, { exact: true }),
-})
+});
 
 export const PropertyTypeMonetarySchema = Schema.Struct({
   ...PropertyBaseFields,
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.PropertyTypeMonetaryData, Asi.Contracts"),
   PropertyTypeName: Schema.Literal("Monetary"),
-})
+});
 
 /**
  * Union of all supported property types.
@@ -361,8 +368,8 @@ export const BoPropertySchema = Schema.Union(
   PropertyTypeDateTimeSchema,
   PropertyTypeBinarySchema,
   PropertyTypeDecimalSchema,
-  PropertyTypeMonetarySchema
-)
+  PropertyTypeMonetarySchema,
+);
 
 // ---------------------
 // Indexes
@@ -372,7 +379,7 @@ export const IndexColumnSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.IndexColumnData, Asi.Contracts"),
   ColumnName: Schema.String,
   OrderBy: Schema.Literal(0),
-})
+});
 
 export const IndexSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.IndexData, Asi.Contracts"),
@@ -381,7 +388,7 @@ export const IndexSchema = Schema.Struct({
   IsUnique: Schema.Boolean,
   Columns: SoaCollectionSchema(IndexColumnSchema),
   IncludeColumns: SoaCollectionSchema(Schema.String),
-})
+});
 
 // ---------------------
 // Related Entities
@@ -390,7 +397,7 @@ export const IndexSchema = Schema.Struct({
 export const RelatedEntityDataCollectionSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.RelatedEntityDataCollection, Asi.Contracts"),
   $values: Schema.Array(Schema.Any),
-})
+});
 
 // ---------------------
 // Root Definition
@@ -409,7 +416,7 @@ export const BoEntityDefinitionSchema = Schema.Struct({
   RelatedEntities: RelatedEntityDataCollectionSchema,
   IsDesignable: Schema.optionalWith(Schema.Boolean, { exact: true }),
   Indexes: SoaCollectionSchema(IndexSchema),
-})
+});
 
 // ---------------------
 // Query Response (Paged Results)
@@ -429,12 +436,12 @@ export const QueryResponseSchema = <S extends Schema.Schema.Any>(element: S) =>
     NextPageLink: Schema.NullOr(Schema.String),
     HasNext: Schema.Boolean,
     NextOffset: Schema.Number,
-  })
+  });
 
 /**
  * Schema for BoEntityDefinition query response.
  */
-export const BoEntityDefinitionQueryResponseSchema = QueryResponseSchema(BoEntityDefinitionSchema)
+export const BoEntityDefinitionQueryResponseSchema = QueryResponseSchema(BoEntityDefinitionSchema);
 
 // ---------------------
 // Generic Execute Results
@@ -447,7 +454,7 @@ export const GenericExecuteResultSchema = <S extends Schema.Schema.Any>(element:
   Schema.Struct({
     $type: Schema.String,
     Result: Schema.NullOr(element),
-  })
+  });
 
 /**
  * Generic execute result for collection operations.
@@ -456,22 +463,23 @@ export const GenericExecuteCollectionResultSchema = <S extends Schema.Schema.Any
   Schema.Struct({
     $type: Schema.String,
     Result: SoaCollectionSchema(element),
-  })
+  });
 
 /**
  * Schema for DocumentSummary single result (FindByPath).
  */
-export const DocumentSummaryResultSchema = GenericExecuteResultSchema(DocumentSummaryDataSchema)
+export const DocumentSummaryResultSchema = GenericExecuteResultSchema(DocumentSummaryDataSchema);
 
 /**
  * Schema for DocumentSummary collection result (FindDocumentsInFolder).
  */
-export const DocumentSummaryCollectionResultSchema = GenericExecuteCollectionResultSchema(DocumentSummaryDataSchema)
+export const DocumentSummaryCollectionResultSchema =
+  GenericExecuteCollectionResultSchema(DocumentSummaryDataSchema);
 
 /**
  * Schema for QueryDefinition single result (FindByPath).
  */
-export const QueryDefinitionResultSchema = GenericExecuteResultSchema(QueryDefinitionSchema)
+export const QueryDefinitionResultSchema = GenericExecuteResultSchema(QueryDefinitionSchema);
 
 // ---------------------
 // IQA Query Results
@@ -481,12 +489,12 @@ export const QueryDefinitionResultSchema = GenericExecuteResultSchema(QueryDefin
  * Schema for IQA query result rows.
  * Query results return rows as Record<string, unknown> where keys are property aliases.
  */
-export const IqaQueryRowSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+export const IqaQueryRowSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
 
 /**
  * Schema for IQA query response.
  */
-export const IqaQueryResponseSchema = QueryResponseSchema(IqaQueryRowSchema)
+export const IqaQueryResponseSchema = QueryResponseSchema(IqaQueryRowSchema);
 
 // ---------------------
 // Generic Entity Data (for inserts)
@@ -499,7 +507,7 @@ export const GenericPropertyDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
   Name: Schema.String,
   Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null),
-})
+});
 
 /**
  * Schema for identity data.
@@ -508,7 +516,7 @@ export const IdentityDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts"),
   EntityTypeName: Schema.String,
   IdentityElements: Schema.optionalWith(SoaCollectionSchema(Schema.String), { exact: true }),
-})
+});
 
 /**
  * Schema for GenericEntityData response from insert operations.
@@ -520,7 +528,7 @@ export const GenericEntityDataSchema = Schema.Struct({
   Identity: IdentityDataSchema,
   PrimaryParentIdentity: IdentityDataSchema,
   Properties: SoaCollectionSchema(GenericPropertyDataSchema),
-})
+});
 
 // ---------------------
 // 2017 IQA Query Results (GenericEntityData format)
@@ -533,7 +541,7 @@ export const GenericEntityDataSchema = Schema.Struct({
 const WrappedValueSchema = Schema.Struct({
   $type: Schema.String,
   $value: Schema.Unknown,
-})
+});
 
 /**
  * Schema for property data in 2017 IQA responses.
@@ -542,8 +550,14 @@ const WrappedValueSchema = Schema.Struct({
 export const Iqa2017PropertyDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
   Name: Schema.String,
-  Value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null, WrappedValueSchema),
-})
+  Value: Schema.Union(
+    Schema.String,
+    Schema.Number,
+    Schema.Boolean,
+    Schema.Null,
+    WrappedValueSchema,
+  ),
+});
 
 /**
  * Schema for 2017 IQA query result rows.
@@ -555,12 +569,12 @@ export const Iqa2017RowSchema = Schema.Struct({
   PrimaryParentEntityTypeName: Schema.String,
   PrimaryParentIdentity: Schema.optionalWith(Schema.Any, { exact: true }),
   Properties: SoaCollectionSchema(Iqa2017PropertyDataSchema),
-})
+});
 
 /**
  * Schema for 2017 IQA query response.
  */
-export const Iqa2017ResponseSchema = QueryResponseSchema(Iqa2017RowSchema)
+export const Iqa2017ResponseSchema = QueryResponseSchema(Iqa2017RowSchema);
 
 // ---------------------
 // Data Source Query Results (GenericEntityData format)
@@ -576,9 +590,9 @@ export const DataSourcePropertyDataSchema = Schema.Struct({
   Name: Schema.String,
   Value: Schema.optionalWith(
     Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null, WrappedValueSchema),
-    { exact: true }
+    { exact: true },
   ),
-})
+});
 
 /**
  * Schema for data source query result rows.
@@ -591,12 +605,12 @@ export const DataSourceRowSchema = Schema.Struct({
   Identity: Schema.optionalWith(Schema.Any, { exact: true }),
   PrimaryParentIdentity: Schema.optionalWith(Schema.Any, { exact: true }),
   Properties: SoaCollectionSchema(DataSourcePropertyDataSchema),
-})
+});
 
 /**
  * Schema for data source query response.
  */
-export const DataSourceResponseSchema = QueryResponseSchema(DataSourceRowSchema)
+export const DataSourceResponseSchema = QueryResponseSchema(DataSourceRowSchema);
 
 // ---------------------
 // User Role Schemas (for GetUserRoles)
@@ -610,7 +624,7 @@ export const UserRoleDataSchema = Schema.Struct({
   Description: Schema.String,
   RoleKey: Schema.String,
   RoleName: Schema.String,
-})
+});
 
 /**
  * Schema for GetUserRoles response.
@@ -621,79 +635,79 @@ export const GetUserRolesResponseSchema = Schema.Struct({
   Result: Schema.NullOr(SoaCollectionSchema(UserRoleDataSchema)),
   IsSuccessStatusCode: Schema.Boolean,
   Message: Schema.NullOr(Schema.String),
-})
+});
 
 // ---------------------
 // Inferred Types
 // ---------------------
 
 export type SoaCollection<T> = {
-  readonly $type: string
-  readonly $values: readonly T[]
-}
+  readonly $type: string;
+  readonly $values: readonly T[];
+};
 
 export type QueryResponse<T> = {
-  readonly $type: string
-  readonly Items: SoaCollection<T>
-  readonly Offset: number
-  readonly Limit: number
-  readonly Count: number
-  readonly TotalCount: number
-  readonly NextPageLink: string | null
-  readonly HasNext: boolean
-  readonly NextOffset: number
-}
+  readonly $type: string;
+  readonly Items: SoaCollection<T>;
+  readonly Offset: number;
+  readonly Limit: number;
+  readonly Count: number;
+  readonly TotalCount: number;
+  readonly NextPageLink: string | null;
+  readonly HasNext: boolean;
+  readonly NextOffset: number;
+};
 
-export type BoProperty = typeof BoPropertySchema.Type
-export type BoIndex = typeof IndexSchema.Type
-export type BoEntityDefinition = typeof BoEntityDefinitionSchema.Type
+export type BoProperty = typeof BoPropertySchema.Type;
+export type BoIndex = typeof IndexSchema.Type;
+export type BoEntityDefinition = typeof BoEntityDefinitionSchema.Type;
 
-export type GenericProperty = typeof GenericPropertySchema.Type
-export type QueryDefinition = typeof QueryDefinitionSchema.Type
-export type QueryData = typeof QueryDataSchema.Type
-export type CriteriaData = typeof CriteriaDataSchema.Type
+export type GenericProperty = typeof GenericPropertySchema.Type;
+export type QueryDefinition = typeof QueryDefinitionSchema.Type;
+export type QueryData = typeof QueryDataSchema.Type;
+export type CriteriaData = typeof CriteriaDataSchema.Type;
 
-export type PropertyTypeString = typeof PropertyTypeStringSchema.Type
-export type PropertyTypeInteger = typeof PropertyTypeIntegerSchema.Type
-export type PropertyTypeBoolean = typeof PropertyTypeBooleanSchema.Type
-export type PropertyTypeDateTime = typeof PropertyTypeDateTimeSchema.Type
-export type PropertyTypeBinary = typeof PropertyTypeBinarySchema.Type
-export type PropertyTypeDecimal = typeof PropertyTypeDecimalSchema.Type
-export type PropertyTypeMonetary = typeof PropertyTypeMonetarySchema.Type
+export type PropertyTypeString = typeof PropertyTypeStringSchema.Type;
+export type PropertyTypeInteger = typeof PropertyTypeIntegerSchema.Type;
+export type PropertyTypeBoolean = typeof PropertyTypeBooleanSchema.Type;
+export type PropertyTypeDateTime = typeof PropertyTypeDateTimeSchema.Type;
+export type PropertyTypeBinary = typeof PropertyTypeBinarySchema.Type;
+export type PropertyTypeDecimal = typeof PropertyTypeDecimalSchema.Type;
+export type PropertyTypeMonetary = typeof PropertyTypeMonetarySchema.Type;
 
 // Literal union types
-export type QueryDataTypeName = typeof QueryDataTypeNameSchema.Type
-export type DisplayFormat = typeof DisplayFormatSchema.Type
-export type RelationType = typeof RelationTypeSchema.Type
-export type QuerySourceType = typeof QuerySourceTypeSchema.Type
-export type DocumentStatus = typeof DocumentStatusSchema.Type
-export type ObjectTypeName = typeof ObjectTypeNameSchema.Type
+export type QueryDataTypeName = typeof QueryDataTypeNameSchema.Type;
+export type DisplayFormat = typeof DisplayFormatSchema.Type;
+export type RelationType = typeof RelationTypeSchema.Type;
+export type QuerySourceType = typeof QuerySourceTypeSchema.Type;
+export type DocumentStatus = typeof DocumentStatusSchema.Type;
+export type ObjectTypeName = typeof ObjectTypeNameSchema.Type;
 
 // Document types
-export type DocumentSummaryData = typeof DocumentSummaryDataSchema.Type
-export type DocumentSummaryResult = typeof DocumentSummaryResultSchema.Type
-export type DocumentSummaryCollectionResult = typeof DocumentSummaryCollectionResultSchema.Type
-export type QueryDefinitionResult = typeof QueryDefinitionResultSchema.Type
-export type QueryPropertyData = typeof QueryPropertyDataSchema.Type
+export type DocumentSummaryData = typeof DocumentSummaryDataSchema.Type;
+export type DocumentSummaryResult = typeof DocumentSummaryResultSchema.Type;
+export type DocumentSummaryCollectionResult = typeof DocumentSummaryCollectionResultSchema.Type;
+export type QueryDefinitionResult = typeof QueryDefinitionResultSchema.Type;
+export type QueryPropertyData = typeof QueryPropertyDataSchema.Type;
 
 // IQA Query types
-export type IqaQueryRow = typeof IqaQueryRowSchema.Type
-export type IqaQueryResponse = typeof IqaQueryResponseSchema.Type
+export type IqaQueryRow = typeof IqaQueryRowSchema.Type;
+export type IqaQueryResponse = typeof IqaQueryResponseSchema.Type;
 
 // 2017 IQA Query types
-export type Iqa2017Row = typeof Iqa2017RowSchema.Type
-export type Iqa2017Response = typeof Iqa2017ResponseSchema.Type
+export type Iqa2017Row = typeof Iqa2017RowSchema.Type;
+export type Iqa2017Response = typeof Iqa2017ResponseSchema.Type;
 
 // Data Source Query types
-export type DataSourcePropertyData = typeof DataSourcePropertyDataSchema.Type
-export type DataSourceRow = typeof DataSourceRowSchema.Type
-export type DataSourceResponse = typeof DataSourceResponseSchema.Type
+export type DataSourcePropertyData = typeof DataSourcePropertyDataSchema.Type;
+export type DataSourceRow = typeof DataSourceRowSchema.Type;
+export type DataSourceResponse = typeof DataSourceResponseSchema.Type;
 
 // Entity insert types
-export type GenericPropertyData = typeof GenericPropertyDataSchema.Type
-export type IdentityData = typeof IdentityDataSchema.Type
-export type GenericEntityData = typeof GenericEntityDataSchema.Type
+export type GenericPropertyData = typeof GenericPropertyDataSchema.Type;
+export type IdentityData = typeof IdentityDataSchema.Type;
+export type GenericEntityData = typeof GenericEntityDataSchema.Type;
 
 // User role types
-export type UserRoleData = typeof UserRoleDataSchema.Type
-export type GetUserRolesResponse = typeof GetUserRolesResponseSchema.Type
+export type UserRoleData = typeof UserRoleDataSchema.Type;
+export type GetUserRolesResponse = typeof GetUserRolesResponseSchema.Type;

@@ -1,9 +1,9 @@
 {
   "name": "i-migrate",
   "version": "0.1.0",
+  "private": true,
   "description": "Desktop data migration tool for iMIS",
   "author": "Cody Partington",
-  "private": true,
   "type": "module",
   "scripts": {
     "generate-routes": "bunx tsr generate",

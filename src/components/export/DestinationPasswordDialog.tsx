@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { useSetPassword } from '@/lib/mutations'
-import { queries } from '@/lib/queries'
-import { Button } from '@/components/ui/button'
+import { useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSetPassword } from "@/lib/mutations";
+import { queries } from "@/lib/queries";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,17 +10,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { KeyRound, AlertTriangle, Server } from 'lucide-react'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { KeyRound, AlertTriangle, Server } from "lucide-react";
 
 type DestinationPasswordDialogProps = {
-  environmentId: string | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
-}
+  environmentId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+};
 
 export function DestinationPasswordDialog({
   environmentId,
@@ -28,46 +28,46 @@ export function DestinationPasswordDialog({
   onOpenChange,
   onSuccess,
 }: DestinationPasswordDialogProps) {
-  const { data: environments } = useQuery(queries.environments.all())
-  const setPassword = useSetPassword()
-  const [password, setPasswordValue] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const { data: environments } = useQuery(queries.environments.all());
+  const setPassword = useSetPassword();
+  const [password, setPasswordValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   // Find the destination environment
-  const destinationEnvironment = environments?.find((env) => env.id === environmentId)
+  const destinationEnvironment = environments?.find((env) => env.id === environmentId);
 
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
-    if (!environmentId) return
+    if (!environmentId) return;
 
     setPassword.mutate(
       { environmentId, password },
       {
         onSuccess: () => {
-          setPasswordValue('')
-          setError(null)
-          onOpenChange(false)
-          onSuccess()
+          setPasswordValue("");
+          setError(null);
+          onOpenChange(false);
+          onSuccess();
         },
         onError: (err) => {
-          setError(err.message || 'Failed to set password')
+          setError(err.message || "Failed to set password");
         },
-      }
-    )
-  }
+      },
+    );
+  };
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setPasswordValue('')
-      setError(null)
+      setPasswordValue("");
+      setError(null);
     }
-    onOpenChange(newOpen)
-  }
+    onOpenChange(newOpen);
+  };
 
-  const isValid = password.length > 0
-  const isPending = setPassword.isPending
+  const isValid = password.length > 0;
+  const isPending = setPassword.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -80,12 +80,12 @@ export function DestinationPasswordDialog({
           <DialogDescription className="text-center">
             {destinationEnvironment ? (
               <>
-                Enter the password for{' '}
-                <span className="font-medium text-foreground">{destinationEnvironment.name}</span>{' '}
+                Enter the password for{" "}
+                <span className="font-medium text-foreground">{destinationEnvironment.name}</span>{" "}
                 to continue with the migration.
               </>
             ) : (
-              'Enter the destination environment password to continue.'
+              "Enter the destination environment password to continue."
             )}
           </DialogDescription>
         </DialogHeader>
@@ -113,8 +113,8 @@ export function DestinationPasswordDialog({
               placeholder="Enter your IMIS password"
               value={password}
               onChange={(e) => {
-                setPasswordValue(e.target.value)
-                setError(null)
+                setPasswordValue(e.target.value);
+                setError(null);
               }}
               autoFocus
               autoComplete="current-password"
@@ -142,17 +142,12 @@ export function DestinationPasswordDialog({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={!isValid || isPending}
-              className="w-full sm:w-auto"
-            >
-              {isPending ? 'Unlocking...' : 'Unlock & Continue'}
+            <Button type="submit" disabled={!isValid || isPending} className="w-full sm:w-auto">
+              {isPending ? "Unlocking..." : "Unlock & Continue"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
-

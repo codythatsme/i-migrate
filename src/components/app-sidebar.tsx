@@ -1,11 +1,5 @@
-import { Link, useRouterState } from '@tanstack/react-router'
-import {
-  Database,
-  Download,
-  Home,
-  PlayCircle,
-  Server,
-} from 'lucide-react'
+import { Link, useRouterState } from "@tanstack/react-router";
+import { Database, Download, Home, PlayCircle, Server } from "lucide-react";
 
 import {
   Sidebar,
@@ -19,36 +13,35 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from '@/components/ui/sidebar'
-import { EnvironmentSwitcher } from '@/components/environment-switcher'
+} from "@/components/ui/sidebar";
+import { EnvironmentSwitcher } from "@/components/environment-switcher";
 
 const navItems = [
   {
-    title: 'Home',
-    url: '/',
+    title: "Home",
+    url: "/",
     icon: Home,
   },
   {
-    title: 'Environments',
-    url: '/environments',
+    title: "Environments",
+    url: "/environments",
     icon: Server,
   },
   {
-    title: 'Export',
-    url: '/export',
+    title: "Export",
+    url: "/export",
     icon: Download,
   },
   {
-    title: 'Jobs',
-    url: '/jobs',
+    title: "Jobs",
+    url: "/jobs",
     icon: PlayCircle,
   },
-]
-
+];
 
 export function AppSidebar() {
-  const routerState = useRouterState()
-  const currentPath = routerState.location.pathname
+  const routerState = useRouterState();
+  const currentPath = routerState.location.pathname;
 
   return (
     <Sidebar collapsible="icon">
@@ -97,5 +90,5 @@ export function AppSidebar() {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

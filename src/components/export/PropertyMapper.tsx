@@ -1,132 +1,138 @@
-import { useMemo, useState, useEffect, useRef, memo, useCallback, useDeferredValue } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ArrowRight, Info, Loader2, Search, X, Trash2, Filter, Lock } from 'lucide-react'
-import { queries } from '@/lib/queries'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
+import { useMemo, useState, useEffect, useRef, memo, useCallback, useDeferredValue } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  Check,
+  ArrowRight,
+  Info,
+  Loader2,
+  Search,
+  X,
+  Trash2,
+  Filter,
+  Lock,
+} from "lucide-react";
+import { queries } from "@/lib/queries";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import type { BoProperty, BoEntityDefinition } from '@/api/client'
+} from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { BoProperty, BoEntityDefinition } from "@/api/client";
 
 // ---------------------
 // Types
 // ---------------------
 
 export type PropertyMapping = {
-  sourceProperty: string
-  destinationProperty: string | null
-}
+  sourceProperty: string;
+  destinationProperty: string | null;
+};
 
 type MappingWarning = {
-  type: 'maxLength' | 'typeMismatch'
-  message: string
-}
+  type: "maxLength" | "typeMismatch";
+  message: string;
+};
 
 // Properties that cannot be mapped to as they are auto-created on insert
 export const RESTRICTED_DESTINATION_PROPERTIES: Record<string, string> = {
-  Ordinal: 'Auto-incrementing row ID for multi-instance data sources',
-  UpdatedOn: 'Auto-set to the date/time the row is inserted',
-  UpdatedBy: 'Auto-set to the username of the logged-in account',
-  UpdatedByUserKey: 'Auto-set to the contact key of the logged-in account',
-}
+  Ordinal: "Auto-incrementing row ID for multi-instance data sources",
+  UpdatedOn: "Auto-set to the date/time the row is inserted",
+  UpdatedBy: "Auto-set to the username of the logged-in account",
+  UpdatedByUserKey: "Auto-set to the contact key of the logged-in account",
+};
 
 type PropertyMapperProps = {
-  sourceEnvironmentId: string
-  sourceEntityType: string
-  destinationEnvironmentId: string
-  destinationEntityType: string
-  mappings: PropertyMapping[]
-  onMappingsChange: (mappings: PropertyMapping[]) => void
-  onValidationChange?: (isValid: boolean, errors: string[]) => void
-}
+  sourceEnvironmentId: string;
+  sourceEntityType: string;
+  destinationEnvironmentId: string;
+  destinationEntityType: string;
+  mappings: PropertyMapping[];
+  onMappingsChange: (mappings: PropertyMapping[]) => void;
+  onValidationChange?: (isValid: boolean, errors: string[]) => void;
+};
 
 // ---------------------
 // Helpers (Exported for testing)
 // ---------------------
 
 export function getPropertyTypeName(prop: BoProperty): string {
-  return prop.PropertyTypeName
+  return prop.PropertyTypeName;
 }
 
 export function getMaxLength(prop: BoProperty): number | null {
-  if (prop.PropertyTypeName === 'String' && 'MaxLength' in prop) {
-    return prop.MaxLength
+  if (prop.PropertyTypeName === "String" && "MaxLength" in prop) {
+    return prop.MaxLength;
   }
-  return null
+  return null;
 }
 
 export function checkCompatibility(
   source: BoProperty,
-  dest: BoProperty
+  dest: BoProperty,
 ): { compatible: boolean; warnings: MappingWarning[] } {
-  const warnings: MappingWarning[] = []
+  const warnings: MappingWarning[] = [];
 
   // Check type compatibility
-  const sourceType = getPropertyTypeName(source)
-  const destType = getPropertyTypeName(dest)
+  const sourceType = getPropertyTypeName(source);
+  const destType = getPropertyTypeName(dest);
 
   if (sourceType !== destType) {
     return {
       compatible: false,
-      warnings: [{ type: 'typeMismatch', message: `Type mismatch: ${sourceType} → ${destType}` }],
-    }
+      warnings: [{ type: "typeMismatch", message: `Type mismatch: ${sourceType} → ${destType}` }],
+    };
   }
 
   // For strings, check MaxLength
-  if (sourceType === 'String') {
-    const sourceMaxLength = getMaxLength(source)
-    const destMaxLength = getMaxLength(dest)
+  if (sourceType === "String") {
+    const sourceMaxLength = getMaxLength(source);
+    const destMaxLength = getMaxLength(dest);
 
     if (sourceMaxLength && destMaxLength && sourceMaxLength > destMaxLength) {
       warnings.push({
-        type: 'maxLength',
+        type: "maxLength",
         message: `Source max length (${sourceMaxLength}) exceeds destination (${destMaxLength}). Data may be truncated.`,
-      })
+      });
     }
   }
 
-  return { compatible: true, warnings }
+  return { compatible: true, warnings };
 }
 
 export function findAutoMappings(
   sourceProps: readonly BoProperty[],
   destProps: readonly BoProperty[],
-  restrictedProperties: Record<string, string> = RESTRICTED_DESTINATION_PROPERTIES
+  restrictedProperties: Record<string, string> = RESTRICTED_DESTINATION_PROPERTIES,
 ): PropertyMapping[] {
   return sourceProps.map((sourceProp) => {
     // Find matching destination property by name and compatible type
     const matchingDest = destProps.find((destProp) => {
-      if (destProp.Name !== sourceProp.Name) return false
+      if (destProp.Name !== sourceProp.Name) return false;
       // Skip restricted properties
-      if (destProp.Name in restrictedProperties) return false
-      const { compatible } = checkCompatibility(sourceProp, destProp)
-      return compatible
-    })
+      if (destProp.Name in restrictedProperties) return false;
+      const { compatible } = checkCompatibility(sourceProp, destProp);
+      return compatible;
+    });
 
     return {
       sourceProperty: sourceProp.Name,
       destinationProperty: matchingDest?.Name ?? null,
-    }
-  })
+    };
+  });
 }
 
 type IsPrimaryValidationResult = {
-  required: boolean
-  isMapped: boolean
-  error: string | null
-}
+  required: boolean;
+  isMapped: boolean;
+  error: string | null;
+};
 
 /**
  * Check if IsPrimary mapping is required for a Party destination.
@@ -135,27 +141,27 @@ type IsPrimaryValidationResult = {
 export function checkIsPrimaryRequired(
   destPrimaryParentEntityTypeName: string | null | undefined,
   destProperties: readonly BoProperty[],
-  mappings: PropertyMapping[]
+  mappings: PropertyMapping[],
 ): IsPrimaryValidationResult {
   // Only required when destination is a Party-linked entity
-  if (destPrimaryParentEntityTypeName !== 'Party') {
-    return { required: false, isMapped: true, error: null }
+  if (destPrimaryParentEntityTypeName !== "Party") {
+    return { required: false, isMapped: true, error: null };
   }
 
   // Check if IsPrimary exists in destination properties
-  const isPrimaryExists = destProperties.some((p) => p.Name === 'IsPrimary')
+  const isPrimaryExists = destProperties.some((p) => p.Name === "IsPrimary");
   if (!isPrimaryExists) {
-    return { required: false, isMapped: true, error: null }
+    return { required: false, isMapped: true, error: null };
   }
 
   // Check if IsPrimary is mapped
-  const isPrimaryMapped = mappings.some((m) => m.destinationProperty === 'IsPrimary')
+  const isPrimaryMapped = mappings.some((m) => m.destinationProperty === "IsPrimary");
 
   return {
     required: true,
     isMapped: isPrimaryMapped,
-    error: isPrimaryMapped ? null : 'IsPrimary must be mapped for Party destinations',
-  }
+    error: isPrimaryMapped ? null : "IsPrimary must be mapped for Party destinations",
+  };
 }
 
 // ---------------------
@@ -171,142 +177,149 @@ export function PropertyMapper({
   onMappingsChange,
   onValidationChange,
 }: PropertyMapperProps) {
-  const [hasInitialized, setHasInitialized] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false)
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
 
   const { data: sourceData, isLoading: sourceLoading } = useQuery(
-    queries.dataSources.byEnvironment(sourceEnvironmentId)
-  )
+    queries.dataSources.byEnvironment(sourceEnvironmentId),
+  );
 
   const { data: destData, isLoading: destLoading } = useQuery(
-    queries.dataSources.byEnvironment(destinationEnvironmentId)
-  )
+    queries.dataSources.byEnvironment(destinationEnvironmentId),
+  );
 
   const sourceEntity = useMemo(() => {
-    return sourceData?.Items.$values.find((e) => e.EntityTypeName === sourceEntityType)
-  }, [sourceData, sourceEntityType])
+    return sourceData?.Items.$values.find((e) => e.EntityTypeName === sourceEntityType);
+  }, [sourceData, sourceEntityType]);
 
   const destEntity = useMemo(() => {
-    return destData?.Items.$values.find((e) => e.EntityTypeName === destinationEntityType)
-  }, [destData, destinationEntityType])
+    return destData?.Items.$values.find((e) => e.EntityTypeName === destinationEntityType);
+  }, [destData, destinationEntityType]);
 
   const sourceProperties = useMemo(() => {
-    return sourceEntity?.Properties.$values ?? []
-  }, [sourceEntity])
+    return sourceEntity?.Properties.$values ?? [];
+  }, [sourceEntity]);
 
   const destProperties = useMemo(() => {
-    return destEntity?.Properties.$values ?? []
-  }, [destEntity])
+    return destEntity?.Properties.$values ?? [];
+  }, [destEntity]);
 
   // Lookup Maps for O(1) access instead of O(n) .find() calls
   const mappingBySource = useMemo(
     () => new Map(mappings.map((m) => [m.sourceProperty, m])),
-    [mappings]
-  )
+    [mappings],
+  );
 
   const sourceByName = useMemo(
     () => new Map(sourceProperties.map((p) => [p.Name, p])),
-    [sourceProperties]
-  )
+    [sourceProperties],
+  );
 
   const destByName = useMemo(
     () => new Map(destProperties.map((p) => [p.Name, p])),
-    [destProperties]
-  )
+    [destProperties],
+  );
 
   // Pre-sort destinations once at parent level (not per-row)
   const sortedDestinations = useMemo(() => {
-    return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name))
-  }, [destProperties])
+    return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name));
+  }, [destProperties]);
 
   // Track which destination properties are already mapped
   const usedDestinations = useMemo(() => {
-    const used = new Set<string>()
+    const used = new Set<string>();
     for (const m of mappings) {
       if (m.destinationProperty) {
-        used.add(m.destinationProperty)
+        used.add(m.destinationProperty);
       }
     }
-    return used
-  }, [mappings])
+    return used;
+  }, [mappings]);
 
   // Deferred search for non-blocking UI
-  const deferredSearch = useDeferredValue(searchQuery)
+  const deferredSearch = useDeferredValue(searchQuery);
 
   // IsPrimary validation for Party destinations
   const isPrimaryValidation = useMemo(
     () => checkIsPrimaryRequired(destEntity?.PrimaryParentEntityTypeName, destProperties, mappings),
-    [destEntity, destProperties, mappings]
-  )
+    [destEntity, destProperties, mappings],
+  );
 
   // Track previous validation state to avoid infinite loops
-  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>()
+  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>();
 
   // Report validation state to parent only when it actually changes
   useEffect(() => {
     if (onValidationChange) {
-      const prev = prevValidationRef.current
-      if (!prev || prev.isMapped !== isPrimaryValidation.isMapped || prev.error !== isPrimaryValidation.error) {
-        prevValidationRef.current = { isMapped: isPrimaryValidation.isMapped, error: isPrimaryValidation.error }
-        const errors = isPrimaryValidation.error ? [isPrimaryValidation.error] : []
-        onValidationChange(isPrimaryValidation.isMapped, errors)
+      const prev = prevValidationRef.current;
+      if (
+        !prev ||
+        prev.isMapped !== isPrimaryValidation.isMapped ||
+        prev.error !== isPrimaryValidation.error
+      ) {
+        prevValidationRef.current = {
+          isMapped: isPrimaryValidation.isMapped,
+          error: isPrimaryValidation.error,
+        };
+        const errors = isPrimaryValidation.error ? [isPrimaryValidation.error] : [];
+        onValidationChange(isPrimaryValidation.isMapped, errors);
       }
     }
-  }, [isPrimaryValidation, onValidationChange])
+  }, [isPrimaryValidation, onValidationChange]);
 
   // Auto-map on initial load
   useEffect(() => {
     if (!hasInitialized && sourceProperties.length > 0 && destProperties.length > 0) {
-      const autoMappings = findAutoMappings(sourceProperties, destProperties)
-      onMappingsChange(autoMappings)
-      setHasInitialized(true)
+      const autoMappings = findAutoMappings(sourceProperties, destProperties);
+      onMappingsChange(autoMappings);
+      setHasInitialized(true);
     }
-  }, [sourceProperties, destProperties, hasInitialized, onMappingsChange])
+  }, [sourceProperties, destProperties, hasInitialized, onMappingsChange]);
 
   const handleMappingChange = useCallback(
     (sourceProperty: string, destinationProperty: string | null) => {
       const newMappings = mappings.map((m) =>
-        m.sourceProperty === sourceProperty ? { ...m, destinationProperty } : m
-      )
-      onMappingsChange(newMappings)
+        m.sourceProperty === sourceProperty ? { ...m, destinationProperty } : m,
+      );
+      onMappingsChange(newMappings);
     },
-    [mappings, onMappingsChange]
-  )
+    [mappings, onMappingsChange],
+  );
 
   const handleClearAll = () => {
-    const cleared = mappings.map((m) => ({ ...m, destinationProperty: null }))
-    onMappingsChange(cleared)
-  }
+    const cleared = mappings.map((m) => ({ ...m, destinationProperty: null }));
+    onMappingsChange(cleared);
+  };
 
   const mappedCount = useMemo(() => {
-    return mappings.filter((m) => m.destinationProperty !== null).length
-  }, [mappings])
+    return mappings.filter((m) => m.destinationProperty !== null).length;
+  }, [mappings]);
 
   const filteredProperties = useMemo(() => {
-    const search = deferredSearch.toLowerCase()
+    const search = deferredSearch.toLowerCase();
     return sourceProperties.filter((prop) => {
-      const matchesSearch = prop.Name.toLowerCase().includes(search)
+      const matchesSearch = prop.Name.toLowerCase().includes(search);
 
       if (showUnmappedOnly) {
-        const mapping = mappingBySource.get(prop.Name)
-        return matchesSearch && (!mapping || mapping.destinationProperty === null)
+        const mapping = mappingBySource.get(prop.Name);
+        return matchesSearch && (!mapping || mapping.destinationProperty === null);
       }
 
-      return matchesSearch
-    })
-  }, [sourceProperties, deferredSearch, showUnmappedOnly, mappingBySource])
+      return matchesSearch;
+    });
+  }, [sourceProperties, deferredSearch, showUnmappedOnly, mappingBySource]);
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
-      if (!mapping.destinationProperty) return count
-      const sourceProp = sourceByName.get(mapping.sourceProperty)
-      const destProp = destByName.get(mapping.destinationProperty)
-      if (!sourceProp || !destProp) return count
-      const { warnings } = checkCompatibility(sourceProp, destProp)
-      return count + warnings.length
-    }, 0)
-  }, [mappings, sourceByName, destByName])
+      if (!mapping.destinationProperty) return count;
+      const sourceProp = sourceByName.get(mapping.sourceProperty);
+      const destProp = destByName.get(mapping.destinationProperty);
+      if (!sourceProp || !destProp) return count;
+      const { warnings } = checkCompatibility(sourceProp, destProp);
+      return count + warnings.length;
+    }, 0);
+  }, [mappings, sourceByName, destByName]);
 
   if (sourceLoading || destLoading) {
     return (
@@ -319,7 +332,7 @@ export function PropertyMapper({
           <Loader2 className="size-8 animate-spin text-muted-foreground/50" />
         </div>
       </div>
-    )
+    );
   }
 
   if (!sourceEntity || !destEntity) {
@@ -332,7 +345,7 @@ export function PropertyMapper({
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -361,7 +374,7 @@ export function PropertyMapper({
               </div>
             </div>
           </div>
-          
+
           <div className="ml-auto flex items-center gap-6">
             <div className="flex flex-col items-end gap-1">
               <span className="text-sm font-semibold">
@@ -371,7 +384,7 @@ export function PropertyMapper({
                 Mapped
               </span>
             </div>
-            
+
             {warningCount > 0 && (
               <div className="flex flex-col items-end gap-1">
                 <span className="text-sm font-semibold text-amber-600 flex items-center gap-1">
@@ -398,8 +411,8 @@ export function PropertyMapper({
                 className="pl-9 h-9"
               />
               {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
+                <button
+                  onClick={() => setSearchQuery("")}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-4" />
@@ -418,7 +431,12 @@ export function PropertyMapper({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleClearAll} className="h-9 gap-2 text-destructive hover:text-destructive">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearAll}
+              className="h-9 gap-2 text-destructive hover:text-destructive"
+            >
               <Trash2 className="size-3.5" />
               Clear
             </Button>
@@ -434,7 +452,7 @@ export function PropertyMapper({
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium text-destructive">Required Mapping Missing</span>
               <p className="text-sm text-destructive/80">
-                When migrating to a Party destination, you must map a source property to{' '}
+                When migrating to a Party destination, you must map a source property to{" "}
                 <strong>IsPrimary</strong> to identify the primary instance for each contact.
               </p>
             </div>
@@ -454,12 +472,12 @@ export function PropertyMapper({
         <div className="flex flex-col max-h-[500px] overflow-y-auto divide-y divide-border">
           {filteredProperties.length > 0 ? (
             filteredProperties.map((sourceProp) => {
-              const mapping = mappingBySource.get(sourceProp.Name)
+              const mapping = mappingBySource.get(sourceProp.Name);
               const destProp = mapping?.destinationProperty
                 ? destByName.get(mapping.destinationProperty)
-                : undefined
+                : undefined;
               const compatibility =
-                destProp && sourceProp ? checkCompatibility(sourceProp, destProp) : null
+                destProp && sourceProp ? checkCompatibility(sourceProp, destProp) : null;
 
               return (
                 <MappingRow
@@ -471,7 +489,7 @@ export function PropertyMapper({
                   compatibility={compatibility}
                   usedDestinations={usedDestinations}
                 />
-              )
+              );
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -487,7 +505,7 @@ export function PropertyMapper({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ---------------------
@@ -495,13 +513,13 @@ export function PropertyMapper({
 // ---------------------
 
 type MappingRowProps = {
-  sourceProperty: BoProperty
-  sortedDestinations: readonly BoProperty[]
-  selectedDestination: string | null
-  onDestinationChange: (destination: string | null) => void
-  compatibility: { compatible: boolean; warnings: MappingWarning[] } | null
-  usedDestinations: Set<string>
-}
+  sourceProperty: BoProperty;
+  sortedDestinations: readonly BoProperty[];
+  selectedDestination: string | null;
+  onDestinationChange: (destination: string | null) => void;
+  compatibility: { compatible: boolean; warnings: MappingWarning[] } | null;
+  usedDestinations: Set<string>;
+};
 
 const MappingRow = memo(function MappingRow({
   sourceProperty,
@@ -511,17 +529,21 @@ const MappingRow = memo(function MappingRow({
   compatibility,
   usedDestinations,
 }: MappingRowProps) {
-  const sourceType = getPropertyTypeName(sourceProperty)
-  const sourceMaxLength = getMaxLength(sourceProperty)
-  const isMapped = selectedDestination !== null
+  const sourceType = getPropertyTypeName(sourceProperty);
+  const sourceMaxLength = getMaxLength(sourceProperty);
+  const isMapped = selectedDestination !== null;
 
   return (
-    <div className={`grid grid-cols-[1.2fr_48px_1fr] gap-4 items-center px-4 py-3 transition-colors ${
-      isMapped ? 'bg-primary/[0.02] hover:bg-primary/[0.05]' : 'bg-background hover:bg-muted/50'
-    }`}>
+    <div
+      className={`grid grid-cols-[1.2fr_48px_1fr] gap-4 items-center px-4 py-3 transition-colors ${
+        isMapped ? "bg-primary/[0.02] hover:bg-primary/[0.05]" : "bg-background hover:bg-muted/50"
+      }`}
+    >
       {/* Source property */}
       <div className="flex flex-col gap-0.5 overflow-hidden">
-        <span className={`text-sm font-medium truncate ${isMapped ? 'text-foreground' : 'text-muted-foreground'}`}>
+        <span
+          className={`text-sm font-medium truncate ${isMapped ? "text-foreground" : "text-muted-foreground"}`}
+        >
           {sourceProperty.Name}
         </span>
         <div className="flex items-center gap-1.5">
@@ -549,7 +571,9 @@ const MappingRow = memo(function MappingRow({
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
                   {compatibility.warnings.map((w, i) => (
-                    <p key={i} className="text-xs">{w.message}</p>
+                    <p key={i} className="text-xs">
+                      {w.message}
+                    </p>
                   ))}
                 </TooltipContent>
               </Tooltip>
@@ -567,14 +591,16 @@ const MappingRow = memo(function MappingRow({
       {/* Destination select */}
       <div className="min-w-0">
         <Select
-          value={selectedDestination ?? '__unmapped__'}
+          value={selectedDestination ?? "__unmapped__"}
           onValueChange={(value) => {
-            onDestinationChange(value === '__unmapped__' ? null : value)
+            onDestinationChange(value === "__unmapped__" ? null : value);
           }}
         >
-          <SelectTrigger className={`h-9 text-xs transition-all ${
-            isMapped ? 'border-primary/30 bg-primary/[0.03]' : 'border-input'
-          }`}>
+          <SelectTrigger
+            className={`h-9 text-xs transition-all ${
+              isMapped ? "border-primary/30 bg-primary/[0.03]" : "border-input"
+            }`}
+          >
             <SelectValue placeholder="Select destination..." />
           </SelectTrigger>
           <TooltipProvider>
@@ -586,14 +612,15 @@ const MappingRow = memo(function MappingRow({
                 </div>
               </SelectItem>
               {sortedDestinations.map((destProp) => {
-                const destType = getPropertyTypeName(destProp)
-                const destMaxLength = getMaxLength(destProp)
-                const isCompatibleType = destType === sourceType
-                const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
-                const isRestricted = !!restrictedReason
+                const destType = getPropertyTypeName(destProp);
+                const destMaxLength = getMaxLength(destProp);
+                const isCompatibleType = destType === sourceType;
+                const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name];
+                const isRestricted = !!restrictedReason;
                 // Disable if already mapped to another source (but allow if it's the current selection)
-                const isAlreadyUsed = usedDestinations.has(destProp.Name) && destProp.Name !== selectedDestination
-                const isDisabled = isRestricted || isAlreadyUsed
+                const isAlreadyUsed =
+                  usedDestinations.has(destProp.Name) && destProp.Name !== selectedDestination;
+                const isDisabled = isRestricted || isAlreadyUsed;
 
                 return (
                   <Tooltip key={destProp.Name}>
@@ -602,7 +629,13 @@ const MappingRow = memo(function MappingRow({
                         <SelectItem
                           value={destProp.Name}
                           disabled={isDisabled}
-                          className={isDisabled ? 'opacity-50 cursor-not-allowed' : !isCompatibleType ? 'opacity-50' : ''}
+                          className={
+                            isDisabled
+                              ? "opacity-50 cursor-not-allowed"
+                              : !isCompatibleType
+                                ? "opacity-50"
+                                : ""
+                          }
                         >
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{destProp.Name}</span>
@@ -620,8 +653,10 @@ const MappingRow = memo(function MappingRow({
                               <Lock className="size-3 text-muted-foreground" />
                             ) : isAlreadyUsed ? (
                               <Check className="size-3 text-muted-foreground" />
-                            ) : !isCompatibleType && (
-                              <AlertTriangle className="size-3 text-destructive" />
+                            ) : (
+                              !isCompatibleType && (
+                                <AlertTriangle className="size-3 text-destructive" />
+                              )
                             )}
                           </div>
                         </SelectItem>
@@ -630,17 +665,21 @@ const MappingRow = memo(function MappingRow({
                     {(isRestricted || isAlreadyUsed || !isCompatibleType) && (
                       <TooltipContent>
                         <p className="text-xs">
-                          {isRestricted ? restrictedReason : isAlreadyUsed ? 'Already mapped to another source property' : `Type mismatch: ${sourceType} → ${destType}`}
+                          {isRestricted
+                            ? restrictedReason
+                            : isAlreadyUsed
+                              ? "Already mapped to another source property"
+                              : `Type mismatch: ${sourceType} → ${destType}`}
                         </p>
                       </TooltipContent>
                     )}
                   </Tooltip>
-                )
+                );
               })}
             </SelectContent>
           </TooltipProvider>
         </Select>
       </div>
     </div>
-  )
-})
+  );
+});

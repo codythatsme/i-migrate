@@ -1,51 +1,57 @@
-import { useMemo, useState, useEffect, useRef, memo, useCallback, useDeferredValue } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Check, ArrowRight, Loader2, Search, X, Trash2, Filter, Info, Lock } from 'lucide-react'
-import { queries } from '@/lib/queries'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { useMemo, useState, useEffect, useRef, memo, useCallback, useDeferredValue } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  Check,
+  ArrowRight,
+  Loader2,
+  Search,
+  X,
+  Trash2,
+  Filter,
+  Info,
+  Lock,
+} from "lucide-react";
+import { queries } from "@/lib/queries";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import type { BoProperty, QueryDefinition, QueryPropertyData } from '@/api/client'
-import { type PropertyMapping, checkIsPrimaryRequired } from './PropertyMapper'
+} from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { BoProperty, QueryDefinition, QueryPropertyData } from "@/api/client";
+import { type PropertyMapping, checkIsPrimaryRequired } from "./PropertyMapper";
 
 // ---------------------
 // Types
 // ---------------------
 
 type MappingWarning = {
-  type: 'typeMismatch'
-  message: string
-}
+  type: "typeMismatch";
+  message: string;
+};
 
 // Properties that cannot be mapped to as they are auto-created on insert
 const RESTRICTED_DESTINATION_PROPERTIES: Record<string, string> = {
-  Ordinal: 'Auto-incrementing row ID for multi-instance data sources',
-  UpdatedOn: 'Auto-set to the date/time the row is inserted',
-  UpdatedBy: 'Auto-set to the username of the logged-in account',
-  UpdatedByUserKey: 'Auto-set to the contact key of the logged-in account',
-}
+  Ordinal: "Auto-incrementing row ID for multi-instance data sources",
+  UpdatedOn: "Auto-set to the date/time the row is inserted",
+  UpdatedBy: "Auto-set to the username of the logged-in account",
+  UpdatedByUserKey: "Auto-set to the contact key of the logged-in account",
+};
 
 type QueryPropertyMapperProps = {
-  queryDefinition: QueryDefinition
-  destinationEnvironmentId: string
-  destinationEntityType: string
-  mappings: PropertyMapping[]
-  onMappingsChange: (mappings: PropertyMapping[]) => void
-  onValidationChange?: (isValid: boolean, errors: string[]) => void
-}
+  queryDefinition: QueryDefinition;
+  destinationEnvironmentId: string;
+  destinationEntityType: string;
+  mappings: PropertyMapping[];
+  onMappingsChange: (mappings: PropertyMapping[]) => void;
+  onValidationChange?: (isValid: boolean, errors: string[]) => void;
+};
 
 // ---------------------
 // Type Mapping Helpers
@@ -53,65 +59,65 @@ type QueryPropertyMapperProps = {
 
 // Map query data types to BO property types for compatibility checking
 const queryTypeToBoType: Record<string, string> = {
-  'String': 'String',
-  'Boolean': 'Boolean',
-  'DateTime': 'Date',
-  'Decimal': 'Decimal',
-  'Double': 'Decimal',
-  'Int32': 'Integer',
-  'Int64': 'Integer',
-  'Byte': 'Integer',
-  'SByte': 'Integer',
-  'Guid': 'String',
-  'Byte[]': 'Binary',
-}
+  String: "String",
+  Boolean: "Boolean",
+  DateTime: "Date",
+  Decimal: "Decimal",
+  Double: "Decimal",
+  Int32: "Integer",
+  Int64: "Integer",
+  Byte: "Integer",
+  SByte: "Integer",
+  Guid: "String",
+  "Byte[]": "Binary",
+};
 
 function getBoCompatibleType(queryType: string): string {
-  return queryTypeToBoType[queryType] ?? 'String'
+  return queryTypeToBoType[queryType] ?? "String";
 }
 
 function getBoPropertyTypeName(prop: BoProperty): string {
-  return prop.PropertyTypeName
+  return prop.PropertyTypeName;
 }
 
 function checkCompatibility(
   sourceType: string,
-  dest: BoProperty
+  dest: BoProperty,
 ): { compatible: boolean; warnings: MappingWarning[] } {
-  const warnings: MappingWarning[] = []
-  const boCompatibleType = getBoCompatibleType(sourceType)
-  const destType = getBoPropertyTypeName(dest)
+  const warnings: MappingWarning[] = [];
+  const boCompatibleType = getBoCompatibleType(sourceType);
+  const destType = getBoPropertyTypeName(dest);
 
   if (boCompatibleType !== destType) {
     return {
       compatible: false,
-      warnings: [{ type: 'typeMismatch', message: `Type mismatch: ${sourceType} → ${destType}` }],
-    }
+      warnings: [{ type: "typeMismatch", message: `Type mismatch: ${sourceType} → ${destType}` }],
+    };
   }
 
-  return { compatible: true, warnings }
+  return { compatible: true, warnings };
 }
 
 function findAutoMappings(
   queryProps: readonly QueryPropertyData[],
-  destProps: readonly BoProperty[]
+  destProps: readonly BoProperty[],
 ): PropertyMapping[] {
   return queryProps.map((queryProp) => {
     // Find matching destination property by name (using Alias or PropertyName) and compatible type
-    const queryName = queryProp.Alias || queryProp.PropertyName
+    const queryName = queryProp.Alias || queryProp.PropertyName;
     const matchingDest = destProps.find((destProp) => {
-      if (destProp.Name.toLowerCase() !== queryName.toLowerCase()) return false
+      if (destProp.Name.toLowerCase() !== queryName.toLowerCase()) return false;
       // Skip restricted properties
-      if (destProp.Name in RESTRICTED_DESTINATION_PROPERTIES) return false
-      const { compatible } = checkCompatibility(queryProp.DataTypeName, destProp)
-      return compatible
-    })
+      if (destProp.Name in RESTRICTED_DESTINATION_PROPERTIES) return false;
+      const { compatible } = checkCompatibility(queryProp.DataTypeName, destProp);
+      return compatible;
+    });
 
     return {
       sourceProperty: queryName,
       destinationProperty: matchingDest?.Name ?? null,
-    }
-  })
+    };
+  });
 }
 
 // ---------------------
@@ -126,124 +132,131 @@ export function QueryPropertyMapper({
   onMappingsChange,
   onValidationChange,
 }: QueryPropertyMapperProps) {
-  const [hasInitialized, setHasInitialized] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false)
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
 
   const { data: destData, isLoading: destLoading } = useQuery(
-    queries.dataSources.byEnvironment(destinationEnvironmentId)
-  )
+    queries.dataSources.byEnvironment(destinationEnvironmentId),
+  );
 
   const destEntity = useMemo(() => {
-    return destData?.Items.$values.find((e) => e.EntityTypeName === destinationEntityType)
-  }, [destData, destinationEntityType])
+    return destData?.Items.$values.find((e) => e.EntityTypeName === destinationEntityType);
+  }, [destData, destinationEntityType]);
 
   const queryProperties = useMemo(() => {
-    return queryDefinition.Properties.$values ?? []
-  }, [queryDefinition])
+    return queryDefinition.Properties.$values ?? [];
+  }, [queryDefinition]);
 
   const destProperties = useMemo(() => {
-    return destEntity?.Properties.$values ?? []
-  }, [destEntity])
+    return destEntity?.Properties.$values ?? [];
+  }, [destEntity]);
 
   // Lookup Maps for O(1) access instead of O(n) .find() calls
   const mappingBySource = useMemo(
     () => new Map(mappings.map((m) => [m.sourceProperty, m])),
-    [mappings]
-  )
+    [mappings],
+  );
 
   const queryByName = useMemo(
     () => new Map(queryProperties.map((p) => [p.Alias || p.PropertyName, p])),
-    [queryProperties]
-  )
+    [queryProperties],
+  );
 
   const destByName = useMemo(
     () => new Map(destProperties.map((p) => [p.Name, p])),
-    [destProperties]
-  )
+    [destProperties],
+  );
 
   // Pre-sort destinations once at parent level (not per-row)
   const sortedDestinations = useMemo(() => {
-    return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name))
-  }, [destProperties])
+    return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name));
+  }, [destProperties]);
 
   // Deferred search for non-blocking UI
-  const deferredSearch = useDeferredValue(searchQuery)
+  const deferredSearch = useDeferredValue(searchQuery);
 
   // IsPrimary validation for Party destinations
   const isPrimaryValidation = useMemo(
     () => checkIsPrimaryRequired(destEntity?.PrimaryParentEntityTypeName, destProperties, mappings),
-    [destEntity, destProperties, mappings]
-  )
+    [destEntity, destProperties, mappings],
+  );
 
   // Track previous validation state to avoid infinite loops
-  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>()
+  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>();
 
   // Report validation state to parent only when it actually changes
   useEffect(() => {
     if (onValidationChange) {
-      const prev = prevValidationRef.current
-      if (!prev || prev.isMapped !== isPrimaryValidation.isMapped || prev.error !== isPrimaryValidation.error) {
-        prevValidationRef.current = { isMapped: isPrimaryValidation.isMapped, error: isPrimaryValidation.error }
-        const errors = isPrimaryValidation.error ? [isPrimaryValidation.error] : []
-        onValidationChange(isPrimaryValidation.isMapped, errors)
+      const prev = prevValidationRef.current;
+      if (
+        !prev ||
+        prev.isMapped !== isPrimaryValidation.isMapped ||
+        prev.error !== isPrimaryValidation.error
+      ) {
+        prevValidationRef.current = {
+          isMapped: isPrimaryValidation.isMapped,
+          error: isPrimaryValidation.error,
+        };
+        const errors = isPrimaryValidation.error ? [isPrimaryValidation.error] : [];
+        onValidationChange(isPrimaryValidation.isMapped, errors);
       }
     }
-  }, [isPrimaryValidation, onValidationChange])
+  }, [isPrimaryValidation, onValidationChange]);
 
   // Auto-map on initial load
   useEffect(() => {
     if (!hasInitialized && queryProperties.length > 0 && destProperties.length > 0) {
-      const autoMappings = findAutoMappings(queryProperties, destProperties)
-      onMappingsChange(autoMappings)
-      setHasInitialized(true)
+      const autoMappings = findAutoMappings(queryProperties, destProperties);
+      onMappingsChange(autoMappings);
+      setHasInitialized(true);
     }
-  }, [queryProperties, destProperties, hasInitialized, onMappingsChange])
+  }, [queryProperties, destProperties, hasInitialized, onMappingsChange]);
 
   const handleMappingChange = useCallback(
     (sourceProperty: string, destinationProperty: string | null) => {
       const newMappings = mappings.map((m) =>
-        m.sourceProperty === sourceProperty ? { ...m, destinationProperty } : m
-      )
-      onMappingsChange(newMappings)
+        m.sourceProperty === sourceProperty ? { ...m, destinationProperty } : m,
+      );
+      onMappingsChange(newMappings);
     },
-    [mappings, onMappingsChange]
-  )
+    [mappings, onMappingsChange],
+  );
 
   const handleClearAll = () => {
-    const cleared = mappings.map((m) => ({ ...m, destinationProperty: null }))
-    onMappingsChange(cleared)
-  }
+    const cleared = mappings.map((m) => ({ ...m, destinationProperty: null }));
+    onMappingsChange(cleared);
+  };
 
   const mappedCount = useMemo(() => {
-    return mappings.filter((m) => m.destinationProperty !== null).length
-  }, [mappings])
+    return mappings.filter((m) => m.destinationProperty !== null).length;
+  }, [mappings]);
 
   const filteredProperties = useMemo(() => {
-    const search = deferredSearch.toLowerCase()
+    const search = deferredSearch.toLowerCase();
     return queryProperties.filter((prop) => {
-      const name = prop.Alias || prop.PropertyName
-      const matchesSearch = name.toLowerCase().includes(search)
+      const name = prop.Alias || prop.PropertyName;
+      const matchesSearch = name.toLowerCase().includes(search);
 
       if (showUnmappedOnly) {
-        const mapping = mappingBySource.get(name)
-        return matchesSearch && (!mapping || mapping.destinationProperty === null)
+        const mapping = mappingBySource.get(name);
+        return matchesSearch && (!mapping || mapping.destinationProperty === null);
       }
 
-      return matchesSearch
-    })
-  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource])
+      return matchesSearch;
+    });
+  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource]);
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
-      if (!mapping.destinationProperty) return count
-      const queryProp = queryByName.get(mapping.sourceProperty)
-      const destProp = destByName.get(mapping.destinationProperty)
-      if (!queryProp || !destProp) return count
-      const { warnings } = checkCompatibility(queryProp.DataTypeName, destProp)
-      return count + warnings.length
-    }, 0)
-  }, [mappings, queryByName, destByName])
+      if (!mapping.destinationProperty) return count;
+      const queryProp = queryByName.get(mapping.sourceProperty);
+      const destProp = destByName.get(mapping.destinationProperty);
+      if (!queryProp || !destProp) return count;
+      const { warnings } = checkCompatibility(queryProp.DataTypeName, destProp);
+      return count + warnings.length;
+    }, 0);
+  }, [mappings, queryByName, destByName]);
 
   if (destLoading) {
     return (
@@ -256,7 +269,7 @@ export function QueryPropertyMapper({
           <Loader2 className="size-8 animate-spin text-muted-foreground/50" />
         </div>
       </div>
-    )
+    );
   }
 
   if (!destEntity) {
@@ -269,7 +282,7 @@ export function QueryPropertyMapper({
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -277,8 +290,8 @@ export function QueryPropertyMapper({
       <div className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-foreground">Map Query Properties</h2>
         <p className="text-sm text-muted-foreground">
-          Map query output properties to destination data source properties. Properties with matching
-          names and compatible types are auto-mapped.
+          Map query output properties to destination data source properties. Properties with
+          matching names and compatible types are auto-mapped.
         </p>
       </div>
 
@@ -300,7 +313,7 @@ export function QueryPropertyMapper({
               </div>
             </div>
           </div>
-          
+
           <div className="ml-auto flex items-center gap-6">
             <div className="flex flex-col items-end gap-1">
               <span className="text-sm font-semibold">
@@ -310,7 +323,7 @@ export function QueryPropertyMapper({
                 Mapped
               </span>
             </div>
-            
+
             {warningCount > 0 && (
               <div className="flex flex-col items-end gap-1">
                 <span className="text-sm font-semibold text-amber-600 flex items-center gap-1">
@@ -337,8 +350,8 @@ export function QueryPropertyMapper({
                 className="pl-9 h-9"
               />
               {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
+                <button
+                  onClick={() => setSearchQuery("")}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-4" />
@@ -357,7 +370,12 @@ export function QueryPropertyMapper({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleClearAll} className="h-9 gap-2 text-destructive hover:text-destructive">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearAll}
+              className="h-9 gap-2 text-destructive hover:text-destructive"
+            >
               <Trash2 className="size-3.5" />
               Clear
             </Button>
@@ -373,7 +391,7 @@ export function QueryPropertyMapper({
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium text-destructive">Required Mapping Missing</span>
               <p className="text-sm text-destructive/80">
-                When migrating to a Party destination, you must map a source property to{' '}
+                When migrating to a Party destination, you must map a source property to{" "}
                 <strong>IsPrimary</strong> to identify the primary instance for each contact.
               </p>
             </div>
@@ -393,13 +411,14 @@ export function QueryPropertyMapper({
         <div className="flex flex-col max-h-[500px] overflow-y-auto divide-y divide-border">
           {filteredProperties.length > 0 ? (
             filteredProperties.map((queryProp) => {
-              const propKey = queryProp.Alias || queryProp.PropertyName
-              const mapping = mappingBySource.get(propKey)
+              const propKey = queryProp.Alias || queryProp.PropertyName;
+              const mapping = mappingBySource.get(propKey);
               const destProp = mapping?.destinationProperty
                 ? destByName.get(mapping.destinationProperty)
-                : undefined
-              const compatibility =
-                destProp ? checkCompatibility(queryProp.DataTypeName, destProp) : null
+                : undefined;
+              const compatibility = destProp
+                ? checkCompatibility(queryProp.DataTypeName, destProp)
+                : null;
 
               return (
                 <QueryMappingRow
@@ -410,7 +429,7 @@ export function QueryPropertyMapper({
                   onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
                   compatibility={compatibility}
                 />
-              )
+              );
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -426,7 +445,7 @@ export function QueryPropertyMapper({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ---------------------
@@ -434,12 +453,12 @@ export function QueryPropertyMapper({
 // ---------------------
 
 type QueryMappingRowProps = {
-  queryProperty: QueryPropertyData
-  sortedDestinations: readonly BoProperty[]
-  selectedDestination: string | null
-  onDestinationChange: (destination: string | null) => void
-  compatibility: { compatible: boolean; warnings: MappingWarning[] } | null
-}
+  queryProperty: QueryPropertyData;
+  sortedDestinations: readonly BoProperty[];
+  selectedDestination: string | null;
+  onDestinationChange: (destination: string | null) => void;
+  compatibility: { compatible: boolean; warnings: MappingWarning[] } | null;
+};
 
 const QueryMappingRow = memo(function QueryMappingRow({
   queryProperty,
@@ -448,19 +467,23 @@ const QueryMappingRow = memo(function QueryMappingRow({
   onDestinationChange,
   compatibility,
 }: QueryMappingRowProps) {
-  const sourceType = queryProperty.DataTypeName
-  const boCompatibleType = getBoCompatibleType(sourceType)
-  const isMapped = selectedDestination !== null
-  const displayName = queryProperty.Alias || queryProperty.PropertyName
+  const sourceType = queryProperty.DataTypeName;
+  const boCompatibleType = getBoCompatibleType(sourceType);
+  const isMapped = selectedDestination !== null;
+  const displayName = queryProperty.Alias || queryProperty.PropertyName;
 
   return (
-    <div className={`grid grid-cols-[1.2fr_48px_1fr] gap-4 items-center px-4 py-3 transition-colors ${
-      isMapped ? 'bg-primary/[0.02] hover:bg-primary/[0.05]' : 'bg-background hover:bg-muted/50'
-    }`}>
+    <div
+      className={`grid grid-cols-[1.2fr_48px_1fr] gap-4 items-center px-4 py-3 transition-colors ${
+        isMapped ? "bg-primary/[0.02] hover:bg-primary/[0.05]" : "bg-background hover:bg-muted/50"
+      }`}
+    >
       {/* Source property */}
       <div className="flex flex-col gap-0.5 overflow-hidden">
         <div className="flex items-center gap-2">
-          <span className={`text-sm font-medium truncate ${isMapped ? 'text-foreground' : 'text-muted-foreground'}`}>
+          <span
+            className={`text-sm font-medium truncate ${isMapped ? "text-foreground" : "text-muted-foreground"}`}
+          >
             {displayName}
           </span>
           {queryProperty.Caption && queryProperty.Caption !== displayName && (
@@ -494,7 +517,9 @@ const QueryMappingRow = memo(function QueryMappingRow({
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
                   {compatibility.warnings.map((w, i) => (
-                    <p key={i} className="text-xs">{w.message}</p>
+                    <p key={i} className="text-xs">
+                      {w.message}
+                    </p>
                   ))}
                 </TooltipContent>
               </Tooltip>
@@ -512,16 +537,18 @@ const QueryMappingRow = memo(function QueryMappingRow({
       {/* Destination select */}
       <div className="min-w-0">
         <Select
-          value={selectedDestination ?? '__unmapped__'}
+          value={selectedDestination ?? "__unmapped__"}
           onValueChange={(value) => {
             // Prevent selecting restricted properties
-            if (value !== '__unmapped__' && value in RESTRICTED_DESTINATION_PROPERTIES) return
-            onDestinationChange(value === '__unmapped__' ? null : value)
+            if (value !== "__unmapped__" && value in RESTRICTED_DESTINATION_PROPERTIES) return;
+            onDestinationChange(value === "__unmapped__" ? null : value);
           }}
         >
-          <SelectTrigger className={`h-9 text-xs transition-all ${
-            isMapped ? 'border-primary/30 bg-primary/[0.03]' : 'border-input'
-          }`}>
+          <SelectTrigger
+            className={`h-9 text-xs transition-all ${
+              isMapped ? "border-primary/30 bg-primary/[0.03]" : "border-input"
+            }`}
+          >
             <SelectValue placeholder="Select destination..." />
           </SelectTrigger>
           <TooltipProvider>
@@ -533,10 +560,10 @@ const QueryMappingRow = memo(function QueryMappingRow({
                 </div>
               </SelectItem>
               {sortedDestinations.map((destProp) => {
-                const destType = getBoPropertyTypeName(destProp)
-                const isCompatibleType = destType === boCompatibleType
-                const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name]
-                const isRestricted = !!restrictedReason
+                const destType = getBoPropertyTypeName(destProp);
+                const isCompatibleType = destType === boCompatibleType;
+                const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name];
+                const isRestricted = !!restrictedReason;
 
                 return (
                   <Tooltip key={destProp.Name}>
@@ -544,7 +571,13 @@ const QueryMappingRow = memo(function QueryMappingRow({
                       <div>
                         <SelectItem
                           value={destProp.Name}
-                          className={isRestricted ? 'opacity-50 cursor-not-allowed pointer-events-none' : !isCompatibleType ? 'opacity-50' : ''}
+                          className={
+                            isRestricted
+                              ? "opacity-50 cursor-not-allowed pointer-events-none"
+                              : !isCompatibleType
+                                ? "opacity-50"
+                                : ""
+                          }
                         >
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{destProp.Name}</span>
@@ -553,8 +586,10 @@ const QueryMappingRow = memo(function QueryMappingRow({
                             </span>
                             {isRestricted ? (
                               <Lock className="size-3 text-muted-foreground" />
-                            ) : !isCompatibleType && (
-                              <AlertTriangle className="size-3 text-destructive" />
+                            ) : (
+                              !isCompatibleType && (
+                                <AlertTriangle className="size-3 text-destructive" />
+                              )
                             )}
                           </div>
                         </SelectItem>
@@ -563,17 +598,19 @@ const QueryMappingRow = memo(function QueryMappingRow({
                     {(isRestricted || !isCompatibleType) && (
                       <TooltipContent>
                         <p className="text-xs">
-                          {isRestricted ? restrictedReason : `Type mismatch: ${sourceType} → ${destType}`}
+                          {isRestricted
+                            ? restrictedReason
+                            : `Type mismatch: ${sourceType} → ${destType}`}
                         </p>
                       </TooltipContent>
                     )}
                   </Tooltip>
-                )
+                );
               })}
             </SelectContent>
           </TooltipProvider>
         </Select>
       </div>
     </div>
-  )
-})
+  );
+});

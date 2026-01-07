@@ -1,5 +1,5 @@
-import { Rpc, RpcGroup } from "@effect/rpc"
-import { Schema } from "effect"
+import { Rpc, RpcGroup } from "@effect/rpc";
+import { Schema } from "effect";
 import {
   EnvironmentSchema,
   EnvironmentWithStatusSchema,
@@ -33,6 +33,7 @@ import {
   JobSchema,
   JobWithEnvironmentsSchema,
   FailedRowSchema,
+  SuccessRowSchema,
   CreateJobRequestSchema,
   CreateJobResponseSchema,
   JobIdRequestSchema,
@@ -41,13 +42,13 @@ import {
   JobNotFoundErrorSchema,
   JobAlreadyRunningErrorSchema,
   MigrationErrorSchema,
-} from "./schemas"
+} from "./schemas";
 import {
   BoEntityDefinitionQueryResponseSchema,
   DocumentSummaryResultSchema,
   DocumentSummaryCollectionResultSchema,
   QueryDefinitionResultSchema,
-} from "./imis-schemas"
+} from "./imis-schemas";
 
 // ---------------------
 // Environment Procedures
@@ -57,38 +58,34 @@ import {
 const ListEnvironments = Rpc.make("environments.list", {
   success: Schema.Array(EnvironmentWithStatusSchema),
   error: DatabaseErrorSchema,
-})
+});
 
 /** Get a single environment by ID */
 const GetEnvironment = Rpc.make("environments.get", {
   payload: EnvironmentIdSchema,
   success: EnvironmentWithStatusSchema,
   error: Schema.Union(DatabaseErrorSchema, EnvironmentNotFoundErrorSchema),
-})
+});
 
 /** Create a new environment */
 const CreateEnvironment = Rpc.make("environments.create", {
   payload: CreateEnvironmentSchema,
   success: EnvironmentSchema,
   error: Schema.Union(DatabaseErrorSchema, ValidationErrorSchema),
-})
+});
 
 /** Update an existing environment */
 const UpdateEnvironment = Rpc.make("environments.update", {
   payload: UpdateEnvironmentSchema,
   success: EnvironmentSchema,
-  error: Schema.Union(
-    DatabaseErrorSchema,
-    EnvironmentNotFoundErrorSchema,
-    ValidationErrorSchema
-  ),
-})
+  error: Schema.Union(DatabaseErrorSchema, EnvironmentNotFoundErrorSchema, ValidationErrorSchema),
+});
 
 /** Delete an environment */
 const DeleteEnvironment = Rpc.make("environments.delete", {
   payload: EnvironmentIdSchema,
   error: Schema.Union(DatabaseErrorSchema, EnvironmentNotFoundErrorSchema),
-})
+});
 
 // ---------------------
 // Password Procedures
@@ -103,20 +100,20 @@ const SetPassword = Rpc.make("password.set", {
     InvalidCredentialsErrorSchema,
     NotStaffAccountErrorSchema,
     ImisRequestErrorSchema,
-    ImisResponseErrorSchema
+    ImisResponseErrorSchema,
   ),
-})
+});
 
 /** Clear password for an environment */
 const ClearPassword = Rpc.make("password.clear", {
   payload: EnvironmentIdSchema,
-})
+});
 
 /** Check if password is set for an environment */
 const GetPasswordStatus = Rpc.make("password.status", {
   payload: EnvironmentIdSchema,
   success: PasswordStatusSchema,
-})
+});
 
 // ---------------------
 // Connection Test Procedures
@@ -133,9 +130,9 @@ const TestConnection = Rpc.make("connection.test", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 // ---------------------
 // Data Sources Procedures
@@ -152,9 +149,9 @@ const ListDataSources = Rpc.make("datasources.list", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 // ---------------------
 // Document Procedures
@@ -171,9 +168,9 @@ const GetDocumentByPath = Rpc.make("documents.byPath", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 /** Get all documents in a folder */
 const GetDocumentsInFolder = Rpc.make("documents.inFolder", {
@@ -186,9 +183,9 @@ const GetDocumentsInFolder = Rpc.make("documents.inFolder", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 // ---------------------
 // Query Definition Procedures
@@ -205,9 +202,9 @@ const GetQueryDefinition = Rpc.make("queries.definition", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 // ---------------------
 // Trace Procedures
@@ -218,19 +215,19 @@ const ListTraces = Rpc.make("traces.list", {
   payload: ListTracesRequestSchema,
   success: Schema.Array(TraceSummarySchema),
   error: TraceStoreErrorSchema,
-})
+});
 
 /** Get a single trace with all spans */
 const GetTrace = Rpc.make("traces.get", {
   payload: GetTraceRequestSchema,
   success: Schema.NullOr(StoredTraceSchema),
   error: TraceStoreErrorSchema,
-})
+});
 
 /** Clear all traces */
 const ClearTraces = Rpc.make("traces.clear", {
   error: TraceStoreErrorSchema,
-})
+});
 
 // ---------------------
 // Job Procedures
@@ -241,20 +238,20 @@ const CreateJob = Rpc.make("jobs.create", {
   payload: CreateJobRequestSchema,
   success: CreateJobResponseSchema,
   error: Schema.Union(DatabaseErrorSchema, ValidationErrorSchema),
-})
+});
 
 /** List all jobs */
 const ListJobs = Rpc.make("jobs.list", {
   success: Schema.Array(JobWithEnvironmentsSchema),
   error: DatabaseErrorSchema,
-})
+});
 
 /** Get a single job by ID */
 const GetJob = Rpc.make("jobs.get", {
   payload: JobIdRequestSchema,
   success: JobWithEnvironmentsSchema,
   error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
-})
+});
 
 /** Run a queued job */
 const RunJob = Rpc.make("jobs.run", {
@@ -270,9 +267,9 @@ const RunJob = Rpc.make("jobs.run", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 /** Retry failed rows for a job */
 const RetryFailedRows = Rpc.make("jobs.retry", {
@@ -286,28 +283,35 @@ const RetryFailedRows = Rpc.make("jobs.retry", {
     ImisAuthErrorSchema,
     ImisRequestErrorSchema,
     ImisResponseErrorSchema,
-    ImisSchemaErrorSchema
+    ImisSchemaErrorSchema,
   ),
-})
+});
 
 /** Get failed rows for a job */
 const GetJobFailedRows = Rpc.make("jobs.failedRows", {
   payload: JobIdRequestSchema,
   success: Schema.Array(FailedRowSchema),
   error: DatabaseErrorSchema,
-})
+});
+
+/** Get success rows for a job */
+const GetJobSuccessRows = Rpc.make("jobs.successRows", {
+  payload: JobIdRequestSchema,
+  success: Schema.Array(SuccessRowSchema),
+  error: DatabaseErrorSchema,
+});
 
 /** Cancel a running job */
 const CancelJob = Rpc.make("jobs.cancel", {
   payload: JobIdRequestSchema,
   error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
-})
+});
 
 /** Delete a job and its associated failed rows */
 const DeleteJob = Rpc.make("jobs.delete", {
   payload: JobIdRequestSchema,
   error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
-})
+});
 
 // ---------------------
 // API Group
@@ -345,10 +349,10 @@ export const ApiGroup = RpcGroup.make(
   RunJob,
   RetryFailedRows,
   GetJobFailedRows,
+  GetJobSuccessRows,
   CancelJob,
-  DeleteJob
-)
+  DeleteJob,
+);
 
 // Export type for the API group
-export type ApiGroup = typeof ApiGroup
-
+export type ApiGroup = typeof ApiGroup;

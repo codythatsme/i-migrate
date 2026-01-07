@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Activity, Check, ChevronsUpDown, Plus, Server } from 'lucide-react'
-import { Link } from '@tanstack/react-router'
-import { useEnvironmentStore } from '@/stores/environment-store'
-import { queries } from '@/lib/queries'
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Activity, Check, ChevronsUpDown, Plus, Server } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useEnvironmentStore } from "@/stores/environment-store";
+import { queries } from "@/lib/queries";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,22 +11,22 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/components/ui/sidebar'
-import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
+} from "@/components/ui/sidebar";
+import { AddEnvironmentDialog } from "@/components/add-environment-dialog";
 
 export function EnvironmentSwitcher() {
-  const { state } = useSidebar()
-  const { selectedId, selectEnvironment } = useEnvironmentStore()
-  const { data: environments, isLoading } = useQuery(queries.environments.all())
-  const [showAddDialog, setShowAddDialog] = useState(false)
+  const { state } = useSidebar();
+  const { selectedId, selectEnvironment } = useEnvironmentStore();
+  const { data: environments, isLoading } = useQuery(queries.environments.all());
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null
+  const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null;
 
   if (isLoading) {
     return (
@@ -42,7 +42,7 @@ export function EnvironmentSwitcher() {
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
-    )
+    );
   }
 
   if (!selectedEnvironment) {
@@ -68,7 +68,7 @@ export function EnvironmentSwitcher() {
           onSuccess={selectEnvironment}
         />
       </SidebarMenu>
-    )
+    );
   }
 
   return (
@@ -94,9 +94,7 @@ export function EnvironmentSwitcher() {
                   </div>
                 )}
                 <div className="flex flex-1 flex-col gap-0.5 leading-none">
-                  <span className="font-medium truncate">
-                    {selectedEnvironment.name}
-                  </span>
+                  <span className="font-medium truncate">{selectedEnvironment.name}</span>
                   <span className="text-xs text-muted-foreground truncate">
                     {selectedEnvironment.username}
                   </span>
@@ -106,7 +104,7 @@ export function EnvironmentSwitcher() {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               className="w-[--radix-dropdown-menu-trigger-width] min-w-56"
-              side={state === 'collapsed' ? 'right' : 'top'}
+              side={state === "collapsed" ? "right" : "top"}
               align="start"
               sideOffset={4}
             >
@@ -120,11 +118,7 @@ export function EnvironmentSwitcher() {
                   className="gap-2 p-2"
                 >
                   {env.icon ? (
-                    <img
-                      src={env.icon}
-                      alt=""
-                      className="size-6 rounded-sm object-contain"
-                    />
+                    <img src={env.icon} alt="" className="size-6 rounded-sm object-contain" />
                   ) : (
                     <div className="flex size-6 items-center justify-center rounded-sm bg-primary text-primary-foreground">
                       <Server className="size-3" />
@@ -132,20 +126,13 @@ export function EnvironmentSwitcher() {
                   )}
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{env.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {env.username}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{env.username}</span>
                   </div>
-                  {env.id === selectedEnvironment.id && (
-                    <Check className="ml-auto size-4" />
-                  )}
+                  {env.id === selectedEnvironment.id && <Check className="ml-auto size-4" />}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setShowAddDialog(true)}
-                className="gap-2 p-2"
-              >
+              <DropdownMenuItem onClick={() => setShowAddDialog(true)} className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-sm border border-dashed">
                   <Plus className="size-3" />
                 </div>
@@ -173,5 +160,5 @@ export function EnvironmentSwitcher() {
         onSuccess={selectEnvironment}
       />
     </>
-  )
+  );
 }

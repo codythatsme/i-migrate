@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect"
+import { Effect, Layer } from "effect";
 
 // ---------------------
 // Types
@@ -8,22 +8,22 @@ import { Effect, Layer } from "effect"
 // Passwords are entered by users per session and never persisted
 // IMIS tokens are obtained from IMIS API and stored for subsequent calls
 type SessionData = {
-  password?: string
-  imisToken?: string
-  tokenExpiresAt?: number
-}
+  password?: string;
+  imisToken?: string;
+  tokenExpiresAt?: number;
+};
 
 // ---------------------
 // Module-level session store (persists across all requests)
 // ---------------------
-const sessions = new Map<string, SessionData>()
+const sessions = new Map<string, SessionData>();
 
 const getOrCreateSession = (envId: string): SessionData => {
   if (!sessions.has(envId)) {
-    sessions.set(envId, {})
+    sessions.set(envId, {});
   }
-  return sessions.get(envId)!
-}
+  return sessions.get(envId)!;
+};
 
 // ---------------------
 // Service Definition
@@ -37,55 +37,55 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
     return {
       setPassword: (envId: string, password: string) =>
         Effect.sync(() => {
-          const session = getOrCreateSession(envId)
-          session.password = password
+          const session = getOrCreateSession(envId);
+          session.password = password;
         }),
 
       getPassword: (envId: string) =>
         Effect.sync(() => {
-          return sessions.get(envId)?.password
+          return sessions.get(envId)?.password;
         }),
 
       clearPassword: (envId: string) =>
         Effect.sync(() => {
-          const session = sessions.get(envId)
+          const session = sessions.get(envId);
           if (session) {
-            delete session.password
+            delete session.password;
           }
         }),
 
       setImisToken: (envId: string, token: string, expiresAt: number) =>
         Effect.sync(() => {
-          const session = getOrCreateSession(envId)
-          session.imisToken = token
-          session.tokenExpiresAt = expiresAt
+          const session = getOrCreateSession(envId);
+          session.imisToken = token;
+          session.tokenExpiresAt = expiresAt;
         }),
 
       getImisToken: (envId: string) =>
         Effect.sync(() => {
-          const session = sessions.get(envId)
-          if (!session?.imisToken) return undefined
+          const session = sessions.get(envId);
+          if (!session?.imisToken) return undefined;
 
           // Check if token is expired
           if (session.tokenExpiresAt && Date.now() > session.tokenExpiresAt) {
-            delete session.imisToken
-            delete session.tokenExpiresAt
-            return undefined
+            delete session.imisToken;
+            delete session.tokenExpiresAt;
+            return undefined;
           }
 
-          return session.imisToken
+          return session.imisToken;
         }),
 
       clearSession: (envId: string) =>
         Effect.sync(() => {
-          sessions.delete(envId)
+          sessions.delete(envId);
         }),
 
       clearAllSessions: () =>
         Effect.sync(() => {
-          sessions.clear()
+          sessions.clear();
         }),
-    }
+    };
   },
 }) {
   // Static Test layer with empty implementations
@@ -99,13 +99,12 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
       getImisToken: () => Effect.succeed(undefined),
       clearSession: () => Effect.void,
       clearAllSessions: () => Effect.void,
-    })
-  )
+    }),
+  );
 }
 
 // ---------------------
 // Convenience Alias (for backward compatibility)
 // ---------------------
 
-export const SessionServiceLive = SessionService.Default
-
+export const SessionServiceLive = SessionService.Default;

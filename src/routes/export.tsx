@@ -1,41 +1,42 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { Database, FileSearch } from 'lucide-react'
-import { ExportWizard } from '@/components/export'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Database, FileSearch } from "lucide-react";
+import { ExportWizard } from "@/components/export";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type ExportSearch = {
-  from?: 'datasource' | 'query'
-  step?: number
-  sourceEntity?: string
-  destEnv?: string
-  destEntity?: string
-}
+  from?: "datasource" | "query";
+  step?: number;
+  sourceEntity?: string;
+  destEnv?: string;
+  destEntity?: string;
+};
 
-export const Route = createFileRoute('/export')({
+export const Route = createFileRoute("/export")({
   validateSearch: (search: Record<string, unknown>): ExportSearch => {
     return {
-      from: search.from === 'datasource' || search.from === 'query' ? search.from : undefined,
-      step: typeof search.step === 'number' ? search.step : undefined,
-      sourceEntity: typeof search.sourceEntity === 'string' ? search.sourceEntity : undefined,
-      destEnv: typeof search.destEnv === 'string' ? search.destEnv : undefined,
-      destEntity: typeof search.destEntity === 'string' ? search.destEntity : undefined,
-    }
+      from: search.from === "datasource" || search.from === "query" ? search.from : undefined,
+      step: typeof search.step === "number" ? search.step : undefined,
+      sourceEntity: typeof search.sourceEntity === "string" ? search.sourceEntity : undefined,
+      destEnv: typeof search.destEnv === "string" ? search.destEnv : undefined,
+      destEntity: typeof search.destEntity === "string" ? search.destEntity : undefined,
+    };
   },
   component: ExportPage,
-})
+});
 
 function ExportPage() {
-  const { from } = Route.useSearch()
+  const { from } = Route.useSearch();
 
   // Show source selection screen if no `from` parameter
   if (!from) {
-    return <ExportSourceSelection />
+    return <ExportSourceSelection />;
   }
 
-  const title = from === 'query' ? 'Export from Query' : 'Export from Data Source'
-  const description = from === 'query'
-    ? 'Select an IQA query to export data and map to a destination.'
-    : 'Configure and queue a data migration between environments.'
+  const title = from === "query" ? "Export from Query" : "Export from Data Source";
+  const description =
+    from === "query"
+      ? "Select an IQA query to export data and map to a destination."
+      : "Configure and queue a data migration between environments.";
 
   return (
     <div className="flex flex-col gap-6">
@@ -46,7 +47,7 @@ function ExportPage() {
 
       <ExportWizard initialMode={from} />
     </div>
-  )
+  );
 }
 
 function ExportSourceSelection() {
@@ -60,7 +61,7 @@ function ExportSourceSelection() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Link to="/export" search={{ from: 'datasource' }}>
+        <Link to="/export" search={{ from: "datasource" }}>
           <Card className="h-full cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -82,7 +83,7 @@ function ExportSourceSelection() {
           </Card>
         </Link>
 
-        <Link to="/export" search={{ from: 'query' }}>
+        <Link to="/export" search={{ from: "query" }}>
           <Card className="h-full cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -105,7 +106,5 @@ function ExportSourceSelection() {
         </Link>
       </div>
     </div>
-  )
+  );
 }
-
-

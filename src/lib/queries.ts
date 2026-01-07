@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions } from "@tanstack/react-query";
 import {
   listEnvironments,
   getEnvironment,
@@ -11,7 +11,8 @@ import {
   listJobs,
   getJob,
   getJobFailedRows,
-} from "@/api/client"
+  getJobSuccessRows,
+} from "@/api/client";
 
 // Query options factory using RPC client
 export const queries = {
@@ -55,7 +56,7 @@ export const queries = {
     inFolder: (
       environmentId: string | null,
       folderId: string | null,
-      fileTypes: string[] = ["FOL", "IQD"]
+      fileTypes: string[] = ["FOL", "IQD"],
     ) =>
       queryOptions({
         queryKey: ["documents", "inFolder", environmentId, folderId, fileTypes],
@@ -117,5 +118,13 @@ export const queries = {
         queryFn: () => getJobFailedRows(jobId!),
         enabled: !!jobId,
       }),
+
+    // Get success rows for a job
+    successRows: (jobId: string | null) =>
+      queryOptions({
+        queryKey: ["jobs", jobId, "successRows"],
+        queryFn: () => getJobSuccessRows(jobId!),
+        enabled: !!jobId,
+      }),
   },
-}
+};

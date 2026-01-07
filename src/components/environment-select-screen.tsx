@@ -1,90 +1,88 @@
-import { useState, useMemo, type FormEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Server, Plus, KeyRound, AlertTriangle, ArrowRight, Search } from 'lucide-react'
-import { useEnvironmentStore } from '@/stores/environment-store'
-import { useSetPassword } from '@/lib/mutations'
-import { queries } from '@/lib/queries'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
-import type { EnvironmentWithStatus } from '@/api/schemas'
+import { useState, useMemo, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Server, Plus, KeyRound, AlertTriangle, ArrowRight, Search } from "lucide-react";
+import { useEnvironmentStore } from "@/stores/environment-store";
+import { useSetPassword } from "@/lib/mutations";
+import { queries } from "@/lib/queries";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { AddEnvironmentDialog } from "@/components/add-environment-dialog";
+import type { EnvironmentWithStatus } from "@/api/schemas";
 
 export function EnvironmentSelectScreen() {
-  const { selectEnvironment } = useEnvironmentStore()
-  const { data: environments, isLoading } = useQuery(queries.environments.all())
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [pendingEnv, setPendingEnv] = useState<EnvironmentWithStatus | null>(null)
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const setPasswordMutation = useSetPassword()
+  const { selectEnvironment } = useEnvironmentStore();
+  const { data: environments, isLoading } = useQuery(queries.environments.all());
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [pendingEnv, setPendingEnv] = useState<EnvironmentWithStatus | null>(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const setPasswordMutation = useSetPassword();
 
-  const showSearch = environments && environments.length > 5
+  const showSearch = environments && environments.length > 5;
 
   const filteredEnvironments = useMemo(() => {
-    if (!environments) return []
-    if (!searchQuery.trim()) return environments
-    const query = searchQuery.toLowerCase()
+    if (!environments) return [];
+    if (!searchQuery.trim()) return environments;
+    const query = searchQuery.toLowerCase();
     return environments.filter(
-      (env) =>
-        env.name.toLowerCase().includes(query) ||
-        env.username.toLowerCase().includes(query)
-    )
-  }, [environments, searchQuery])
+      (env) => env.name.toLowerCase().includes(query) || env.username.toLowerCase().includes(query),
+    );
+  }, [environments, searchQuery]);
 
   const handleSelectEnvironment = (env: EnvironmentWithStatus) => {
     if (env.hasPassword) {
       // Already has password in session, select directly
-      selectEnvironment(env.id)
+      selectEnvironment(env.id);
     } else {
       // Needs password, show inline password form
-      setPendingEnv(env)
-      setPassword('')
-      setError(null)
+      setPendingEnv(env);
+      setPassword("");
+      setError(null);
     }
-  }
+  };
 
   const handlePasswordSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    if (!pendingEnv) return
+    e.preventDefault();
+    if (!pendingEnv) return;
 
-    setError(null)
+    setError(null);
     setPasswordMutation.mutate(
       { environmentId: pendingEnv.id, password },
       {
         onSuccess: () => {
-          selectEnvironment(pendingEnv.id)
-          setPendingEnv(null)
-          setPassword('')
+          selectEnvironment(pendingEnv.id);
+          setPendingEnv(null);
+          setPassword("");
         },
         onError: (err) => {
-          setError(err.message || 'Failed to authenticate')
+          setError(err.message || "Failed to authenticate");
         },
-      }
-    )
-  }
+      },
+    );
+  };
 
   const handleCancelPassword = () => {
-    setPendingEnv(null)
-    setPassword('')
-    setError(null)
-  }
+    setPendingEnv(null);
+    setPassword("");
+    setError(null);
+  };
 
   const handleAddEnvironmentSuccess = (envId: string) => {
-    selectEnvironment(envId)
-  }
+    selectEnvironment(envId);
+  };
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-muted-foreground">Loading environments...</div>
       </div>
-    )
+    );
   }
 
-  const hasEnvironments = environments && environments.length > 0
+  const hasEnvironments = environments && environments.length > 0;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -93,8 +91,8 @@ export function EnvironmentSelectScreen() {
           <h1 className="text-2xl font-semibold tracking-tight">i-migrate</h1>
           <p className="mt-2 text-muted-foreground">
             {hasEnvironments
-              ? 'Select an environment to continue'
-              : 'Add your first environment to get started'}
+              ? "Select an environment to continue"
+              : "Add your first environment to get started"}
           </p>
         </div>
 
@@ -104,21 +102,19 @@ export function EnvironmentSelectScreen() {
             <CardContent className="pt-6">
               <div className="mb-4 flex items-center gap-3">
                 {pendingEnv.icon ? (
-                <img
-                  src={pendingEnv.icon}
-                  alt=""
-                  className="h-10 w-10 rounded-lg object-contain"
-                />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <KeyRound className="h-5 w-5" />
-                </div>
-              )}
+                  <img
+                    src={pendingEnv.icon}
+                    alt=""
+                    className="h-10 w-10 rounded-lg object-contain"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                )}
                 <div>
                   <div className="font-medium">{pendingEnv.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {pendingEnv.username}
-                  </div>
+                  <div className="text-sm text-muted-foreground">{pendingEnv.username}</div>
                 </div>
               </div>
 
@@ -131,8 +127,8 @@ export function EnvironmentSelectScreen() {
                     placeholder="Enter your IMIS password"
                     value={password}
                     onChange={(e) => {
-                      setPassword(e.target.value)
-                      setError(null)
+                      setPassword(e.target.value);
+                      setError(null);
                     }}
                     autoFocus
                     autoComplete="current-password"
@@ -163,10 +159,8 @@ export function EnvironmentSelectScreen() {
                     className="flex-1"
                     disabled={!password || setPasswordMutation.isPending}
                   >
-                    {setPasswordMutation.isPending ? 'Connecting...' : 'Continue'}
-                    {!setPasswordMutation.isPending && (
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    )}
+                    {setPasswordMutation.isPending ? "Connecting..." : "Continue"}
+                    {!setPasswordMutation.isPending && <ArrowRight className="ml-2 h-4 w-4" />}
                   </Button>
                 </div>
               </form>
@@ -198,11 +192,7 @@ export function EnvironmentSelectScreen() {
               >
                 <CardContent className="flex items-center gap-3 p-4">
                   {env.icon ? (
-                    <img
-                      src={env.icon}
-                      alt=""
-                      className="h-10 w-10 rounded-lg object-contain"
-                    />
+                    <img src={env.icon} alt="" className="h-10 w-10 rounded-lg object-contain" />
                   ) : (
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                       <Server className="h-5 w-5" />
@@ -210,9 +200,7 @@ export function EnvironmentSelectScreen() {
                   )}
                   <div className="flex-1">
                     <div className="font-medium">{env.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {env.username}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{env.username}</div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                 </CardContent>
@@ -228,9 +216,7 @@ export function EnvironmentSelectScreen() {
                   <Plus className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-muted-foreground">
-                    Add Environment
-                  </div>
+                  <div className="font-medium text-muted-foreground">Add Environment</div>
                 </div>
               </CardContent>
             </Card>
@@ -245,5 +231,5 @@ export function EnvironmentSelectScreen() {
         />
       </div>
     </div>
-  )
+  );
 }
