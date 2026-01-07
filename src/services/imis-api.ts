@@ -966,7 +966,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
                 // Parse response body as JSON to extract identity elements
-                return HttpClientResponse.json(res).pipe(
+                return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
                   Effect.map((data): InsertEntityResult => {
                     // Try to extract identity elements from the response
                     // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
@@ -974,18 +974,32 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                     if (
                       data &&
                       typeof data === "object" &&
-                      "Identity" in data &&
-                      data.Identity &&
-                      typeof data.Identity === "object" &&
-                      "IdentityElements" in data.Identity &&
-                      data.Identity.IdentityElements &&
-                      typeof data.Identity.IdentityElements === "object" &&
-                      "$values" in data.Identity.IdentityElements &&
-                      Array.isArray(data.Identity.IdentityElements.$values)
+                      "Identity" in data
                     ) {
-                      identityElements.push(
-                        ...data.Identity.IdentityElements.$values.map(String),
-                      );
+                      const identity = (data as Record<string, unknown>).Identity;
+                      if (
+                        identity &&
+                        typeof identity === "object" &&
+                        "IdentityElements" in identity
+                      ) {
+                        const identityElems = (identity as Record<string, unknown>)
+                          .IdentityElements;
+                        if (
+                          identityElems &&
+                          typeof identityElems === "object" &&
+                          "$values" in identityElems &&
+                          Array.isArray(
+                            (identityElems as Record<string, unknown>).$values,
+                          )
+                        ) {
+                          identityElements.push(
+                            ...(
+                              (identityElems as Record<string, unknown>)
+                                .$values as unknown[]
+                            ).map(String),
+                          );
+                        }
+                      }
                     }
                     return { identityElements };
                   }),
