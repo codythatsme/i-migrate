@@ -880,11 +880,24 @@ function SuccessRowItem({
     })
     .join(", ");
 
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
+
   return (
     <div className="flex items-start gap-2 p-2 bg-green-500/10 rounded text-xs">
       <CheckCircle className="size-3.5 text-green-600 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="font-medium">Row #{row.rowIndex + 1}</div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium">Row #{row.rowIndex + 1}</span>
+          <span className="text-muted-foreground text-[10px]">{formatTime(row.createdAt)}</span>
+        </div>
         {identityDisplay && <div className="text-muted-foreground">{identityDisplay}</div>}
       </div>
     </div>
@@ -892,11 +905,24 @@ function SuccessRowItem({
 }
 
 function FailedRowItem({ row }: { row: FailedRow }) {
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
+
   return (
     <div className="flex items-start gap-2 p-2 bg-destructive/10 rounded text-xs">
       <AlertCircle className="size-3.5 text-destructive shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="font-medium">Row #{row.rowIndex + 1}</div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium">Row #{row.rowIndex + 1}</span>
+          <span className="text-muted-foreground text-[10px]">{formatTime(row.createdAt)}</span>
+        </div>
         <div className="text-muted-foreground truncate">{row.errorMessage}</div>
         <div className="text-muted-foreground">
           Retries: {row.retryCount} • Status: {row.status}
