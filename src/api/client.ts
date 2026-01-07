@@ -19,20 +19,21 @@ const ProtocolLayer = RpcClient.layerProtocolHttp({ url: "/rpc" }).pipe(
 const ClientLayer = Layer.mergeAll(ProtocolLayer, RpcSerialization.layerJson);
 
 // ---------------------
-// Managed Runtime
-// ---------------------
-
-// Create a managed runtime for the client
-const runtime = ManagedRuntime.make(ClientLayer);
-
-// ---------------------
 // Helper for scoped RPC calls
 // ---------------------
 
-// Each call creates a fresh client within a scope
+// Each call creates a fresh runtime to avoid shared state corruption.
+// A shared ManagedRuntime can enter a bad state where promises never resolve
+// even though HTTP responses complete successfully.
 const withClient = <A, E>(
   fn: (client: RpcClient.FromGroup<typeof ApiGroup>) => Effect.Effect<A, E>,
-): Promise<A> => runtime.runPromise(Effect.scoped(Effect.flatMap(RpcClient.make(ApiGroup), fn)));
+): Promise<A> => {
+  const runtime = ManagedRuntime.make(ClientLayer);
+
+  return runtime
+    .runPromise(Effect.scoped(Effect.flatMap(RpcClient.make(ApiGroup), fn)))
+    .finally(() => runtime.dispose());
+};
 
 // ---------------------
 // Type-Safe API Functions
