@@ -53,9 +53,6 @@ export function DataSourceSelector({
     enabled: !!environmentId,
   });
 
-  console.log(data);
-  console.log(isLoading);
-
   // Filter to only Multi/Single sources when used as destination selector
   const dataSources = useMemo(() => {
     const allSources = data?.Items.$values ?? [];
