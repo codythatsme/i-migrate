@@ -86,16 +86,14 @@ const server = serve({
   },
 })
 
-// Open browser automatically
-function openBrowser(url: string) {
+// Open browser automatically (only on initial startup, not hot reloads)
+if (!process.env.__BROWSER_OPENED__) {
+  process.env.__BROWSER_OPENED__ = "1"
   const platform = process.platform
   const command =
     platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open"
-
-  Bun.spawn([command, url], { stdio: ["ignore", "ignore", "ignore"] })
+  Bun.spawn([command, server.url.href], { stdio: ["ignore", "ignore", "ignore"] })
 }
-
-openBrowser(server.url.href)
 
 // Handle graceful shutdown
 process.on("SIGINT", async () => {
