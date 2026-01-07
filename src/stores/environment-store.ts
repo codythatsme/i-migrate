@@ -1,13 +1,13 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-const STORAGE_KEY = 'i-migrate:environment-store'
+const STORAGE_KEY = "i-migrate:environment-store";
 
 type EnvironmentStore = {
-  selectedId: string | null
-  selectEnvironment: (id: string) => void
-  clearSelection: () => void
-}
+  selectedId: string | null;
+  selectEnvironment: (id: string) => void;
+  clearSelection: () => void;
+};
 
 export const useEnvironmentStore = create<EnvironmentStore>()(
   persist(
@@ -20,17 +20,16 @@ export const useEnvironmentStore = create<EnvironmentStore>()(
       name: STORAGE_KEY,
       storage: {
         getItem: (name) => {
-          const value = sessionStorage.getItem(name)
-          return value ? JSON.parse(value) : null
+          const value = sessionStorage.getItem(name);
+          return value ? JSON.parse(value) : null;
         },
         setItem: (name, value) => {
-          sessionStorage.setItem(name, JSON.stringify(value))
+          sessionStorage.setItem(name, JSON.stringify(value));
         },
         removeItem: (name) => {
-          sessionStorage.removeItem(name)
+          sessionStorage.removeItem(name);
         },
       },
-    }
-  )
-)
-
+    },
+  ),
+);

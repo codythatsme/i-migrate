@@ -1,105 +1,113 @@
-import { useState, useEffect } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, MoreHorizontal, Pencil, Plug, Plus, Server, Trash2, XCircle } from 'lucide-react'
-import { useEnvironmentStore } from '@/stores/environment-store'
-import { queries } from '@/lib/queries'
-import { useDeleteEnvironment, useTestConnection } from '@/lib/mutations'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import {
+  CheckCircle2,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plug,
+  Plus,
+  Server,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+import { useEnvironmentStore } from "@/stores/environment-store";
+import { queries } from "@/lib/queries";
+import { useDeleteEnvironment, useTestConnection } from "@/lib/mutations";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { AddEnvironmentDialog } from '@/components/add-environment-dialog'
-import { EditEnvironmentDialog } from '@/components/edit-environment-dialog'
-import type { Environment } from '@/lib/environments'
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AddEnvironmentDialog } from "@/components/add-environment-dialog";
+import { EditEnvironmentDialog } from "@/components/edit-environment-dialog";
+import type { Environment } from "@/lib/environments";
 
-export const Route = createFileRoute('/environments')({
+export const Route = createFileRoute("/environments")({
   component: EnvironmentsPage,
-})
+});
 
 type TestStatus = {
-  status: 'idle' | 'testing' | 'success' | 'error'
-  message?: string
-}
+  status: "idle" | "testing" | "success" | "error";
+  message?: string;
+};
 
 function EnvironmentsPage() {
-  const { selectedId, selectEnvironment, clearSelection } = useEnvironmentStore()
-  const { data: environments } = useQuery(queries.environments.all())
-  const deleteEnvironment = useDeleteEnvironment()
-  const testConnection = useTestConnection()
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [editingEnvironment, setEditingEnvironment] = useState<Environment | null>(null)
-  const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({})
+  const { selectedId, selectEnvironment, clearSelection } = useEnvironmentStore();
+  const { data: environments } = useQuery(queries.environments.all());
+  const deleteEnvironment = useDeleteEnvironment();
+  const testConnection = useTestConnection();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingEnvironment, setEditingEnvironment] = useState<Environment | null>(null);
+  const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({});
 
-  const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null
+  const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null;
 
   // Handle test connection
   const handleTestConnection = (envId: string) => {
-    setTestStatuses((prev) => ({ ...prev, [envId]: { status: 'testing' } }))
+    setTestStatuses((prev) => ({ ...prev, [envId]: { status: "testing" } }));
 
     testConnection.mutate(envId, {
       onSuccess: () => {
-        setTestStatuses((prev) => ({ ...prev, [envId]: { status: 'success', message: 'Connected' } }))
+        setTestStatuses((prev) => ({
+          ...prev,
+          [envId]: { status: "success", message: "Connected" },
+        }));
         // Clear status after 5 seconds
         setTimeout(() => {
-          setTestStatuses((prev) => ({ ...prev, [envId]: { status: 'idle' } }))
-        }, 5000)
+          setTestStatuses((prev) => ({ ...prev, [envId]: { status: "idle" } }));
+        }, 5000);
       },
       onError: (err: unknown) => {
         // Effect RPC errors are objects with _tag and fields, extract message
-        const error = err as { message?: string; _tag?: string }
-        const message = error.message ||
-          (error._tag ? `Error: ${error._tag}` : 'Connection failed')
+        const error = err as { message?: string; _tag?: string };
+        const message =
+          error.message || (error._tag ? `Error: ${error._tag}` : "Connection failed");
         setTestStatuses((prev) => ({
           ...prev,
-          [envId]: { status: 'error', message },
-        }))
+          [envId]: { status: "error", message },
+        }));
         // Clear status after 8 seconds (longer for errors so user can read)
         setTimeout(() => {
-          setTestStatuses((prev) => ({ ...prev, [envId]: { status: 'idle' } }))
-        }, 8000)
+          setTestStatuses((prev) => ({ ...prev, [envId]: { status: "idle" } }));
+        }, 8000);
       },
-    })
-  }
+    });
+  };
 
   // Auto-select first environment if none selected or selected doesn't exist
   useEffect(() => {
     if (environments && environments.length > 0) {
-      const selectedExists = environments.some((e) => e.id === selectedId)
+      const selectedExists = environments.some((e) => e.id === selectedId);
       if (!selectedExists) {
-        const firstId = environments[0]?.id
-        if (firstId) selectEnvironment(firstId)
+        const firstId = environments[0]?.id;
+        if (firstId) selectEnvironment(firstId);
       }
     }
-  }, [environments, selectedId, selectEnvironment])
+  }, [environments, selectedId, selectEnvironment]);
 
   // Clear selection if all environments deleted
   useEffect(() => {
     if (environments && environments.length === 0 && selectedId) {
-      clearSelection()
+      clearSelection();
     }
-  }, [environments, selectedId, clearSelection])
+  }, [environments, selectedId, clearSelection]);
 
   const handleDelete = (id: string) => {
     deleteEnvironment.mutate(id, {
       onSuccess: () => {
         if (selectedId === id) {
-          clearSelection()
+          clearSelection();
         }
       },
-    })
-  }
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,8 +115,8 @@ function EnvironmentsPage() {
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Environments</h1>
           <p className="text-muted-foreground">
-            Manage your IMIS environments. The selected environment will be used as the source
-            for browsing data. Additional environments can be used as destinations.
+            Manage your IMIS environments. The selected environment will be used as the source for
+            browsing data. Additional environments can be used as destinations.
           </p>
         </div>
         <Button onClick={() => setShowAddDialog(true)} className="shrink-0">
@@ -136,14 +144,14 @@ function EnvironmentsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {environments?.map((env) => {
-            const isSelected = selectedEnvironment?.id === env.id
+            const isSelected = selectedEnvironment?.id === env.id;
             return (
               <Card
                 key={env.id}
                 className={
                   isSelected
-                    ? 'border-primary ring-1 ring-primary'
-                    : 'hover:border-muted-foreground/25 transition-colors'
+                    ? "border-primary ring-1 ring-primary"
+                    : "hover:border-muted-foreground/25 transition-colors"
                 }
               >
                 <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
@@ -158,8 +166,8 @@ function EnvironmentsPage() {
                       <div
                         className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
                           isSelected
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
                         }`}
                       >
                         <Server className="size-5" />
@@ -167,9 +175,7 @@ function EnvironmentsPage() {
                     )}
                     <div className="flex flex-col gap-1">
                       <CardTitle className="text-base">{env.name}</CardTitle>
-                      <CardDescription className="text-xs">
-                        {env.username}
-                      </CardDescription>
+                      <CardDescription className="text-xs">{env.username}</CardDescription>
                     </div>
                   </div>
                   <DropdownMenu>
@@ -225,9 +231,9 @@ function EnvironmentsPage() {
                           size="sm"
                           className="h-8 text-xs"
                           onClick={() => handleTestConnection(env.id)}
-                          disabled={testStatuses[env.id]?.status === 'testing'}
+                          disabled={testStatuses[env.id]?.status === "testing"}
                         >
-                          {testStatuses[env.id]?.status === 'testing' ? (
+                          {testStatuses[env.id]?.status === "testing" ? (
                             <>
                               <Loader2 className="mr-1.5 size-3 animate-spin" />
                               Testing...
@@ -241,7 +247,7 @@ function EnvironmentsPage() {
                         </Button>
 
                         {/* Success indicator - inline */}
-                        {testStatuses[env.id]?.status === 'success' && (
+                        {testStatuses[env.id]?.status === "success" && (
                           <div className="flex items-center gap-1 text-xs text-primary">
                             <CheckCircle2 className="size-3.5" />
                             <span>{testStatuses[env.id]?.message}</span>
@@ -250,7 +256,7 @@ function EnvironmentsPage() {
                       </div>
 
                       {/* Error message - full width on its own line */}
-                      {testStatuses[env.id]?.status === 'error' && (
+                      {testStatuses[env.id]?.status === "error" && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -271,7 +277,7 @@ function EnvironmentsPage() {
                   </div>
                 </CardContent>
               </Card>
-            )
+            );
           })}
         </div>
       )}
@@ -285,9 +291,9 @@ function EnvironmentsPage() {
         environment={editingEnvironment}
         open={editingEnvironment !== null}
         onOpenChange={(open) => {
-          if (!open) setEditingEnvironment(null)
+          if (!open) setEditingEnvironment(null);
         }}
       />
     </div>
-  )
+  );
 }

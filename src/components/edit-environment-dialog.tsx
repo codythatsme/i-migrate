@@ -1,8 +1,8 @@
-import { useState, useEffect, type FormEvent } from 'react'
-import { Server, AlertTriangle } from 'lucide-react'
-import { useUpdateEnvironment, useSetPassword } from '@/lib/mutations'
-import { getErrorMessage } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect, type FormEvent } from "react";
+import { Server, AlertTriangle } from "lucide-react";
+import { useUpdateEnvironment, useSetPassword } from "@/lib/mutations";
+import { getErrorMessage } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,63 +10,63 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/ui/accordion'
+} from "@/components/ui/accordion";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import type { Environment } from '@/lib/environments'
-import type { ImisVersion } from '@/api/schemas'
+} from "@/components/ui/select";
+import type { Environment } from "@/lib/environments";
+import type { ImisVersion } from "@/api/schemas";
 
 type EditEnvironmentDialogProps = {
-  environment: Environment | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}
+  environment: Environment | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
 
 export function EditEnvironmentDialog({
   environment,
   open,
   onOpenChange,
 }: EditEnvironmentDialogProps) {
-  const updateEnvironment = useUpdateEnvironment()
-  const setPassword = useSetPassword()
-  const [name, setName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPasswordValue] = useState('')
-  const [version, setVersion] = useState<ImisVersion>('EMS')
-  const [queryConcurrency, setQueryConcurrency] = useState(5)
-  const [insertConcurrency, setInsertConcurrency] = useState(50)
+  const updateEnvironment = useUpdateEnvironment();
+  const setPassword = useSetPassword();
+  const [name, setName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPasswordValue] = useState("");
+  const [version, setVersion] = useState<ImisVersion>("EMS");
+  const [queryConcurrency, setQueryConcurrency] = useState(5);
+  const [insertConcurrency, setInsertConcurrency] = useState(50);
 
   // Reset form when environment changes
   useEffect(() => {
     if (environment) {
-      setName(environment.name)
-      setBaseUrl(environment.baseUrl)
-      setUsername(environment.username)
-      setVersion(environment.version)
-      setQueryConcurrency(environment.queryConcurrency)
-      setInsertConcurrency(environment.insertConcurrency)
+      setName(environment.name);
+      setBaseUrl(environment.baseUrl);
+      setUsername(environment.username);
+      setVersion(environment.version);
+      setQueryConcurrency(environment.queryConcurrency);
+      setInsertConcurrency(environment.insertConcurrency);
       // Don't pre-fill password - it's stored server-side and not retrievable
-      setPasswordValue('')
+      setPasswordValue("");
     }
-  }, [environment])
+  }, [environment]);
 
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    if (!environment) return
+    e.preventDefault();
+    if (!environment) return;
 
     updateEnvironment.mutate(
       {
@@ -89,18 +89,18 @@ export function EditEnvironmentDialog({
               {
                 onSuccess: () => onOpenChange(false),
                 onError: () => onOpenChange(false), // Still close on error
-              }
-            )
+              },
+            );
           } else {
-            onOpenChange(false)
+            onOpenChange(false);
           }
         },
-      }
-    )
-  }
+      },
+    );
+  };
 
-  const isValid = name.trim() !== '' && baseUrl.trim() !== '' && username.trim() !== ''
-  const isPending = updateEnvironment.isPending || setPassword.isPending
+  const isValid = name.trim() !== "" && baseUrl.trim() !== "" && username.trim() !== "";
+  const isPending = updateEnvironment.isPending || setPassword.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -209,26 +209,23 @@ export function EditEnvironmentDialog({
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Controls parallel operations during migration. Higher values may improve speed but increase load.
+                    Controls parallel operations during migration. Higher values may improve speed
+                    but increase load.
                   </p>
                 </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
           <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={!isValid || isPending}>
-              {isPending ? 'Saving...' : 'Save Changes'}
+              {isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

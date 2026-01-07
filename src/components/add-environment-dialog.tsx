@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react'
-import { Server, AlertTriangle } from 'lucide-react'
-import { useCreateEnvironment, useSetPassword } from '@/lib/mutations'
-import { Button } from '@/components/ui/button'
+import { useState, type FormEvent } from "react";
+import { Server, AlertTriangle } from "lucide-react";
+import { useCreateEnvironment, useSetPassword } from "@/lib/mutations";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,24 +9,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import type { ImisVersion } from '@/api/schemas'
+} from "@/components/ui/select";
+import type { ImisVersion } from "@/api/schemas";
 
 type AddEnvironmentDialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  isFirstRun?: boolean
-  onSuccess?: (environmentId: string) => void
-}
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isFirstRun?: boolean;
+  onSuccess?: (environmentId: string) => void;
+};
 
 export function AddEnvironmentDialog({
   open,
@@ -34,24 +34,24 @@ export function AddEnvironmentDialog({
   isFirstRun = false,
   onSuccess,
 }: AddEnvironmentDialogProps) {
-  const createEnvironment = useCreateEnvironment()
-  const setPassword = useSetPassword()
-  const [name, setName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPasswordValue] = useState('')
-  const [version, setVersion] = useState<ImisVersion>('EMS')
+  const createEnvironment = useCreateEnvironment();
+  const setPassword = useSetPassword();
+  const [name, setName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPasswordValue] = useState("");
+  const [version, setVersion] = useState<ImisVersion>("EMS");
 
   const resetForm = () => {
-    setName('')
-    setBaseUrl('')
-    setUsername('')
-    setPasswordValue('')
-    setVersion('EMS')
-  }
+    setName("");
+    setBaseUrl("");
+    setUsername("");
+    setPasswordValue("");
+    setVersion("EMS");
+  };
 
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     createEnvironment.mutate(
       {
@@ -67,36 +67,30 @@ export function AddEnvironmentDialog({
             { environmentId: env.id, password },
             {
               onSuccess: () => {
-                resetForm()
-                onOpenChange(false)
-                onSuccess?.(env.id)
+                resetForm();
+                onOpenChange(false);
+                onSuccess?.(env.id);
               },
               onError: () => {
                 // Still close and select, but password wasn't saved
-                resetForm()
-                onOpenChange(false)
-                onSuccess?.(env.id)
+                resetForm();
+                onOpenChange(false);
+                onSuccess?.(env.id);
               },
-            }
-          )
+            },
+          );
         },
-      }
-    )
-  }
+      },
+    );
+  };
 
   const isValid =
-    name.trim() !== '' &&
-    baseUrl.trim() !== '' &&
-    username.trim() !== '' &&
-    password !== ''
+    name.trim() !== "" && baseUrl.trim() !== "" && username.trim() !== "" && password !== "";
 
-  const isPending = createEnvironment.isPending || setPassword.isPending
+  const isPending = createEnvironment.isPending || setPassword.isPending;
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={isFirstRun ? undefined : onOpenChange}
-    >
+    <Dialog open={open} onOpenChange={isFirstRun ? undefined : onOpenChange}>
       <DialogContent
         className="sm:max-w-md"
         onPointerDownOutside={isFirstRun ? (e) => e.preventDefault() : undefined}
@@ -110,13 +104,11 @@ export function AddEnvironmentDialog({
         </div>
 
         <DialogHeader className="text-center">
-          <DialogTitle>
-            {isFirstRun ? 'Add Your First Environment' : 'Add Environment'}
-          </DialogTitle>
+          <DialogTitle>{isFirstRun ? "Add Your First Environment" : "Add Environment"}</DialogTitle>
           <DialogDescription>
             {isFirstRun
-              ? 'To get started, add an IMIS environment. This will be used as your source environment.'
-              : 'Add a new IMIS environment. Passwords are stored securely in server memory.'}
+              ? "To get started, add an IMIS environment. This will be used as your source environment."
+              : "Add a new IMIS environment. Passwords are stored securely in server memory."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -176,20 +168,16 @@ export function AddEnvironmentDialog({
           </div>
           <DialogFooter className="pt-2">
             {!isFirstRun && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
             )}
             <Button type="submit" disabled={!isValid || isPending}>
-              {isPending ? 'Saving...' : 'Save Environment'}
+              {isPending ? "Saving..." : "Save Environment"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

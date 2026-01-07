@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Folder,
   FileSearch,
@@ -8,31 +8,31 @@ import {
   AlertCircle,
   ChevronRight,
   ArrowUp,
-} from 'lucide-react'
-import { queries } from '@/lib/queries'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import type { DocumentSummaryData } from '@/api/client'
+} from "lucide-react";
+import { queries } from "@/lib/queries";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { DocumentSummaryData } from "@/api/client";
 
 // ---------------------
 // Constants
 // ---------------------
 
-const ROOT_PATH = '$'
-const FILE_TYPES = ['FOL', 'IQD']
+const ROOT_PATH = "$";
+const FILE_TYPES = ["FOL", "IQD"];
 
 // ---------------------
 // Types
 // ---------------------
 
 type QueryFileBrowserProps = {
-  environmentId: string | null
-  selectedQueryPath: string | null
-  onSelect: (path: string, name: string) => void
-  title?: string
-  description?: string
-}
+  environmentId: string | null;
+  selectedQueryPath: string | null;
+  onSelect: (path: string, name: string) => void;
+  title?: string;
+  description?: string;
+};
 
 // ---------------------
 // Component
@@ -42,17 +42,17 @@ export function QueryFileBrowser({
   environmentId,
   selectedQueryPath,
   onSelect,
-  title = 'Select Query',
-  description = 'Browse the CMS to find a query (IQA) to export from.',
+  title = "Select Query",
+  description = "Browse the CMS to find a query (IQA) to export from.",
 }: QueryFileBrowserProps) {
-  const [currentPath, setCurrentPath] = useState(ROOT_PATH)
-  const [pathInput, setPathInput] = useState(ROOT_PATH)
-  const [isEditingPath, setIsEditingPath] = useState(false)
+  const [currentPath, setCurrentPath] = useState(ROOT_PATH);
+  const [pathInput, setPathInput] = useState(ROOT_PATH);
+  const [isEditingPath, setIsEditingPath] = useState(false);
 
   // Sync pathInput when currentPath changes
   useEffect(() => {
-    setPathInput(currentPath)
-  }, [currentPath])
+    setPathInput(currentPath);
+  }, [currentPath]);
 
   // Fetch the current folder document to get its DocumentId
   const {
@@ -62,9 +62,9 @@ export function QueryFileBrowser({
   } = useQuery({
     ...queries.documents.byPath(environmentId, currentPath),
     enabled: !!environmentId && !!currentPath,
-  })
+  });
 
-  const folderId = folderData?.Result?.DocumentId ?? null
+  const folderId = folderData?.Result?.DocumentId ?? null;
 
   // Fetch documents in the current folder
   const {
@@ -74,68 +74,68 @@ export function QueryFileBrowser({
   } = useQuery({
     ...queries.documents.inFolder(environmentId, folderId, FILE_TYPES),
     enabled: !!environmentId && !!folderId,
-  })
+  });
 
   // Parse path into breadcrumb segments
   const breadcrumbs = useMemo(() => {
     if (currentPath === ROOT_PATH) {
-      return [{ name: ROOT_PATH, path: ROOT_PATH }]
+      return [{ name: ROOT_PATH, path: ROOT_PATH }];
     }
-    const segments = currentPath.split('/')
+    const segments = currentPath.split("/");
     return segments.map((segment, index) => ({
       name: segment,
-      path: segments.slice(0, index + 1).join('/'),
-    }))
-  }, [currentPath])
+      path: segments.slice(0, index + 1).join("/"),
+    }));
+  }, [currentPath]);
 
   // Helper to determine if a document is a folder
-  const isFolder = (doc: DocumentSummaryData) => doc.IsFolder ?? doc.DocumentTypeId === 'FOL'
+  const isFolder = (doc: DocumentSummaryData) => doc.IsFolder ?? doc.DocumentTypeId === "FOL";
 
   // Sort documents: folders first, then queries
   const sortedDocuments = useMemo(() => {
-    if (!documentsData?.Result?.$values) return []
+    if (!documentsData?.Result?.$values) return [];
     return [...documentsData.Result.$values].sort((a, b) => {
       // Folders before queries
-      const aIsFolder = isFolder(a)
-      const bIsFolder = isFolder(b)
-      if (aIsFolder && !bIsFolder) return -1
-      if (!aIsFolder && bIsFolder) return 1
+      const aIsFolder = isFolder(a);
+      const bIsFolder = isFolder(b);
+      if (aIsFolder && !bIsFolder) return -1;
+      if (!aIsFolder && bIsFolder) return 1;
       // Then alphabetically
-      return a.Name.localeCompare(b.Name)
-    })
-  }, [documentsData])
+      return a.Name.localeCompare(b.Name);
+    });
+  }, [documentsData]);
 
   // Handlers
   const handleNavigateToFolder = (path: string) => {
-    setCurrentPath(path)
-  }
+    setCurrentPath(path);
+  };
 
   const handleNavigateUp = () => {
-    if (currentPath === ROOT_PATH) return
-    const segments = currentPath.split('/')
-    segments.pop()
-    const parentPath = segments.length === 1 ? ROOT_PATH : segments.join('/')
-    setCurrentPath(parentPath)
-  }
+    if (currentPath === ROOT_PATH) return;
+    const segments = currentPath.split("/");
+    segments.pop();
+    const parentPath = segments.length === 1 ? ROOT_PATH : segments.join("/");
+    setCurrentPath(parentPath);
+  };
 
   const handlePathSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanPath = pathInput.trim() || ROOT_PATH
-    setCurrentPath(cleanPath)
-    setIsEditingPath(false)
-  }
+    e.preventDefault();
+    const cleanPath = pathInput.trim() || ROOT_PATH;
+    setCurrentPath(cleanPath);
+    setIsEditingPath(false);
+  };
 
   const handleDocumentClick = (doc: DocumentSummaryData) => {
     if (isFolder(doc)) {
-      handleNavigateToFolder(doc.Path)
+      handleNavigateToFolder(doc.Path);
     } else {
       // It's a query (IQD) - select it
-      onSelect(doc.Path, doc.Name)
+      onSelect(doc.Path, doc.Name);
     }
-  }
+  };
 
-  const isLoading = folderLoading || documentsLoading
-  const error = folderError || documentsError
+  const isLoading = folderLoading || documentsLoading;
+  const error = folderError || documentsError;
 
   // ---------------------
   // Render
@@ -147,7 +147,7 @@ export function QueryFileBrowser({
         <AlertCircle className="size-8 mb-3" />
         <p>No environment selected</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -169,7 +169,7 @@ export function QueryFileBrowser({
             onFocus={() => setIsEditingPath(true)}
             onBlur={() => {
               // Slight delay to allow form submission
-              setTimeout(() => setIsEditingPath(false), 200)
+              setTimeout(() => setIsEditingPath(false), 200);
             }}
           />
         </div>
@@ -188,8 +188,8 @@ export function QueryFileBrowser({
               size="sm"
               className={`h-7 px-2 ${
                 index === breadcrumbs.length - 1
-                  ? 'font-medium text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
               onClick={() => handleNavigateToFolder(crumb.path)}
             >
@@ -214,7 +214,7 @@ export function QueryFileBrowser({
             Up
           </Button>
           <span className="text-xs text-muted-foreground ml-auto">
-            {sortedDocuments.length} item{sortedDocuments.length !== 1 ? 's' : ''}
+            {sortedDocuments.length} item{sortedDocuments.length !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -233,7 +233,7 @@ export function QueryFileBrowser({
             <AlertCircle className="size-8 mb-3" />
             <p className="font-medium">Failed to load documents</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {error instanceof Error ? error.message : 'Unknown error'}
+              {error instanceof Error ? error.message : "Unknown error"}
             </p>
           </div>
         )}
@@ -275,7 +275,7 @@ export function QueryFileBrowser({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // ---------------------
@@ -283,44 +283,42 @@ export function QueryFileBrowser({
 // ---------------------
 
 type DocumentRowProps = {
-  document: DocumentSummaryData
-  isSelected: boolean
-  isFolder: boolean
-  onClick: () => void
-}
+  document: DocumentSummaryData;
+  isSelected: boolean;
+  isFolder: boolean;
+  onClick: () => void;
+};
 
 function DocumentRow({ document, isSelected, isFolder, onClick }: DocumentRowProps) {
-  const Icon = isFolder ? Folder : FileSearch
+  const Icon = isFolder ? Folder : FileSearch;
 
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-left transition-colors ${
-        isSelected
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-muted/50'
+        isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"
       }`}
     >
       <div
         className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
           isSelected
-            ? 'bg-primary-foreground/20'
+            ? "bg-primary-foreground/20"
             : isFolder
-            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
-            : 'bg-primary/10 text-primary'
+              ? "bg-amber-500/10 text-amber-600 dark:text-amber-500"
+              : "bg-primary/10 text-primary"
         }`}
       >
         <Icon className="size-4" />
       </div>
       <div className="flex flex-col overflow-hidden">
-        <span className={`text-sm font-medium truncate ${isSelected ? '' : ''}`}>
+        <span className={`text-sm font-medium truncate ${isSelected ? "" : ""}`}>
           {document.Name}
-          {isFolder && '/'}
+          {isFolder && "/"}
         </span>
         {document.Description && (
           <span
             className={`text-xs truncate ${
-              isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              isSelected ? "text-primary-foreground/70" : "text-muted-foreground"
             }`}
           >
             {document.Description}
@@ -330,11 +328,10 @@ function DocumentRow({ document, isSelected, isFolder, onClick }: DocumentRowPro
       {isFolder && (
         <ChevronRight
           className={`size-4 ml-auto shrink-0 ${
-            isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'
+            isSelected ? "text-primary-foreground/70" : "text-muted-foreground"
           }`}
         />
       )}
     </button>
-  )
+  );
 }
-

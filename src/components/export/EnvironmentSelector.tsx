@@ -1,33 +1,31 @@
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Server, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { queries } from '@/lib/queries'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Server, AlertCircle, CheckCircle2 } from "lucide-react";
+import { queries } from "@/lib/queries";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type EnvironmentSelectorProps = {
-  selectedId: string | null
-  onSelect: (id: string) => void
-  excludeId?: string | null
-  title?: string
-  description?: string
-}
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  excludeId?: string | null;
+  title?: string;
+  description?: string;
+};
 
 export function EnvironmentSelector({
   selectedId,
   onSelect,
   excludeId,
-  title = 'Select Environment',
-  description = 'Choose the destination environment',
+  title = "Select Environment",
+  description = "Choose the destination environment",
 }: EnvironmentSelectorProps) {
-  const { data: environments, isLoading, error } = useQuery(queries.environments.all())
+  const { data: environments, isLoading, error } = useQuery(queries.environments.all());
 
   const filteredEnvironments = useMemo(() => {
-    if (!environments) return []
-    return excludeId
-      ? environments.filter((env) => env.id !== excludeId)
-      : environments
-  }, [environments, excludeId])
+    if (!environments) return [];
+    return excludeId ? environments.filter((env) => env.id !== excludeId) : environments;
+  }, [environments, excludeId]);
 
   if (isLoading) {
     return (
@@ -42,7 +40,7 @@ export function EnvironmentSelector({
           ))}
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -51,10 +49,10 @@ export function EnvironmentSelector({
         <AlertCircle className="size-8 mb-3" />
         <p className="font-medium">Failed to load environments</p>
         <p className="text-sm text-muted-foreground mt-1">
-          {error instanceof Error ? error.message : 'Unknown error'}
+          {error instanceof Error ? error.message : "Unknown error"}
         </p>
       </div>
-    )
+    );
   }
 
   if (filteredEnvironments.length === 0) {
@@ -70,7 +68,7 @@ export function EnvironmentSelector({
           <p className="text-sm mt-1">Add another environment to use as a destination.</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -82,13 +80,13 @@ export function EnvironmentSelector({
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {filteredEnvironments.map((env) => {
-          const isSelected = selectedId === env.id
+          const isSelected = selectedId === env.id;
 
           return (
             <Card
               key={env.id}
               className={`cursor-pointer transition-all hover:border-primary/50 ${
-                isSelected ? 'border-primary ring-1 ring-primary bg-primary/5' : ''
+                isSelected ? "border-primary ring-1 ring-primary bg-primary/5" : ""
               }`}
               onClick={() => onSelect(env.id)}
             >
@@ -104,8 +102,8 @@ export function EnvironmentSelector({
                     <div
                       className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
                         isSelected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
                       <Server className="size-4" />
@@ -136,10 +134,9 @@ export function EnvironmentSelector({
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }
-

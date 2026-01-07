@@ -29,4 +29,3 @@ export function reactCompilerPlugin(options: { filter?: RegExp } = {}): BunPlugi
     },
   };
 }
-

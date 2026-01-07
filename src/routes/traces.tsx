@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   AlertCircle,
@@ -11,104 +11,104 @@ import {
   Loader2,
   RefreshCw,
   Trash2,
-} from 'lucide-react'
+} from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { queries } from '@/lib/queries'
-import { clearTraces } from '@/api/client'
-import type { TraceSummary, StoredTrace, StoredSpan } from '@/api/client'
-import { cn } from '@/lib/utils'
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { queries } from "@/lib/queries";
+import { clearTraces } from "@/api/client";
+import type { TraceSummary, StoredTrace, StoredSpan } from "@/api/client";
+import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute('/traces')({
+export const Route = createFileRoute("/traces")({
   component: TracesPage,
-})
+});
 
 function TracesPage() {
-  const queryClient = useQueryClient()
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
-  const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient();
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set());
 
-  const { data: traces, isLoading, refetch, isFetching } = useQuery(queries.traces.all())
-  const { data: selectedTrace } = useQuery(queries.traces.byId(selectedTraceId))
+  const { data: traces, isLoading, refetch, isFetching } = useQuery(queries.traces.all());
+  const { data: selectedTrace } = useQuery(queries.traces.byId(selectedTraceId));
 
   const clearMutation = useMutation({
     mutationFn: clearTraces,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['traces'] })
-      setSelectedTraceId(null)
+      queryClient.invalidateQueries({ queryKey: ["traces"] });
+      setSelectedTraceId(null);
     },
-  })
+  });
 
   const toggleSpan = (spanId: string) => {
     setExpandedSpans((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(spanId)) {
-        next.delete(spanId)
+        next.delete(spanId);
       } else {
-        next.add(spanId)
+        next.add(spanId);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   const formatDuration = (ms: number | null) => {
-    if (ms === null) return '—'
-    if (ms < 1) return '<1ms'
-    if (ms < 1000) return `${Math.round(ms)}ms`
-    return `${(ms / 1000).toFixed(2)}s`
-  }
+    if (ms === null) return "—";
+    if (ms < 1) return "<1ms";
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
+  };
 
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+    return new Date(timestamp).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
       hour12: false,
-    })
-  }
+    });
+  };
 
   const formatRelativeTime = (timestamp: number) => {
-    const now = Date.now()
-    const diff = now - timestamp
-    if (diff < 60000) return 'Just now'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    return new Date(timestamp).toLocaleDateString()
-  }
+    const now = Date.now();
+    const diff = now - timestamp;
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
+    navigator.clipboard.writeText(text);
+  };
 
   // Build span tree from flat list
   const buildSpanTree = (spans: readonly StoredSpan[]): SpanNode[] => {
-    const spanMap = new Map<string, SpanNode>()
-    const roots: SpanNode[] = []
+    const spanMap = new Map<string, SpanNode>();
+    const roots: SpanNode[] = [];
 
     // Create nodes
     for (const span of spans) {
-      spanMap.set(span.id, { span, children: [] })
+      spanMap.set(span.id, { span, children: [] });
     }
 
     // Build tree
     for (const span of spans) {
-      const node = spanMap.get(span.id)!
+      const node = spanMap.get(span.id)!;
       if (span.parentSpanId && spanMap.has(span.parentSpanId)) {
-        spanMap.get(span.parentSpanId)!.children.push(node)
+        spanMap.get(span.parentSpanId)!.children.push(node);
       } else {
-        roots.push(node)
+        roots.push(node);
       }
     }
 
-    return roots
-  }
+    return roots;
+  };
 
   type SpanNode = {
-    span: StoredSpan
-    children: SpanNode[]
-  }
+    span: StoredSpan;
+    children: SpanNode[];
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -121,13 +121,8 @@ function TracesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn('size-4', isFetching && 'animate-spin')} />
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
             Refresh
           </Button>
           <Button
@@ -150,9 +145,7 @@ function TracesPage() {
               <Activity className="size-4" />
               Recent Traces
               {traces && (
-                <span className="text-muted-foreground font-normal">
-                  ({traces.length})
-                </span>
+                <span className="text-muted-foreground font-normal">({traces.length})</span>
               )}
             </CardTitle>
           </CardHeader>
@@ -210,13 +203,9 @@ function TracesPage() {
                     <div className="text-muted-foreground">ID</div>
                     <div className="font-mono text-xs">{selectedTrace.id}</div>
                     <div className="text-muted-foreground">Duration</div>
-                    <div className="font-mono">
-                      {formatDuration(selectedTrace.durationMs)}
-                    </div>
+                    <div className="font-mono">{formatDuration(selectedTrace.durationMs)}</div>
                     <div className="text-muted-foreground">Time</div>
-                    <div className="font-mono">
-                      {formatTime(selectedTrace.startTime)}
-                    </div>
+                    <div className="font-mono">{formatTime(selectedTrace.startTime)}</div>
                     <div className="text-muted-foreground">Spans</div>
                     <div>{selectedTrace.spans.length}</div>
                   </div>
@@ -247,7 +236,7 @@ function TracesPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
 
 // ---------------------
@@ -255,13 +244,13 @@ function TracesPage() {
 // ---------------------
 
 function StatusIcon({ status, className }: { status: string; className?: string }) {
-  if (status === 'ok') {
-    return <CheckCircle className={cn('size-4 text-green-600', className)} />
+  if (status === "ok") {
+    return <CheckCircle className={cn("size-4 text-green-600", className)} />;
   }
-  if (status === 'error') {
-    return <AlertCircle className={cn('size-4 text-destructive', className)} />
+  if (status === "error") {
+    return <AlertCircle className={cn("size-4 text-destructive", className)} />;
   }
-  return <Loader2 className={cn('size-4 animate-spin text-muted-foreground', className)} />
+  return <Loader2 className={cn("size-4 animate-spin text-muted-foreground", className)} />;
 }
 
 function TraceListItem({
@@ -271,18 +260,18 @@ function TraceListItem({
   formatDuration,
   formatRelativeTime,
 }: {
-  trace: TraceSummary
-  isSelected: boolean
-  onSelect: () => void
-  formatDuration: (ms: number | null) => string
-  formatRelativeTime: (ts: number) => string
+  trace: TraceSummary;
+  isSelected: boolean;
+  onSelect: () => void;
+  formatDuration: (ms: number | null) => string;
+  formatRelativeTime: (ts: number) => string;
 }) {
   return (
     <button
       onClick={onSelect}
       className={cn(
-        'w-full px-4 py-3 text-left transition-colors hover:bg-accent/50',
-        isSelected && 'bg-accent'
+        "w-full px-4 py-3 text-left transition-colors hover:bg-accent/50",
+        isSelected && "bg-accent",
       )}
     >
       <div className="flex items-center gap-3">
@@ -301,21 +290,19 @@ function TraceListItem({
             <span>{trace.spanCount} spans</span>
           </div>
           {trace.errorMessage && (
-            <div className="text-xs text-destructive truncate mt-1">
-              {trace.errorMessage}
-            </div>
+            <div className="text-xs text-destructive truncate mt-1">{trace.errorMessage}</div>
           )}
         </div>
         <ChevronRight className="size-4 text-muted-foreground shrink-0" />
       </div>
     </button>
-  )
+  );
 }
 
 type SpanNode = {
-  span: StoredSpan
-  children: SpanNode[]
-}
+  span: StoredSpan;
+  children: SpanNode[];
+};
 
 function SpanTreeNode({
   node,
@@ -325,33 +312,30 @@ function SpanTreeNode({
   formatDuration,
   copyToClipboard,
 }: {
-  node: SpanNode
-  depth: number
-  expandedSpans: Set<string>
-  toggleSpan: (id: string) => void
-  formatDuration: (ms: number | null) => string
-  copyToClipboard: (text: string) => void
+  node: SpanNode;
+  depth: number;
+  expandedSpans: Set<string>;
+  toggleSpan: (id: string) => void;
+  formatDuration: (ms: number | null) => string;
+  copyToClipboard: (text: string) => void;
 }) {
-  const { span, children } = node
-  const isExpanded = expandedSpans.has(span.id)
-  const hasDetails = span.errorCause || Object.keys(span.attributes).length > 0
+  const { span, children } = node;
+  const isExpanded = expandedSpans.has(span.id);
+  const hasDetails = span.errorCause || Object.keys(span.attributes).length > 0;
 
   return (
     <div className="flex flex-col">
       <button
         onClick={() => toggleSpan(span.id)}
         className={cn(
-          'flex items-center gap-2 py-1.5 px-2 rounded text-sm hover:bg-accent/50 transition-colors text-left',
-          span.status === 'error' && 'text-destructive'
+          "flex items-center gap-2 py-1.5 px-2 rounded text-sm hover:bg-accent/50 transition-colors text-left",
+          span.status === "error" && "text-destructive",
         )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
         {hasDetails || children.length > 0 ? (
           <ChevronRight
-            className={cn(
-              'size-3 shrink-0 transition-transform',
-              isExpanded && 'rotate-90'
-            )}
+            className={cn("size-3 shrink-0 transition-transform", isExpanded && "rotate-90")}
           />
         ) : (
           <span className="w-3" />
@@ -393,8 +377,8 @@ function SpanTreeNode({
                   size="sm"
                   className="h-6 px-2"
                   onClick={(e) => {
-                    e.stopPropagation()
-                    copyToClipboard(span.errorCause!)
+                    e.stopPropagation();
+                    copyToClipboard(span.errorCause!);
                   }}
                 >
                   <Copy className="size-3" />
@@ -421,6 +405,5 @@ function SpanTreeNode({
         />
       ))}
     </div>
-  )
+  );
 }
-

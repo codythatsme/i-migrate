@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { useSetPassword } from '@/lib/mutations'
-import { queries } from '@/lib/queries'
-import { useEnvironmentStore } from '@/stores/environment-store'
-import { Button } from '@/components/ui/button'
+import { useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSetPassword } from "@/lib/mutations";
+import { queries } from "@/lib/queries";
+import { useEnvironmentStore } from "@/stores/environment-store";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,53 +11,51 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { KeyRound, AlertTriangle } from 'lucide-react'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { KeyRound, AlertTriangle } from "lucide-react";
 
 export function PasswordRequiredDialog() {
-  const { selectedId } = useEnvironmentStore()
-  const { data: environments } = useQuery(queries.environments.all())
-  const setPassword = useSetPassword()
-  const [password, setPasswordValue] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const { selectedId } = useEnvironmentStore();
+  const { data: environments } = useQuery(queries.environments.all());
+  const setPassword = useSetPassword();
+  const [password, setPasswordValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   // Find the current environment
-  const currentEnvironment = environments?.find((env) => env.id === selectedId)
+  const currentEnvironment = environments?.find((env) => env.id === selectedId);
 
   // Show dialog if we have a selected environment that's missing a password
   const needsPassword =
-    selectedId !== null &&
-    currentEnvironment !== undefined &&
-    !currentEnvironment.hasPassword
+    selectedId !== null && currentEnvironment !== undefined && !currentEnvironment.hasPassword;
 
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
-    if (!selectedId) return
+    if (!selectedId) return;
 
     setPassword.mutate(
       { environmentId: selectedId, password },
       {
         onSuccess: () => {
-          setPasswordValue('')
-          setError(null)
+          setPasswordValue("");
+          setError(null);
         },
         onError: (err: unknown) => {
           // Effect RPC errors are objects with _tag and fields, extract message
-          const error = err as { message?: string; _tag?: string }
-          const message = error.message ||
-            (error._tag ? `Error: ${error._tag}` : 'Failed to set password')
-          setError(message)
+          const error = err as { message?: string; _tag?: string };
+          const message =
+            error.message || (error._tag ? `Error: ${error._tag}` : "Failed to set password");
+          setError(message);
         },
-      }
-    )
-  }
+      },
+    );
+  };
 
-  const isValid = password.length > 0
-  const isPending = setPassword.isPending
+  const isValid = password.length > 0;
+  const isPending = setPassword.isPending;
 
   return (
     <Dialog open={needsPassword}>
@@ -75,11 +73,13 @@ export function PasswordRequiredDialog() {
           <DialogDescription className="text-center">
             {currentEnvironment ? (
               <>
-                Enter the password for <span className="font-medium text-foreground">{currentEnvironment.name}</span> to continue.
-                Passwords are stored in server memory and must be re-entered after server restarts.
+                Enter the password for{" "}
+                <span className="font-medium text-foreground">{currentEnvironment.name}</span> to
+                continue. Passwords are stored in server memory and must be re-entered after server
+                restarts.
               </>
             ) : (
-              'Enter your password to continue.'
+              "Enter your password to continue."
             )}
           </DialogDescription>
         </DialogHeader>
@@ -93,8 +93,8 @@ export function PasswordRequiredDialog() {
               placeholder="Enter your IMIS password"
               value={password}
               onChange={(e) => {
-                setPasswordValue(e.target.value)
-                setError(null)
+                setPasswordValue(e.target.value);
+                setError(null);
               }}
               autoFocus
               autoComplete="current-password"
@@ -114,17 +114,12 @@ export function PasswordRequiredDialog() {
           )}
 
           <DialogFooter className="pt-2">
-            <Button
-              type="submit"
-              disabled={!isValid || isPending}
-              className="w-full"
-            >
-              {isPending ? 'Unlocking...' : 'Unlock Environment'}
+            <Button type="submit" disabled={!isValid || isPending} className="w-full">
+              {isPending ? "Unlocking..." : "Unlock Environment"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
-
