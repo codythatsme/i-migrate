@@ -1,12 +1,7 @@
-import { useState, useMemo, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import {
-  parseAsString,
-  parseAsInteger,
-  parseAsStringLiteral,
-  useQueryStates,
-} from 'nuqs'
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { parseAsString, parseAsInteger, parseAsStringLiteral, useQueryStates } from "nuqs";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,32 +12,32 @@ import {
   ListChecks,
   FileSearch,
   Loader2,
-} from 'lucide-react'
-import { useEnvironmentStore } from '@/stores/environment-store'
-import { queries } from '@/lib/queries'
-import { createJob } from '@/api/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { DataSourceSelector } from './DataSourceSelector'
-import { DestinationPasswordDialog } from './DestinationPasswordDialog'
-import { EnvironmentSelector } from './EnvironmentSelector'
-import { PropertyMapper, type PropertyMapping } from './PropertyMapper'
-import { QueryFileBrowser } from './QueryFileBrowser'
-import { QueryPropertyMapper } from './QueryPropertyMapper'
+} from "lucide-react";
+import { useEnvironmentStore } from "@/stores/environment-store";
+import { queries } from "@/lib/queries";
+import { createJob } from "@/api/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DataSourceSelector } from "./DataSourceSelector";
+import { DestinationPasswordDialog } from "./DestinationPasswordDialog";
+import { EnvironmentSelector } from "./EnvironmentSelector";
+import { PropertyMapper, type PropertyMapping } from "./PropertyMapper";
+import { QueryFileBrowser } from "./QueryFileBrowser";
+import { QueryPropertyMapper } from "./QueryPropertyMapper";
 
 // ---------------------
 // Types
 // ---------------------
 
-type ExportMode = 'datasource' | 'query'
+type ExportMode = "datasource" | "query";
 
 // ---------------------
 // URL State Configuration
 // ---------------------
 
 const exportSearchParams = {
-  mode: parseAsStringLiteral(['datasource', 'query'] as const).withDefault('datasource'),
+  mode: parseAsStringLiteral(["datasource", "query"] as const).withDefault("datasource"),
   step: parseAsInteger.withDefault(1),
   sourceEntity: parseAsString,
   sourceQuery: parseAsString,
@@ -50,77 +45,78 @@ const exportSearchParams = {
   destEnv: parseAsString,
   destEntity: parseAsString,
   jobName: parseAsString,
-}
+};
 
 // ---------------------
 // Wizard Steps
 // ---------------------
 
 const DATASOURCE_STEPS = [
-  { id: 1, title: 'Source Data', icon: Database, description: 'Select source data source' },
-  { id: 2, title: 'Destination', icon: Server, description: 'Choose destination environment' },
-  { id: 3, title: 'Target Data', icon: Database, description: 'Select destination data source' },
-  { id: 4, title: 'Mapping', icon: Map, description: 'Map properties' },
-] as const
+  { id: 1, title: "Source Data", icon: Database, description: "Select source data source" },
+  { id: 2, title: "Destination", icon: Server, description: "Choose destination environment" },
+  { id: 3, title: "Target Data", icon: Database, description: "Select destination data source" },
+  { id: 4, title: "Mapping", icon: Map, description: "Map properties" },
+] as const;
 
 const QUERY_STEPS = [
-  { id: 1, title: 'Source Query', icon: FileSearch, description: 'Select source query' },
-  { id: 2, title: 'Destination', icon: Server, description: 'Choose destination environment' },
-  { id: 3, title: 'Target Data', icon: Database, description: 'Select destination data source' },
-  { id: 4, title: 'Mapping', icon: Map, description: 'Map properties' },
-] as const
+  { id: 1, title: "Source Query", icon: FileSearch, description: "Select source query" },
+  { id: 2, title: "Destination", icon: Server, description: "Choose destination environment" },
+  { id: 3, title: "Target Data", icon: Database, description: "Select destination data source" },
+  { id: 4, title: "Mapping", icon: Map, description: "Map properties" },
+] as const;
 
 // ---------------------
 // Props
 // ---------------------
 
 type ExportWizardProps = {
-  initialMode?: ExportMode
-}
+  initialMode?: ExportMode;
+};
 
 // ---------------------
 // Main Component
 // ---------------------
 
 export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
-  const { selectedId: sourceEnvironmentId } = useEnvironmentStore()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const { selectedId: sourceEnvironmentId } = useEnvironmentStore();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [queryState, setQueryState] = useQueryStates(exportSearchParams)
-  const { step, sourceEntity, sourceQuery, sourceQueryName, destEnv, destEntity, jobName } = queryState
-  
+  const [queryState, setQueryState] = useQueryStates(exportSearchParams);
+  const { step, sourceEntity, sourceQuery, sourceQueryName, destEnv, destEntity, jobName } =
+    queryState;
+
   // Use initialMode from props if provided, otherwise use URL state
-  const mode = initialMode ?? queryState.mode
+  const mode = initialMode ?? queryState.mode;
 
   // Local state for property mappings (not persisted to URL due to complexity)
-  const [mappings, setMappings] = useState<PropertyMapping[]>([])
+  const [mappings, setMappings] = useState<PropertyMapping[]>([]);
 
   // State for mapper validation (e.g., IsPrimary required for Party destinations)
   const [mapperValidation, setMapperValidation] = useState<{
-    isValid: boolean
-    errors: string[]
-  }>({ isValid: true, errors: [] })
+    isValid: boolean;
+    errors: string[];
+  }>({ isValid: true, errors: [] });
 
   // State for destination password dialog
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   // Memoized callback for validation changes to prevent infinite loops
   const handleValidationChange = useCallback((isValid: boolean, errors: string[]) => {
-    setMapperValidation({ isValid, errors })
-  }, [])
+    setMapperValidation({ isValid, errors });
+  }, []);
 
   // Get the current steps based on mode
-  const STEPS = mode === 'query' ? QUERY_STEPS : DATASOURCE_STEPS
+  const STEPS = mode === "query" ? QUERY_STEPS : DATASOURCE_STEPS;
 
   // Fetch environments to check destination password status
-  const { data: environments } = useQuery(queries.environments.all())
+  const { data: environments } = useQuery(queries.environments.all());
 
   // Job creation mutation
   const createJobMutation = useMutation({
     mutationFn: async () => {
       if (!sourceEnvironmentId || !destEnv || !destEntity || !jobName) {
-        throw new Error('Missing required fields')
+        throw new Error("Missing required fields");
       }
 
       // Build payload conditionally to avoid passing undefined values
@@ -132,96 +128,98 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
         destEnvironmentId: destEnv,
         destEntityType: destEntity,
         mappings,
-      }
+      };
 
       // Only include sourceQueryPath for query mode
-      if (mode === 'query' && sourceQuery) {
-        payload.sourceQueryPath = sourceQuery
+      if (mode === "query" && sourceQuery) {
+        payload.sourceQueryPath = sourceQuery;
       }
 
       // Only include sourceEntityType for datasource mode
-      if (mode === 'datasource' && sourceEntity) {
-        payload.sourceEntityType = sourceEntity
+      if (mode === "datasource" && sourceEntity) {
+        payload.sourceEntityType = sourceEntity;
       }
 
       // Create the job (server will start it in the background)
-      const { jobId } = await createJob(payload)
+      const { jobId } = await createJob(payload);
 
-      return { jobId }
+      return { jobId };
     },
     onSuccess: async () => {
       // Invalidate jobs query and wait for it to complete before navigating
-      await queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      await queryClient.invalidateQueries({ queryKey: ["jobs"] });
       // Navigate to jobs page
-      navigate({ to: '/jobs' })
+      navigate({ to: "/jobs" });
     },
     onError: (error) => {
-      console.error('[CreateJob] Failed to create job:', error)
+      console.error("[CreateJob] Failed to create job:", error);
     },
-  })
+  });
 
   // Fetch source data sources to get the selected entity's structure info (for datasource mode)
   const { data: sourceDataSources } = useQuery({
     ...queries.dataSources.byEnvironment(sourceEnvironmentId),
-    enabled: !!sourceEnvironmentId && mode === 'datasource',
-  })
+    enabled: !!sourceEnvironmentId && mode === "datasource",
+  });
 
   // Fetch query definition (for query mode)
   const { data: queryDefinitionData } = useQuery({
     ...queries.queryDefinition.byPath(sourceEnvironmentId, sourceQuery),
-    enabled: !!sourceEnvironmentId && !!sourceQuery && mode === 'query',
-  })
+    enabled: !!sourceEnvironmentId && !!sourceQuery && mode === "query",
+  });
 
   // Get the selected source entity definition (for datasource mode)
   const selectedSourceEntity = useMemo(() => {
-    if (mode !== 'datasource' || !sourceDataSources || !sourceEntity) return null
-    return sourceDataSources.Items.$values.find(
-      (e) => e.EntityTypeName === sourceEntity
-    ) ?? null
-  }, [mode, sourceDataSources, sourceEntity])
+    if (mode !== "datasource" || !sourceDataSources || !sourceEntity) return null;
+    return sourceDataSources.Items.$values.find((e) => e.EntityTypeName === sourceEntity) ?? null;
+  }, [mode, sourceDataSources, sourceEntity]);
 
   // Compatibility filter for destination selection (for datasource mode)
+  // Standard sources can target any Multi/Single destination, so no compatibility filter needed
   const destinationCompatibilityFilter = useMemo(() => {
-    if (mode !== 'datasource' || !selectedSourceEntity) return undefined
+    if (mode !== "datasource" || !selectedSourceEntity) return undefined;
+    // Standard sources can migrate to any Multi/Single destination - skip compatibility filter
+    if (selectedSourceEntity.ObjectTypeName === "Standard") return undefined;
     return {
       objectTypeName: selectedSourceEntity.ObjectTypeName,
       primaryParentEntityTypeName: selectedSourceEntity.PrimaryParentEntityTypeName,
-    }
-  }, [mode, selectedSourceEntity])
+    };
+  }, [mode, selectedSourceEntity]);
 
   // Check if destination environment needs a password
-  const destinationEnvironment = environments?.find((env) => env.id === destEnv)
-  const destNeedsPassword = destEnv !== null && destinationEnvironment !== undefined && !destinationEnvironment.hasPassword
+  const destinationEnvironment = environments?.find((env) => env.id === destEnv);
+  const destNeedsPassword =
+    destEnv !== null && destinationEnvironment !== undefined && !destinationEnvironment.hasPassword;
 
   // ---------------------
   // Navigation Handlers
   // ---------------------
 
   const goToStep = (newStep: number) => {
-    setQueryState({ step: newStep })
-  }
+    setQueryState({ step: newStep });
+  };
 
   const handleNext = () => {
     if (step < 4) {
       // If moving from step 2 (destination selection) and destination needs password, prompt for it
       if (step === 2 && destNeedsPassword) {
-        setShowPasswordDialog(true)
-        return
+        setShowPasswordDialog(true);
+        return;
       }
-      goToStep(step + 1)
+      goToStep(step + 1);
     }
-  }
+  };
 
   const handlePasswordSuccess = () => {
     // Password was set successfully, proceed to next step
-    goToStep(step + 1)
-  }
+    goToStep(step + 1);
+  };
 
   const handleBack = () => {
     if (step > 1) {
-      goToStep(step - 1)
+      goToStep(step - 1);
     }
-  }
+  };
 
   // ---------------------
   // Mode Handler
@@ -237,9 +235,9 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
       sourceQueryName: null,
       destEnv: null,
       destEntity: null,
-    })
-    setMappings([])
-  }
+    });
+    setMappings([]);
+  };
 
   // ---------------------
   // Selection Handlers
@@ -247,33 +245,33 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
 
   const handleSourceSelect = (entityType: string) => {
     // Clear destination entity when source changes (compatibility may differ)
-    setQueryState({ sourceEntity: entityType, destEntity: null })
-    setMappings([])
-  }
+    setQueryState({ sourceEntity: entityType, destEntity: null });
+    setMappings([]);
+  };
 
   const handleQuerySelect = (path: string, name: string) => {
-    setQueryState({ sourceQuery: path, sourceQueryName: name, destEntity: null })
-    setMappings([])
-  }
+    setQueryState({ sourceQuery: path, sourceQueryName: name, destEntity: null });
+    setMappings([]);
+  };
 
   const handleDestEnvSelect = (envId: string) => {
     // Clear destination entity when changing environment
-    setQueryState({ destEnv: envId, destEntity: null })
-    setMappings([])
-  }
+    setQueryState({ destEnv: envId, destEntity: null });
+    setMappings([]);
+  };
 
   const handleDestEntitySelect = (entityType: string) => {
-    setQueryState({ destEntity: entityType })
-    setMappings([])
-  }
+    setQueryState({ destEntity: entityType });
+    setMappings([]);
+  };
 
   const handleJobNameChange = (name: string) => {
-    setQueryState({ jobName: name || null })
-  }
+    setQueryState({ jobName: name || null });
+  };
 
   const handleQueueJob = () => {
-    createJobMutation.mutate()
-  }
+    createJobMutation.mutate();
+  };
 
   // ---------------------
   // Validation
@@ -282,21 +280,21 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   const canProceedFromStep = (currentStep: number): boolean => {
     switch (currentStep) {
       case 1:
-        return mode === 'datasource' ? !!sourceEntity : !!sourceQuery
+        return mode === "datasource" ? !!sourceEntity : !!sourceQuery;
       case 2:
-        return !!destEnv
+        return !!destEnv;
       case 3:
-        return !!destEntity
+        return !!destEntity;
       case 4:
         return (
           mappings.some((m) => m.destinationProperty !== null) &&
           !!jobName?.trim() &&
           mapperValidation.isValid
-        )
+        );
       default:
-        return false
+        return false;
     }
-  }
+  };
 
   // ---------------------
   // Render
@@ -318,61 +316,57 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
           <span className="text-sm font-medium text-muted-foreground mr-2">Export from:</span>
           <div className="flex rounded-lg border border-border p-1 bg-muted/30">
             <button
-              onClick={() => handleModeChange('datasource')}
+              onClick={() => handleModeChange("datasource")}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                mode === 'datasource'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                mode === "datasource"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Database className="size-3.5" />
               Data Source
             </button>
             <button
-              onClick={() => handleModeChange('query')}
+              onClick={() => handleModeChange("query")}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                mode === 'query'
-                  ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <FileSearch className="size-3.5" />
-            Query (IQA)
-          </button>
+                mode === "query"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FileSearch className="size-3.5" />
+              Query (IQA)
+            </button>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Stepper */}
       <div className="flex items-center gap-2">
         {STEPS.map((s, index) => {
-          const Icon = s.icon
-          const isActive = step === s.id
-          const isCompleted = step > s.id
+          const Icon = s.icon;
+          const isActive = step === s.id;
+          const isCompleted = step > s.id;
 
           return (
             <div key={s.id} className="flex items-center">
               {index > 0 && (
-                <div
-                  className={`h-px w-8 mx-2 ${
-                    isCompleted ? 'bg-primary' : 'bg-border'
-                  }`}
-                />
+                <div className={`h-px w-8 mx-2 ${isCompleted ? "bg-primary" : "bg-border"}`} />
               )}
               <button
                 onClick={() => s.id < step && goToStep(s.id)}
                 disabled={s.id > step}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-primary text-primary-foreground'
+                    ? "bg-primary text-primary-foreground"
                     : isCompleted
-                    ? 'bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer'
-                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                      ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
                 }`}
               >
                 <div
                   className={`flex size-6 items-center justify-center rounded-full ${
-                    isCompleted && !isActive ? 'bg-primary/20' : ''
+                    isCompleted && !isActive ? "bg-primary/20" : ""
                   }`}
                 >
                   {isCompleted && !isActive ? (
@@ -384,14 +378,14 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
                 <span className="text-sm font-medium hidden sm:inline">{s.title}</span>
               </button>
             </div>
-          )
+          );
         })}
       </div>
 
       {/* Step Content */}
       <div className="rounded-xl border border-border bg-card/50 p-6">
         {/* Step 1: Source Selection */}
-        {step === 1 && mode === 'datasource' && (
+        {step === 1 && mode === "datasource" && (
           <DataSourceSelector
             environmentId={sourceEnvironmentId}
             selectedEntityType={sourceEntity}
@@ -401,7 +395,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
           />
         )}
 
-        {step === 1 && mode === 'query' && (
+        {step === 1 && mode === "query" && (
           <QueryFileBrowser
             environmentId={sourceEnvironmentId}
             selectedQueryPath={sourceQuery}
@@ -430,33 +424,45 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
             onSelect={handleDestEntitySelect}
             title="Select Destination Data Source"
             description="Choose the data source to migrate data into on the destination environment."
-            compatibilityFilter={mode === 'datasource' ? destinationCompatibilityFilter : undefined}
+            compatibilityFilter={mode === "datasource" ? destinationCompatibilityFilter : undefined}
+            destinationOnly
           />
         )}
 
         {/* Step 4: Property Mapping */}
-        {step === 4 && mode === 'datasource' && sourceEnvironmentId && sourceEntity && destEnv && destEntity && (
-          <PropertyMapper
-            sourceEnvironmentId={sourceEnvironmentId}
-            sourceEntityType={sourceEntity}
-            destinationEnvironmentId={destEnv}
-            destinationEntityType={destEntity}
-            mappings={mappings}
-            onMappingsChange={setMappings}
-            onValidationChange={handleValidationChange}
-          />
-        )}
+        {step === 4 &&
+          mode === "datasource" &&
+          sourceEnvironmentId &&
+          sourceEntity &&
+          destEnv &&
+          destEntity && (
+            <PropertyMapper
+              sourceEnvironmentId={sourceEnvironmentId}
+              sourceEntityType={sourceEntity}
+              destinationEnvironmentId={destEnv}
+              destinationEntityType={destEntity}
+              mappings={mappings}
+              onMappingsChange={setMappings}
+              onValidationChange={handleValidationChange}
+            />
+          )}
 
-        {step === 4 && mode === 'query' && sourceEnvironmentId && sourceQuery && destEnv && destEntity && queryDefinitionData?.Result && (
-          <QueryPropertyMapper
-            queryDefinition={queryDefinitionData.Result}
-            destinationEnvironmentId={destEnv}
-            destinationEntityType={destEntity}
-            mappings={mappings}
-            onMappingsChange={setMappings}
-            onValidationChange={handleValidationChange}
-          />
-        )}
+        {step === 4 &&
+          mode === "query" &&
+          sourceEnvironmentId &&
+          sourceQuery &&
+          destEnv &&
+          destEntity &&
+          queryDefinitionData?.Result && (
+            <QueryPropertyMapper
+              queryDefinition={queryDefinitionData.Result}
+              destinationEnvironmentId={destEnv}
+              destinationEntityType={destEntity}
+              mappings={mappings}
+              onMappingsChange={setMappings}
+              onValidationChange={handleValidationChange}
+            />
+          )}
 
         {/* Job Name Input - Show on step 4 */}
         {step === 4 && (
@@ -468,7 +474,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               <Input
                 id="jobName"
                 placeholder="Enter a name for this migration job"
-                value={jobName ?? ''}
+                value={jobName ?? ""}
                 onChange={(e) => handleJobNameChange(e.target.value)}
                 className="bg-background"
               />
@@ -482,7 +488,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                 {createJobMutation.error instanceof Error
                   ? createJobMutation.error.message
-                  : 'Failed to create job. Please try again.'}
+                  : "Failed to create job. Please try again."}
               </div>
             )}
           </div>
@@ -523,5 +529,5 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
         </div>
       </div>
     </div>
-  )
+  );
 }
