@@ -69,8 +69,14 @@ export async function encrypt(data: string, password: string): Promise<string> {
   combined.set(iv, salt.length);
   combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
 
-  // Encode as base64 for storage
-  return btoa(String.fromCharCode(...combined));
+  // Encode as base64 for storage (chunked to avoid stack overflow with large data)
+  let binaryString = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < combined.length; i += chunkSize) {
+    const chunk = combined.subarray(i, Math.min(i + chunkSize, combined.length));
+    binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binaryString);
 }
 
 /**
@@ -82,12 +88,12 @@ export async function encrypt(data: string, password: string): Promise<string> {
  * @throws Error if decryption fails (wrong password or corrupted data)
  */
 export async function decrypt(encryptedData: string, password: string): Promise<string> {
-  // Decode from base64
-  const combined = new Uint8Array(
-    atob(encryptedData)
-      .split("")
-      .map((c) => c.charCodeAt(0)),
-  );
+  // Decode from base64 (iterative to avoid stack overflow with large data)
+  const decoded = atob(encryptedData);
+  const combined = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) {
+    combined[i] = decoded.charCodeAt(i);
+  }
 
   // Extract salt, iv, and ciphertext
   const salt = combined.slice(0, SALT_LENGTH);
