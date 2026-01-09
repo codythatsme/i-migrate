@@ -15,7 +15,7 @@ switch (platform) {
     await $`bun run generate-routes && bun run scripts/build.ts --compile --target=bun-darwin-arm64 --outfile=dist/i-migrate`;
     break;
   case "windows":
-    await $`bun run generate-routes && bun run scripts/build.ts --compile --target=bun-windows-x64 --outfile=dist/i-migrate.exe --windows-hide-console --windows-icon=assets/app.ico --windows-title=i-migrate --windows-description="Desktop data migration tool for iMIS" --windows-version=${windowsVersion}`;
+    await $`bun run generate-routes && bun run scripts/build.ts --compile --target=bun-windows-x64 --outfile=dist/i-migrate.exe --windows-icon=assets/app.ico --windows-title=i-migrate --windows-description="Desktop data migration tool for iMIS" --windows-version=${windowsVersion}`;
     break;
   default:
     console.error(`Unknown platform: ${platform}`);
