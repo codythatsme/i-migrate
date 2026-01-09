@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  BUN_VERSION: '1.1.42'
+  BUN_VERSION: 'latest'
 
 jobs:
   build-macos:
