@@ -52,7 +52,10 @@ const mapEnvironmentNotFoundError = (error: EnvironmentNotFoundError) =>
   new EnvironmentNotFoundErrorSchema({ id: error.id });
 
 const mapMissingCredentialsError = (error: MissingCredentialsError) =>
-  new MissingCredentialsErrorSchema({ environmentId: error.environmentId });
+  new MissingCredentialsErrorSchema({
+    environmentId: error.environmentId,
+    message: "Password is required. Please enter your password first.",
+  });
 
 const mapImisAuthError = (error: ImisAuthError) =>
   new ImisAuthErrorSchema({ message: error.message });
