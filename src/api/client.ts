@@ -156,6 +156,10 @@ export const runJob = (jobId: string) => withClient((client) => client.jobs.run(
 export const retryFailedRows = (jobId: string) =>
   withClient((client) => client.jobs.retry({ jobId }));
 
+/** Retry a single failed row */
+export const retrySingleRow = (rowId: string) =>
+  withClient((client) => client.jobs.retrySingleRow({ rowId }));
+
 /** Get failed rows for a job */
 export const getJobFailedRows = (jobId: string) =>
   withClient((client) => client.jobs.failedRows({ jobId }));

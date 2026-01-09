@@ -83,12 +83,8 @@ type RowData = Record<string, string | number | boolean | null>;
 // Retry Configuration
 // ---------------------
 
-// Insert retry schedule: 3 retries with exponential backoff
-const insertRetrySchedule = Schedule.exponential(Duration.millis(500), 2).pipe(
-  Schedule.intersect(Schedule.recurs(3)),
-);
-
 // Query retry schedule: 3 retries with exponential backoff
+// Note: Insert retries are handled internally by imisApi.insertEntity via executeWithAuth
 const queryRetrySchedule = Schedule.exponential(Duration.millis(1000), 2).pipe(
   Schedule.intersect(Schedule.recurs(3)),
 );
@@ -281,7 +277,8 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           }),
         );
 
-      const insertRowWithRetry = (
+      // Insert a single row - retry logic is handled internally by executeWithAuth (4 attempts)
+      const insertRow = (
         envId: string,
         entityTypeName: string,
         parentEntityTypeName: string,
@@ -290,17 +287,6 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         rowIndex: number,
       ) =>
         imisApi.insertEntity(envId, entityTypeName, parentEntityTypeName, parentId, rowData).pipe(
-          Effect.retry({
-            schedule: insertRetrySchedule,
-            while: (error) => {
-              // Retry on transient errors (5xx, network issues, rate limit)
-              if (error._tag === "ImisRequestError") return true;
-              if (error._tag === "ImisResponseError") {
-                return error.status >= 500 || error.status === 429;
-              }
-              return false;
-            },
-          }),
           Effect.map((result) => ({
             rowIndex,
             identityElements: result.identityElements,
@@ -345,10 +331,11 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           }));
 
           // Process with partition to collect successes and failures
+          // Note: Automatic retries (4 attempts) are handled inside imisApi.insertEntity via executeWithAuth
           const [failures, successes] = yield* Effect.partition(
             transformedRows,
             ({ transformed, index }) =>
-              insertRowWithRetry(
+              insertRow(
                 destEnvId,
                 destEntityType,
                 "Standalone", // Default to Standalone for now
@@ -374,6 +361,8 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           }
 
           // Store failed rows
+          // Note: autoRetryAttempts is set to 4 (max attempts from executeWithAuth's retry schedule)
+          // The exact count per row would require instrumenting the inner retry, but 4 indicates all attempts exhausted
           for (const failure of failures) {
             const rowData = transformedRows.find((r) => r.index === failure.rowIndex);
             if (rowData) {
@@ -389,6 +378,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                 encryptedPayload,
                 errorMessage: failure.message,
                 retryCount: 0,
+                autoRetryAttempts: 4, // Max attempts from executeWithAuth (1 initial + 3 retries)
                 status: "pending",
                 createdAt: new Date().toISOString(),
               });
@@ -756,10 +746,10 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                     decryptJson<Record<string, unknown>>(row.encryptedPayload, sourcePassword),
                   );
 
-                  // Transform and retry insert
+                  // Transform and insert (retry handled inside insertRow via executeWithAuth)
                   const transformed = transformRow(originalRow, mappings);
 
-                  yield* insertRowWithRetry(
+                  yield* insertRow(
                     job.destEnvironmentId,
                     job.destEntityType,
                     "Standalone",
@@ -824,6 +814,123 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           }).pipe(
             Effect.withSpan("migrationJob.retryFailedRows", {
               attributes: { jobId },
+            }),
+          ),
+
+        /**
+         * Retry a single failed row.
+         * Returns the updated row on failure, or null on success (row is deleted).
+         */
+        retrySingleRow: (rowId: string) =>
+          Effect.gen(function* () {
+            // Get the failed row
+            const rows = yield* Effect.try({
+              try: () => db.select().from(failedRows).where(eq(failedRows.id, rowId)).all(),
+              catch: (cause) => new DatabaseError({ message: "Failed to fetch failed row", cause }),
+            });
+            const row = rows[0];
+            if (!row) {
+              return yield* Effect.fail(
+                new DatabaseError({ message: `Failed row not found: ${rowId}` }),
+              );
+            }
+
+            // Get job for mappings and environment info
+            const job = yield* getJobById(row.jobId);
+
+            // Get source password for decrypting
+            const sourcePassword = yield* sessionService.getPassword(job.sourceEnvironmentId);
+            if (!sourcePassword) {
+              return yield* Effect.fail(
+                new MissingCredentialsError({ environmentId: job.sourceEnvironmentId }),
+              );
+            }
+
+            // Parse mappings
+            const mappings = JSON.parse(job.mappings) as PropertyMapping[];
+
+            // Mark as retrying
+            yield* updateFailedRowStatus(row.id, "retrying");
+
+            // Decrypt the payload
+            const originalRow = yield* Effect.promise(() =>
+              decryptJson<Record<string, unknown>>(row.encryptedPayload, sourcePassword),
+            );
+
+            // Transform and insert
+            const transformed = transformRow(originalRow, mappings);
+
+            const result = yield* insertRow(
+              job.destEnvironmentId,
+              job.destEntityType,
+              "Standalone",
+              null,
+              transformed,
+              row.rowIndex,
+            ).pipe(
+              Effect.map(() => {
+                // Success - will delete row and return null
+                return { success: true as const };
+              }),
+              Effect.catchAll((error) => {
+                // Failed - will update retry count
+                return Effect.succeed({
+                  success: false as const,
+                  error: error.message,
+                });
+              }),
+            );
+
+            if (result.success) {
+              // Delete the failed row record
+              yield* deleteFailedRow(row.id);
+
+              // Update job counts
+              const remainingFailed = yield* getFailedRowsForJob(row.jobId);
+              const pendingCount = remainingFailed.filter((r) => r.status === "pending").length;
+
+              const failedOffsets = job.failedQueryOffsets
+                ? (JSON.parse(job.failedQueryOffsets) as number[])
+                : [];
+              const shouldMarkCompleted =
+                pendingCount === 0 && failedOffsets.length === 0 && job.status === "partial";
+
+              yield* updateJobProgress(row.jobId, {
+                failedRowCount: pendingCount,
+                successfulRows: job.successfulRows + 1,
+                ...(shouldMarkCompleted ? { status: "completed" as const } : {}),
+              });
+
+              return { success: true, row: null };
+            } else {
+              // Update retry count and mark pending again
+              const newRetryCount = row.retryCount + 1;
+              yield* Effect.try({
+                try: () =>
+                  db
+                    .update(failedRows)
+                    .set({
+                      status: "pending",
+                      retryCount: newRetryCount,
+                      errorMessage: result.error,
+                    })
+                    .where(eq(failedRows.id, row.id))
+                    .run(),
+                catch: (cause) =>
+                  new DatabaseError({ message: "Failed to update retry count", cause }),
+              });
+
+              // Return the updated row
+              const updatedRows = yield* Effect.try({
+                try: () => db.select().from(failedRows).where(eq(failedRows.id, rowId)).all(),
+                catch: (cause) => new DatabaseError({ message: "Failed to fetch updated row", cause }),
+              });
+
+              return { success: false, row: updatedRows[0] ?? null };
+            }
+          }).pipe(
+            Effect.withSpan("migrationJob.retrySingleRow", {
+              attributes: { rowId },
             }),
           ),
 

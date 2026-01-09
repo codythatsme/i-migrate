@@ -39,6 +39,8 @@ import {
   JobIdRequestSchema,
   RunJobResponseSchema,
   RetryFailedRowsResponseSchema,
+  RetrySingleRowRequestSchema,
+  RetrySingleRowResponseSchema,
   JobNotFoundErrorSchema,
   JobAlreadyRunningErrorSchema,
   MigrationErrorSchema,
@@ -313,6 +315,13 @@ const DeleteJob = Rpc.make("jobs.delete", {
   error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema),
 });
 
+/** Retry a single failed row */
+const RetrySingleRow = Rpc.make("jobs.retrySingleRow", {
+  payload: RetrySingleRowRequestSchema,
+  success: RetrySingleRowResponseSchema,
+  error: Schema.Union(DatabaseErrorSchema, JobNotFoundErrorSchema, MissingCredentialsErrorSchema),
+});
+
 // ---------------------
 // API Group
 // ---------------------
@@ -348,6 +357,7 @@ export const ApiGroup = RpcGroup.make(
   GetJob,
   RunJob,
   RetryFailedRows,
+  RetrySingleRow,
   GetJobFailedRows,
   GetJobSuccessRows,
   CancelJob,

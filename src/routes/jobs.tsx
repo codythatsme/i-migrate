@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { queries } from "@/lib/queries";
+import { useRetrySingleRow } from "@/lib/mutations";
 import { runJob, retryFailedRows, cancelJob, deleteJob } from "@/api/client";
 import type { JobWithEnvironments, FailedRow, SuccessRow, JobStatus } from "@/api/client";
 import { cn } from "@/lib/utils";
@@ -665,7 +666,7 @@ function JobsPage() {
                                 identityFieldNames={identityFieldNames}
                               />
                             ) : (
-                              <FailedRowItem key={`f-${result.row.id}`} row={result.row} />
+                              <FailedRowItem key={`f-${result.row.id}`} row={result.row} jobId={selectedJob.id} />
                             ),
                           )}
                         {rowResults.length > rowResultsLimit && (
@@ -909,7 +910,9 @@ function SuccessRowItem({
   );
 }
 
-function FailedRowItem({ row }: { row: FailedRow }) {
+function FailedRowItem({ row, jobId }: { row: FailedRow; jobId: string }) {
+  const retryMutation = useRetrySingleRow(jobId);
+
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString("en-US", {
@@ -920,17 +923,37 @@ function FailedRowItem({ row }: { row: FailedRow }) {
     });
   };
 
+  const handleRetry = () => {
+    retryMutation.mutate(row.id);
+  };
+
   return (
     <div className="flex items-start gap-2 p-2 bg-destructive/10 rounded text-xs">
       <AlertCircle className="size-3.5 text-destructive shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium">Row #{row.rowIndex + 1}</span>
-          <span className="text-muted-foreground text-[10px]">{formatTime(row.createdAt)}</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px]"
+              onClick={handleRetry}
+              disabled={retryMutation.isPending}
+            >
+              {retryMutation.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <RotateCcw className="size-3" />
+              )}
+              <span className="ml-1">Retry</span>
+            </Button>
+            <span className="text-muted-foreground text-[10px]">{formatTime(row.createdAt)}</span>
+          </div>
         </div>
         <div className="text-muted-foreground truncate">{row.errorMessage}</div>
         <div className="text-muted-foreground">
-          Retries: {row.retryCount} • Status: {row.status}
+          Auto: {row.autoRetryAttempts} attempts • Manual: {row.retryCount} retries
         </div>
       </div>
     </div>

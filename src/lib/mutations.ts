@@ -7,6 +7,7 @@ import {
   setPassword,
   clearPassword,
   testConnection,
+  retrySingleRow,
   type Environment,
   type CreateEnvironment,
 } from "@/api/client";
@@ -100,5 +101,25 @@ export const useClearPassword = () => {
 export const useTestConnection = () => {
   return useMutation({
     mutationFn: (environmentId: string) => testConnection(environmentId),
+  });
+};
+
+// ============================================
+// Job Mutations
+// ============================================
+
+// Retry a single failed row
+export const useRetrySingleRow = (jobId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (rowId: string) => retrySingleRow(rowId),
+    onSuccess: (result) => {
+      // Invalidate failed rows query to refresh the list
+      queryClient.invalidateQueries(queries.jobs.failedRows(jobId));
+      // Also invalidate the job itself to update counts
+      queryClient.invalidateQueries(queries.jobs.byId(jobId));
+      queryClient.invalidateQueries(queries.jobs.list());
+    },
   });
 };

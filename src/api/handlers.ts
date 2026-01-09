@@ -603,6 +603,19 @@ export const HandlersLive = ApiGroup.toLayer({
       return failedRows;
     }).pipe(Effect.mapError(mapDatabaseError)),
 
+  "jobs.retrySingleRow": ({ rowId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService;
+      return yield* jobService.retrySingleRow(rowId);
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error._tag === "JobNotFoundError") return mapJobNotFoundError(error);
+        if (error._tag === "MissingCredentialsError") return mapMissingCredentialsError(error);
+        if (error._tag === "DatabaseError") return mapDatabaseError(error);
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }));
+      }),
+    ),
+
   "jobs.successRows": ({ jobId }) =>
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService;
