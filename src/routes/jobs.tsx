@@ -564,6 +564,11 @@ function JobsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Job ID */}
+                  <div className="text-[10px] text-muted-foreground/60 font-mono">
+                    ID: {selectedJob.id}
+                  </div>
                 </div>
 
                 {/* Actions */}
