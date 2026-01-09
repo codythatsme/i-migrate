@@ -6,10 +6,25 @@ A desktop data migration tool for iMIS (association management software). Extrac
 
 Download the latest release for your platform:
 
-- **macOS**: `i-migrate` (standalone executable)
-- **Windows**: `i-migrate.exe`
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | [Download DMG](https://github.com/codythatsme/i-migrate/releases/latest/download/i-migrate-macos-arm64.dmg) |
+| Windows (x64) | [Download EXE](https://github.com/codythatsme/i-migrate/releases/latest/download/i-migrate-windows-x64.exe) |
 
-Run the executable to start the application. It will open a browser window at `http://localhost:3000`.
+Or browse all releases: [GitHub Releases](https://github.com/codythatsme/i-migrate/releases)
+
+### macOS
+
+1. Download and open the DMG
+2. Drag i-migrate to Applications
+3. Right-click the app and select "Open" on first launch
+
+### Windows
+
+1. Download and run the EXE
+2. If SmartScreen appears, click "More info" then "Run anyway"
+
+The application opens a browser window at `http://localhost:3000`.
 
 ## Getting Started
 
