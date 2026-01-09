@@ -1,5 +1,8 @@
 import { serve } from "bun";
 import { Layer } from "effect";
+
+// Set process title for visibility in `lsof`, `ps`, etc.
+process.title = "i-migrate";
 import { RpcServer, RpcSerialization } from "@effect/rpc";
 import * as Etag from "@effect/platform/Etag";
 import { BunFileSystem, BunPath, BunHttpPlatform } from "@effect/platform-bun";
