@@ -134,6 +134,21 @@ const randomHexString = (length: number): string => {
 
 const bigintToMs = (ns: bigint): number => Number(ns / 1_000_000n);
 
+/**
+ * Check if a span represents an HTTP error based on response status code.
+ * HTTP client spans succeed when a response is received, even for 4xx/5xx.
+ * The error status is recorded in attributes, not the Effect Exit.
+ */
+const isHttpErrorSpan = (attributes: Record<string, unknown>): boolean => {
+  // Check both attribute name formats (OpenTelemetry and Effect conventions)
+  const statusCode =
+    attributes["http.response.status-code"] ?? attributes["http.response.status_code"];
+  if (typeof statusCode === "number") {
+    return statusCode >= 400;
+  }
+  return false;
+};
+
 const formatErrorCause = (exit: Exit.Exit<unknown, unknown>): string | null => {
   if (Exit.isSuccess(exit)) return null;
   return Cause.pretty(exit.cause, { renderErrorCause: true });
@@ -332,12 +347,14 @@ const createPersistentTracer = () => {
     const endMs = bigintToMs(status.endTime);
     const durationMs = endMs - startMs;
 
-    const isError = Exit.isFailure(status.exit);
-
+    // Build attributes object first (needed for HTTP status check)
     const attributesObj: Record<string, unknown> = {};
     span.attributes.forEach((value, key) => {
       attributesObj[key] = value;
     });
+
+    // Check both Effect exit status and HTTP response status code
+    const isError = Exit.isFailure(status.exit) || isHttpErrorSpan(attributesObj);
 
     try {
       // Check if trace record already exists for this traceId

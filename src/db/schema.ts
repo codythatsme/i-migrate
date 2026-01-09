@@ -81,7 +81,8 @@ export const failedRows = sqliteTable("failed_rows", {
   rowIndex: integer("row_index").notNull(), // Original row position in batch
   encryptedPayload: text("encrypted_payload").notNull(), // AES-256-GCM encrypted JSON of row data
   errorMessage: text("error_message").notNull(),
-  retryCount: integer("retry_count").notNull().default(0),
+  retryCount: integer("retry_count").notNull().default(0), // Manual retry count (from retryFailedRows)
+  autoRetryAttempts: integer("auto_retry_attempts").notNull().default(0), // Automatic retry attempts before giving up
   status: text("status").notNull().$type<FailedRowStatus>(), // pending | retrying | resolved
   createdAt: text("created_at").notNull(),
   resolvedAt: text("resolved_at"),

@@ -377,7 +377,8 @@ export const FailedRowSchema = Schema.Struct({
   rowIndex: Schema.Number,
   encryptedPayload: Schema.String,
   errorMessage: Schema.String,
-  retryCount: Schema.Number,
+  retryCount: Schema.Number, // Manual retry count (from "Retry Failed" button)
+  autoRetryAttempts: Schema.Number, // Automatic retry attempts before giving up
   status: FailedRowStatusSchema,
   createdAt: Schema.String,
   resolvedAt: Schema.NullOr(Schema.String),
@@ -394,6 +395,17 @@ export const SuccessRowSchema = Schema.Struct({
 });
 
 export type SuccessRow = typeof SuccessRowSchema.Type;
+
+export const RetrySingleRowRequestSchema = Schema.Struct({
+  rowId: Schema.String,
+});
+
+export const RetrySingleRowResponseSchema = Schema.Struct({
+  success: Schema.Boolean,
+  row: Schema.NullOr(FailedRowSchema), // Updated row if failed, null if success (row deleted)
+});
+
+export type RetrySingleRowResponse = typeof RetrySingleRowResponseSchema.Type;
 
 export const CreateJobRequestSchema = Schema.Struct({
   name: Schema.String,
