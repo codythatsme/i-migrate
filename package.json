@@ -1,6 +1,6 @@
 {
   "name": "i-migrate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Desktop data migration tool for iMIS",
   "author": "Cody Partington",
@@ -13,7 +13,7 @@
     "dev": "bunx tsr watch & bun --hot src/index.ts",
     "start": "NODE_ENV=production bun src/index.ts",
     "build": "bun run generate-routes && bun run scripts/build.ts",
-    "build:windows": "bun run generate-routes && bun run scripts/build.ts --compile --target=bun-windows-x64 --outfile=dist/i-migrate.exe --windows-hide-console --windows-icon=assets/app.ico --windows-title=i-migrate --windows-description=\"Desktop data migration tool for iMIS\" --windows-version=0.1.0.0",
+    "build:windows": "bun run generate-routes && bun run scripts/build.ts --compile --target=bun-windows-x64 --outfile=dist/i-migrate.exe --windows-hide-console --windows-icon=assets/app.ico --windows-title=i-migrate --windows-description=\"Desktop data migration tool for iMIS\" --windows-version=0.2.0.0",
     "build:windows:signed": "bun run build:windows && bun run scripts/sign-windows.ts",
     "build:mac": "bun run generate-routes && bun run scripts/build.ts --compile --target=bun-darwin-arm64 --outfile=dist/i-migrate",
     "build:mac:app": "bun run build:mac && bun run scripts/bundle-mac-app.ts",

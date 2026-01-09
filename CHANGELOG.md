@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-09
+
 ### Added
 
 - GitHub Actions release pipeline for automated builds
 - Download links in README
-- Contributing skill for Claude Code
+- Improve environment tile password UX
+
+### Changed
+
+- Set process title to i-migrate for port visibility
 
 ## [0.1.0] - 2025-01-09
 
