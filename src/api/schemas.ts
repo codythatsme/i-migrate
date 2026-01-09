@@ -108,6 +108,7 @@ export class MissingCredentialsErrorSchema extends Schema.TaggedError<MissingCre
   "MissingCredentialsError",
   {
     environmentId: Schema.String,
+    message: Schema.String,
   },
 ) {}
 

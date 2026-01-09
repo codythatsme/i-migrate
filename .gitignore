@@ -43,3 +43,6 @@ data/*.db-shm
 # Code signing certificates
 certs
 /vendor/
+
+# Temporary files (playwriter screenshots, etc.)
+tmp/

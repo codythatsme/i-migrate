@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
+  AlertCircle,
   CheckCircle2,
+  KeyRound,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -27,6 +29,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AddEnvironmentDialog } from "@/components/add-environment-dialog";
 import { EditEnvironmentDialog } from "@/components/edit-environment-dialog";
+import { SetPasswordDialog } from "@/components/set-password-dialog";
 import type { Environment } from "@/lib/environments";
 
 export const Route = createFileRoute("/environments")({
@@ -45,6 +48,7 @@ function EnvironmentsPage() {
   const testConnection = useTestConnection();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingEnvironment, setEditingEnvironment] = useState<Environment | null>(null);
+  const [passwordEnvironment, setPasswordEnvironment] = useState<Environment | null>(null);
   const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({});
 
   const selectedEnvironment = environments?.find((e) => e.id === selectedId) ?? null;
@@ -223,35 +227,65 @@ function EnvironmentsPage() {
                       </div>
                     )}
 
-                    {/* Test Connection Button and Status */}
+                    {/* Password Status and Actions */}
                     <div className="flex flex-col gap-2 pt-1">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => handleTestConnection(env.id)}
-                          disabled={testStatuses[env.id]?.status === "testing"}
-                        >
-                          {testStatuses[env.id]?.status === "testing" ? (
-                            <>
-                              <Loader2 className="mr-1.5 size-3 animate-spin" />
-                              Testing...
-                            </>
-                          ) : (
-                            <>
-                              <Plug className="mr-1.5 size-3" />
-                              Test Connection
-                            </>
-                          )}
-                        </Button>
+                      {/* Password status indicator */}
+                      <div className="flex items-center gap-1.5 text-xs">
+                        {env.hasPassword ? (
+                          <span className="flex items-center gap-1 text-primary">
+                            <CheckCircle2 className="size-3" />
+                            Ready
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <AlertCircle className="size-3" />
+                            Password required
+                          </span>
+                        )}
+                      </div>
 
-                        {/* Success indicator - inline */}
-                        {testStatuses[env.id]?.status === "success" && (
-                          <div className="flex items-center gap-1 text-xs text-primary">
-                            <CheckCircle2 className="size-3.5" />
-                            <span>{testStatuses[env.id]?.message}</span>
-                          </div>
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2">
+                        {env.hasPassword ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={() => handleTestConnection(env.id)}
+                              disabled={testStatuses[env.id]?.status === "testing"}
+                            >
+                              {testStatuses[env.id]?.status === "testing" ? (
+                                <>
+                                  <Loader2 className="mr-1.5 size-3 animate-spin" />
+                                  Testing...
+                                </>
+                              ) : (
+                                <>
+                                  <Plug className="mr-1.5 size-3" />
+                                  Test Connection
+                                </>
+                              )}
+                            </Button>
+
+                            {/* Success indicator - inline */}
+                            {testStatuses[env.id]?.status === "success" && (
+                              <div className="flex items-center gap-1 text-xs text-primary">
+                                <CheckCircle2 className="size-3.5" />
+                                <span>{testStatuses[env.id]?.message}</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => setPasswordEnvironment(env)}
+                          >
+                            <KeyRound className="mr-1.5 size-3" />
+                            Set Password
+                          </Button>
                         )}
                       </div>
 
@@ -292,6 +326,13 @@ function EnvironmentsPage() {
         open={editingEnvironment !== null}
         onOpenChange={(open) => {
           if (!open) setEditingEnvironment(null);
+        }}
+      />
+      <SetPasswordDialog
+        environment={passwordEnvironment}
+        open={passwordEnvironment !== null}
+        onOpenChange={(open) => {
+          if (!open) setPasswordEnvironment(null);
         }}
       />
     </div>
