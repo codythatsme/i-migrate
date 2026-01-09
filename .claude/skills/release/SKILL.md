@@ -69,3 +69,14 @@ Skip changelog for:
 - Test-only changes
 - Documentation updates (unless significant)
 - Build/CI configuration changes
+
+## When to Update README
+
+Update `README.md` when adding significant new features that users should know about:
+- New major capabilities or functionality
+- Changes to installation or setup process
+- New configuration options or environment variables
+- New CLI commands or flags
+- Breaking changes to existing behavior
+
+Keep the README focused on what users need to get started. Detailed feature documentation can go elsewhere.
