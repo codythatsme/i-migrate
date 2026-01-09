@@ -4,22 +4,23 @@ import * as schema from "./schema";
 
 // Ensure data directory exists
 import { mkdirSync, existsSync } from "node:fs";
-import { dirname, join, basename } from "node:path";
+import { dirname, join } from "node:path";
 
 // Determine database path based on execution context
-// - Compiled executable: store in .i-migrate folder next to the executable (portable)
-// - Development (bun run): use project's data/ folder
+// - Production builds: store in .i-migrate folder next to the executable (portable)
+// - Development (bun dev): use project's data/ folder
 function getDbPath(): string {
-  const execName = basename(process.execPath);
-  const isCompiled = execName === "i-migrate" || execName === "i-migrate.exe";
+  // In development (bun dev), NODE_ENV is not set or is "development"
+  // In production builds, NODE_ENV is inlined as "production" at compile time
+  const isDev = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
 
-  if (isCompiled) {
-    // Portable mode: create hidden data folder next to executable
-    const execDir = dirname(process.execPath);
-    return join(execDir, ".i-migrate", "i-migrate.db");
-  } else {
+  if (isDev) {
     // Development mode: use project's data folder
     return join(import.meta.dir, "..", "..", "data", "i-migrate.db");
+  } else {
+    // Production/compiled mode: create hidden data folder next to executable
+    const execDir = dirname(process.execPath);
+    return join(execDir, ".i-migrate", "i-migrate.db");
   }
 }
 
