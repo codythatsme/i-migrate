@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-01-09
+
+### Fixed
+
+- Windows executable failing on startup with "EPERM: operation not permitted, mkdir" error due to incorrect database path detection when executable is renamed
+
 ## [0.2.0] - 2025-01-09
 
 ### Added
