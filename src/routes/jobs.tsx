@@ -933,27 +933,27 @@ function FailedRowItem({ row, jobId }: { row: FailedRow; jobId: string }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium">Row #{row.rowIndex + 1}</span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-1.5 text-[10px]"
-              onClick={handleRetry}
-              disabled={retryMutation.isPending}
-            >
-              {retryMutation.isPending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <RotateCcw className="size-3" />
-              )}
-              <span className="ml-1">Retry</span>
-            </Button>
-            <span className="text-muted-foreground text-[10px]">{formatTime(row.createdAt)}</span>
-          </div>
+          <span className="text-muted-foreground text-[10px]">{formatTime(row.createdAt)}</span>
         </div>
         <div className="text-muted-foreground truncate">{row.errorMessage}</div>
-        <div className="text-muted-foreground">
-          Auto: {row.autoRetryAttempts} attempts • Manual: {row.retryCount} retries
+        <div className="flex items-center justify-between gap-2 mt-1">
+          <span className="text-muted-foreground">
+            Auto: {row.autoRetryAttempts} attempts • Manual: {row.retryCount} retries
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-3 text-xs"
+            onClick={handleRetry}
+            disabled={retryMutation.isPending}
+          >
+            {retryMutation.isPending ? (
+              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+            ) : (
+              <RotateCcw className="size-3.5 mr-1.5" />
+            )}
+            Retry
+          </Button>
         </div>
       </div>
     </div>
