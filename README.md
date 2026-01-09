@@ -85,9 +85,41 @@ If a job completes with failures:
 - **Connection testing**: Verify environment connectivity before running jobs
 - **Trace logging**: Detailed API request traces for debugging
 
+## Security & Privacy
+
+i-migrate is designed with your data security in mind. Here's how we protect sensitive information:
+
+### Your Password is Never Stored
+
+When you enter your iMIS environment password:
+- It's held only in your computer's memory while the app is running
+- It's **never** written to disk, saved to a file, or stored in a database
+- When you close the app, the password is gone—you'll need to re-enter it next time
+
+This means even if someone accesses your computer's files, they can't find your password.
+
+### Customer Data Stays in Flight
+
+During a successful migration, data flows directly from your source environment to your destination:
+- Records are extracted from the source
+- Transformed according to your field mappings
+- Inserted into the destination
+- **No customer data is permanently stored on your machine**
+
+### Failed Rows Are Encrypted
+
+If some records fail to migrate (due to validation errors, etc.), i-migrate saves them locally so you can retry later. This data is protected:
+
+- **Encrypted with AES-256-GCM** (the same encryption standard used by banks)
+- The encryption key is derived from your password—which isn't stored
+- **Automatically deleted** when you successfully retry the failed row
+- Cannot be decrypted by anyone who doesn't have your password
+
+This means failed row data on your machine is unreadable without your password.
+
 ## Data Storage
 
-The application stores configuration and job data in a local SQLite database. Sensitive data like failed row payloads is encrypted with AES-256-GCM.
+Configuration and job metadata are stored in a local SQLite database at `data/i-migrate.db`.
 
 ## Building from Source
 
