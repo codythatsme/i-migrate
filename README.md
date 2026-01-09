@@ -24,7 +24,7 @@ Or browse all releases: [GitHub Releases](https://github.com/codythatsme/i-migra
 1. Download and run the EXE
 2. If SmartScreen appears, click "More info" then "Run anyway"
 
-The application opens a browser window at `http://localhost:3000`.
+The application automatically opens in your default browser.
 
 ## Getting Started
 
