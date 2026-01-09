@@ -90,6 +90,23 @@ bun run build:mac          # macOS
 bun run build:windows      # Windows
 ```
 
+### Code Signing
+
+For development/testing, the build scripts use self-signed certificates:
+
+```bash
+bun run build:mac:signed      # macOS (ad-hoc signature)
+bun run build:windows:signed  # Windows (auto-generated self-signed cert)
+```
+
+**Windows Requirements:**
+- Install `osslsigncode`: `brew install osslsigncode`
+- A self-signed certificate is auto-generated in `certs/` on first run
+
+**Note:** Self-signed executables will trigger security warnings (Gatekeeper on macOS, SmartScreen on Windows). For distribution:
+- **macOS**: Replace `-` in `scripts/sign-mac.ts` with your Developer ID Application certificate
+- **Windows**: Use a code signing certificate from a trusted CA (DigiCert, Sectigo, etc.)
+
 ## License
 
 MIT
