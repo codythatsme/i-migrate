@@ -1,9 +1,9 @@
 ---
-name: contributing
-description: Guide for contributing to i-migrate. Use when making commits, updating changelog, or preparing releases. Triggers on: commit, changelog, release, version bump.
+name: release
+description: Guide for releases and changelog. Use when updating changelog or preparing releases. Triggers on: changelog, release, version bump.
 ---
 
-# Contributing to i-migrate
+# Release Guide
 
 ## Changelog Management
 
