@@ -41,4 +41,5 @@ data/*.db-shm
 *.secret.*
 
 # Code signing certificates
-certs/
+certs
+/vendor/
