@@ -86,8 +86,14 @@ const server = serve({
 if (!process.env.__BROWSER_OPENED__) {
   process.env.__BROWSER_OPENED__ = "1";
   const platform = process.platform;
-  const command = platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open";
-  Bun.spawn([command, server.url.href], { stdio: ["ignore", "ignore", "ignore"] });
+  if (platform === "win32") {
+    // "start" is a shell built-in on Windows, so we need to run it through cmd.exe
+    // The empty string after "start" is the window title (required when URL contains special chars)
+    Bun.spawn(["cmd", "/c", "start", "", server.url.href], { stdio: ["ignore", "ignore", "ignore"] });
+  } else {
+    const command = platform === "darwin" ? "open" : "xdg-open";
+    Bun.spawn([command, server.url.href], { stdio: ["ignore", "ignore", "ignore"] });
+  }
 }
 
 // Handle graceful shutdown
