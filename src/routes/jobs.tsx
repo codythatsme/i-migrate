@@ -70,15 +70,13 @@ function JobsPage() {
   // Compute job stats
   const jobStats = useMemo(() => {
     if (!jobs || jobs.length === 0) {
-      return { total: 0, completed: 0, partial: 0, failed: 0, running: 0, successRate: 0 };
+      return { total: 0, completed: 0, partial: 0, failed: 0, running: 0 };
     }
     const completed = jobs.filter((j) => j.status === "completed").length;
     const partial = jobs.filter((j) => j.status === "partial").length;
     const failed = jobs.filter((j) => j.status === "failed").length;
     const running = jobs.filter((j) => j.status === "running").length;
-    const finished = completed + partial + failed;
-    const successRate = finished > 0 ? Math.round((completed / finished) * 100) : 0;
-    return { total: jobs.length, completed, partial, failed, running, successRate };
+    return { total: jobs.length, completed, partial, failed, running };
   }, [jobs]);
 
   const setStatusFilter = (status: JobStatus | "all") => {
@@ -220,7 +218,7 @@ function JobsPage() {
 
       {/* Summary Stats */}
       {jobs && jobs.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="flex flex-col p-3 bg-muted/30 rounded-lg">
             <span className="text-xs text-muted-foreground">Total Jobs</span>
             <span className="text-xl font-semibold">{jobStats.total}</span>
@@ -236,10 +234,6 @@ function JobsPage() {
           <div className="flex flex-col p-3 bg-destructive/10 rounded-lg">
             <span className="text-xs text-destructive">Failed</span>
             <span className="text-xl font-semibold text-destructive">{jobStats.failed}</span>
-          </div>
-          <div className="flex flex-col p-3 bg-primary/10 rounded-lg">
-            <span className="text-xs text-primary">Success Rate</span>
-            <span className="text-xl font-semibold text-primary">{jobStats.successRate}%</span>
           </div>
         </div>
       )}
