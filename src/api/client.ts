@@ -118,7 +118,10 @@ export const getQueryDefinition = (environmentId: string, path: string) =>
 /** List recent traces */
 export const listTraces = (limit?: number, offset?: number) =>
   withClient((client) =>
-    client.traces.list(limit !== undefined || offset !== undefined ? { limit, offset } : {}),
+    client.traces.list({
+      ...(limit !== undefined && { limit }),
+      ...(offset !== undefined && { offset }),
+    }),
   );
 
 /** Get a single trace with all spans */
@@ -160,13 +163,21 @@ export const retryFailedRows = (jobId: string) =>
 export const retrySingleRow = (rowId: string) =>
   withClient((client) => client.jobs.retrySingleRow({ rowId }));
 
-/** Get failed rows for a job */
-export const getJobFailedRows = (jobId: string) =>
-  withClient((client) => client.jobs.failedRows({ jobId }));
+/** Get rows for a job (with attempt info) */
+export const getJobRows = (
+  jobId: string,
+  options?: { status?: "success" | "failed" },
+) =>
+  withClient((client) =>
+    client.jobs.rows({
+      jobId,
+      ...(options?.status !== undefined && { status: options.status }),
+    }),
+  );
 
-/** Get success rows for a job */
-export const getJobSuccessRows = (jobId: string) =>
-  withClient((client) => client.jobs.successRows({ jobId }));
+/** Get attempts for a specific row */
+export const getRowAttempts = (rowId: string) =>
+  withClient((client) => client.rows.attempts({ rowId }));
 
 /** Cancel a running job */
 export const cancelJob = (jobId: string) => withClient((client) => client.jobs.cancel({ jobId }));
@@ -189,17 +200,22 @@ export type {
   StoredTrace,
   StoredSpan,
   Job,
+  JobWithCounts,
   JobWithEnvironments,
   JobStatus,
   JobMode,
-  FailedRow,
-  FailedRowStatus,
-  SuccessRow,
+  Row,
+  RowStatus,
+  RowWithAttemptsInfo,
+  Attempt,
+  AttemptReason,
+  GetJobRowsResponse,
   PropertyMapping,
   CreateJobRequest,
   CreateJobResponse,
   RunJobResponse,
   RetryFailedRowsResponse,
+  RetrySingleRowResponse,
 } from "./schemas";
 
 export type {

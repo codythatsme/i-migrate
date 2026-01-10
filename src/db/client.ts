@@ -75,9 +75,6 @@ function initializeSchema() {
         dest_entity_type TEXT NOT NULL,
         mappings TEXT NOT NULL,
         total_rows INTEGER,
-        processed_rows INTEGER NOT NULL DEFAULT 0,
-        successful_rows INTEGER NOT NULL DEFAULT 0,
-        failed_row_count INTEGER NOT NULL DEFAULT 0,
         failed_query_offsets TEXT,
         identity_field_names TEXT,
         started_at TEXT,
@@ -94,32 +91,38 @@ function initializeSchema() {
     }
   }
 
-  if (!tableNames.has("failed_rows")) {
+  // Create rows table (unified success/failed rows)
+  if (!tableNames.has("rows")) {
     sqlite.run(`
-      CREATE TABLE failed_rows (
+      CREATE TABLE rows (
         id TEXT PRIMARY KEY NOT NULL,
         job_id TEXT NOT NULL,
         row_index INTEGER NOT NULL,
         encrypted_payload TEXT NOT NULL,
-        error_message TEXT NOT NULL,
-        retry_count INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL,
+        identity_elements TEXT,
         created_at TEXT NOT NULL,
-        resolved_at TEXT
+        updated_at TEXT NOT NULL
       )
     `);
+    sqlite.run(`CREATE INDEX rows_job_id_idx ON rows (job_id)`);
+    sqlite.run(`CREATE INDEX rows_job_status_idx ON rows (job_id, status)`);
   }
 
-  if (!tableNames.has("success_rows")) {
+  // Create attempts table for tracking individual insert attempts
+  if (!tableNames.has("attempts")) {
     sqlite.run(`
-      CREATE TABLE success_rows (
+      CREATE TABLE attempts (
         id TEXT PRIMARY KEY NOT NULL,
-        job_id TEXT NOT NULL,
-        row_index INTEGER NOT NULL,
-        identity_elements TEXT NOT NULL,
+        row_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        success INTEGER NOT NULL,
+        error_message TEXT,
+        identity_elements TEXT,
         created_at TEXT NOT NULL
       )
     `);
+    sqlite.run(`CREATE INDEX attempts_row_id_idx ON attempts (row_id)`);
   }
 
   if (!tableNames.has("traces")) {

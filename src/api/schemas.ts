@@ -346,9 +346,6 @@ export const JobSchema = Schema.Struct({
   destEntityType: Schema.String,
   mappings: Schema.String, // JSON stringified PropertyMapping[]
   totalRows: Schema.NullOr(Schema.Number),
-  processedRows: Schema.Number,
-  successfulRows: Schema.Number,
-  failedRowCount: Schema.Number,
   failedQueryOffsets: Schema.NullOr(Schema.String), // JSON stringified number[]
   identityFieldNames: Schema.NullOr(Schema.String), // JSON stringified string[] (e.g., ["ID", "Ordinal"])
   startedAt: Schema.NullOr(Schema.String),
@@ -358,43 +355,93 @@ export const JobSchema = Schema.Struct({
 
 export type Job = typeof JobSchema.Type;
 
-// Job with resolved environment names for display
-export const JobWithEnvironmentsSchema = Schema.Struct({
+// Job with derived counts (computed from rows table)
+export const JobWithCountsSchema = Schema.Struct({
   ...JobSchema.fields,
+  processedRows: Schema.Number,
+  successfulRows: Schema.Number,
+  failedRowCount: Schema.Number,
+});
+
+export type JobWithCounts = typeof JobWithCountsSchema.Type;
+
+// Job with resolved environment names and derived counts for list display
+export const JobWithEnvironmentsSchema = Schema.Struct({
+  ...JobWithCountsSchema.fields,
   sourceEnvironmentName: Schema.String,
   destEnvironmentName: Schema.String,
 });
 
 export type JobWithEnvironments = typeof JobWithEnvironmentsSchema.Type;
 
-export const FailedRowStatusSchema = Schema.Literal("pending", "retrying", "resolved");
+// ---------------------
+// Row and Attempt Schemas
+// ---------------------
 
-export type FailedRowStatus = typeof FailedRowStatusSchema.Type;
+export const RowStatusSchema = Schema.Literal("success", "failed");
 
-export const FailedRowSchema = Schema.Struct({
+export type RowStatus = typeof RowStatusSchema.Type;
+
+export const AttemptReasonSchema = Schema.Literal("initial", "auto_retry", "manual_retry");
+
+export type AttemptReason = typeof AttemptReasonSchema.Type;
+
+// Base row schema (matches database)
+export const RowSchema = Schema.Struct({
   id: Schema.String,
   jobId: Schema.String,
   rowIndex: Schema.Number,
-  encryptedPayload: Schema.String,
-  errorMessage: Schema.String,
-  retryCount: Schema.Number, // Manual retry count (from "Retry Failed" button)
-  autoRetryAttempts: Schema.Number, // Automatic retry attempts before giving up
-  status: FailedRowStatusSchema,
+  status: RowStatusSchema,
+  identityElements: Schema.NullOr(Schema.String), // JSON stringified string[]
   createdAt: Schema.String,
-  resolvedAt: Schema.NullOr(Schema.String),
+  updatedAt: Schema.String,
 });
 
-export type FailedRow = typeof FailedRowSchema.Type;
+export type Row = typeof RowSchema.Type;
 
-export const SuccessRowSchema = Schema.Struct({
+// Row with aggregated attempt info for list display
+export const RowWithAttemptsInfoSchema = Schema.Struct({
+  ...RowSchema.fields,
+  attemptCount: Schema.Number,
+  latestAttemptAt: Schema.NullOr(Schema.String),
+  latestError: Schema.NullOr(Schema.String),
+});
+
+export type RowWithAttemptsInfo = typeof RowWithAttemptsInfoSchema.Type;
+
+// Attempt schema
+export const AttemptSchema = Schema.Struct({
   id: Schema.String,
-  jobId: Schema.String,
-  rowIndex: Schema.Number,
-  identityElements: Schema.String, // JSON stringified string[] (e.g., ["23204", "21"])
+  rowId: Schema.String,
+  reason: AttemptReasonSchema,
+  success: Schema.Boolean,
+  errorMessage: Schema.NullOr(Schema.String),
+  identityElements: Schema.NullOr(Schema.String), // JSON stringified string[]
   createdAt: Schema.String,
 });
 
-export type SuccessRow = typeof SuccessRowSchema.Type;
+export type Attempt = typeof AttemptSchema.Type;
+
+// Request/Response schemas for row operations
+export const GetJobRowsRequestSchema = Schema.Struct({
+  jobId: Schema.String,
+  status: Schema.optionalWith(RowStatusSchema, { exact: true }),
+});
+
+export type GetJobRowsRequest = typeof GetJobRowsRequestSchema.Type;
+
+export const GetJobRowsResponseSchema = Schema.Struct({
+  rows: Schema.Array(RowWithAttemptsInfoSchema),
+  total: Schema.Number,
+});
+
+export type GetJobRowsResponse = typeof GetJobRowsResponseSchema.Type;
+
+export const GetRowAttemptsRequestSchema = Schema.Struct({
+  rowId: Schema.String,
+});
+
+export type GetRowAttemptsRequest = typeof GetRowAttemptsRequestSchema.Type;
 
 export const RetrySingleRowRequestSchema = Schema.Struct({
   rowId: Schema.String,
@@ -402,7 +449,7 @@ export const RetrySingleRowRequestSchema = Schema.Struct({
 
 export const RetrySingleRowResponseSchema = Schema.Struct({
   success: Schema.Boolean,
-  row: Schema.NullOr(FailedRowSchema), // Updated row if failed, null if success (row deleted)
+  row: Schema.NullOr(RowWithAttemptsInfoSchema), // Updated row if still failed, null if success
 });
 
 export type RetrySingleRowResponse = typeof RetrySingleRowResponseSchema.Type;

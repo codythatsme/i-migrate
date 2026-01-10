@@ -12,17 +12,13 @@
 import { describe, it, expect, beforeEach, afterAll } from "bun:test"
 import { Effect } from "effect"
 import { db } from "../src/db/client"
-import { jobs, failedRows, environments } from "../src/db/schema"
+import { jobs, rows, environments } from "../src/db/schema"
 import { eq } from "drizzle-orm"
-import {
-  MigrationJobService,
-  JobNotFoundError,
-  JobAlreadyRunningError,
-} from "../src/services/migration-job"
+import { MigrationJobService } from "../src/services/migration-job"
 import { SessionService } from "../src/services/session"
 import { PersistenceService } from "../src/services/persistence"
 import { ImisApiService } from "../src/services/imis-api"
-import { createEnvironment, createPropertyMapping } from "./setup"
+import { createPropertyMapping } from "./setup"
 
 // Test environment IDs
 const TEST_SOURCE_ENV_ID = "test-source-env-00000000"
@@ -44,7 +40,7 @@ const runWithServices = <A, E>(
 
 // Cleanup helper
 const cleanupTestData = async () => {
-  // Delete all test jobs and their failed rows
+  // Delete all test jobs and their rows
   const testJobs = db
     .select({ id: jobs.id })
     .from(jobs)
@@ -52,7 +48,7 @@ const cleanupTestData = async () => {
     .all()
 
   for (const job of testJobs) {
-    db.delete(failedRows).where(eq(failedRows.jobId, job.id)).run()
+    db.delete(rows).where(eq(rows.jobId, job.id)).run()
     db.delete(jobs).where(eq(jobs.id, job.id)).run()
   }
 
@@ -129,9 +125,6 @@ describe("Job Lifecycle", () => {
       expect(job?.status).toBe("queued")
       expect(job?.name).toBe("Test Job")
       expect(job?.mode).toBe("query")
-      expect(job?.processedRows).toBe(0)
-      expect(job?.successfulRows).toBe(0)
-      expect(job?.failedRowCount).toBe(0)
     })
 
     it("should store mappings as JSON string", async () => {
@@ -446,11 +439,11 @@ describe("Job Lifecycle", () => {
     })
   })
 
-  describe("Failed rows", () => {
-    it("should return empty array when no failed rows", async () => {
+  describe("Job rows", () => {
+    it("should return empty array when no rows exist", async () => {
       const { jobId } = await runWithServices(
         MigrationJobService.createJob({
-          name: "No Failed Rows Test",
+          name: "No Rows Test",
           mode: "query",
           sourceEnvironmentId: TEST_SOURCE_ENV_ID,
           sourceQueryPath: "$/Test/Query",
@@ -460,11 +453,12 @@ describe("Job Lifecycle", () => {
         })
       )
 
-      const failedRowsList = await runWithServices(
-        MigrationJobService.getJobFailedRows(jobId)
+      const rowsResult = await runWithServices(
+        MigrationJobService.getJobRows(jobId, {})
       )
 
-      expect(failedRowsList).toEqual([])
+      expect(rowsResult.rows).toEqual([])
+      expect(rowsResult.total).toBe(0)
     })
   })
 })

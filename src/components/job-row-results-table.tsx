@@ -1,18 +1,21 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  getExpandedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState,
-  type ColumnFiltersState,
+  type ExpandedState,
 } from "@tanstack/react-table";
 import {
   AlertCircle,
   CheckCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -36,74 +39,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/components/job-status";
 import { useRetrySingleRow } from "@/lib/mutations";
-import type { FailedRow, SuccessRow } from "@/api/client";
-
-export type RowResult = {
-  id: string;
-  type: "success" | "failure";
-  rowIndex: number;
-  timestamp: string;
-  identityElements?: string[];
-  errorMessage?: string;
-  retryCount?: number;
-  autoRetryAttempts?: number;
-};
+import { queries } from "@/lib/queries";
+import type { RowWithAttemptsInfo, Attempt } from "@/api/client";
 
 type StatusFilter = "all" | "success" | "failed";
 
-function combineRowResults(
-  successRows: readonly SuccessRow[] | undefined,
-  failedRows: readonly FailedRow[] | undefined,
-  identityFieldNames: string[]
-): RowResult[] {
-  const results: RowResult[] = [];
-
-  if (successRows) {
-    for (const row of successRows) {
-      let identityElements: string[] = [];
-      try {
-        const parsed = JSON.parse(row.identityElements) as string[];
-        identityElements = parsed.map((value, i) => {
-          const fieldName = identityFieldNames[i];
-          return fieldName ? `${fieldName}: ${value}` : String(value);
-        });
-      } catch {
-        identityElements = [];
-      }
-
-      results.push({
-        id: `s-${row.id}`,
-        type: "success",
-        rowIndex: row.rowIndex,
-        timestamp: row.createdAt,
-        identityElements,
-      });
-    }
-  }
-
-  if (failedRows) {
-    for (const row of failedRows) {
-      results.push({
-        id: `f-${row.id}`,
-        type: "failure",
-        rowIndex: row.rowIndex,
-        timestamp: row.createdAt,
-        errorMessage: row.errorMessage,
-        retryCount: row.retryCount,
-        autoRetryAttempts: row.autoRetryAttempts,
-      });
-    }
-  }
-
-  return results.sort((a, b) => a.rowIndex - b.rowIndex);
-}
-
 function RetryButton({ rowId, jobId }: { rowId: string; jobId: string }) {
-  // Extract actual row ID from the prefixed version
-  const actualRowId = rowId.replace("f-", "");
   const retryMutation = useRetrySingleRow(jobId);
 
   return (
@@ -111,7 +56,10 @@ function RetryButton({ rowId, jobId }: { rowId: string; jobId: string }) {
       variant="outline"
       size="sm"
       className="h-7 px-2 text-xs"
-      onClick={() => retryMutation.mutate(actualRowId)}
+      onClick={(e) => {
+        e.stopPropagation();
+        retryMutation.mutate(rowId);
+      }}
       disabled={retryMutation.isPending}
     >
       {retryMutation.isPending ? (
@@ -123,43 +71,149 @@ function RetryButton({ rowId, jobId }: { rowId: string; jobId: string }) {
   );
 }
 
+function AttemptsList({ rowId }: { rowId: string }) {
+  const { data: attempts, isLoading } = useQuery(queries.jobs.rowAttempts(rowId));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-2 px-4">
+        <Loader2 className="size-4 animate-spin" />
+        <span className="text-sm text-muted-foreground">Loading attempts...</span>
+      </div>
+    );
+  }
+
+  if (!attempts || attempts.length === 0) {
+    return (
+      <div className="py-2 px-4 text-sm text-muted-foreground">
+        No attempts recorded
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-2 px-4">
+      <div className="text-xs font-medium text-muted-foreground mb-2">
+        Attempt History ({attempts.length} attempts)
+      </div>
+      <div className="space-y-2">
+        {attempts.map((attempt: Attempt, index: number) => (
+          <div
+            key={attempt.id}
+            className={cn(
+              "flex items-start gap-3 p-2 rounded-md text-sm",
+              attempt.success ? "bg-green-500/10" : "bg-destructive/10"
+            )}
+          >
+            <div className="flex-shrink-0 mt-0.5">
+              {attempt.success ? (
+                <CheckCircle className="size-4 text-green-600" />
+              ) : (
+                <AlertCircle className="size-4 text-destructive" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  {index + 1}. {attempt.reason.replace("_", " ")}
+                </span>
+                <Badge variant={attempt.success ? "default" : "destructive"} className="text-xs">
+                  {attempt.success ? "Success" : "Failed"}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {formatTime(attempt.createdAt)}
+                </span>
+              </div>
+              {attempt.errorMessage && (
+                <p className="text-xs text-destructive mt-1 truncate">
+                  {attempt.errorMessage}
+                </p>
+              )}
+              {attempt.identityElements && (
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  Identity: {attempt.identityElements}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function JobRowResultsTable({
-  successRows,
-  failedRows,
+  rows,
+  total,
   identityFieldNames,
   jobId,
   isLoading,
+  statusFilter,
+  onStatusFilterChange,
 }: {
-  successRows: readonly SuccessRow[] | undefined;
-  failedRows: readonly FailedRow[] | undefined;
+  rows: readonly RowWithAttemptsInfo[] | undefined;
+  total: number;
   identityFieldNames: string[];
   jobId: string;
   isLoading: boolean;
+  statusFilter: StatusFilter;
+  onStatusFilterChange: (filter: StatusFilter) => void;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [expanded, setExpanded] = useState<ExpandedState>({});
 
-  const data = useMemo(
-    () => combineRowResults(successRows, failedRows, identityFieldNames),
-    [successRows, failedRows, identityFieldNames]
-  );
+  const data = useMemo(() => {
+    if (!rows) return [];
+    return rows.map((row) => {
+      let identityElements: string[] = [];
+      if (row.identityElements) {
+        try {
+          const parsed = JSON.parse(row.identityElements) as string[];
+          identityElements = parsed.map((value, i) => {
+            const fieldName = identityFieldNames[i];
+            return fieldName ? `${fieldName}: ${value}` : String(value);
+          });
+        } catch {
+          identityElements = [];
+        }
+      }
+      return {
+        ...row,
+        parsedIdentityElements: identityElements,
+      };
+    });
+  }, [rows, identityFieldNames]);
 
-  const filteredData = useMemo(() => {
-    if (statusFilter === "all") return data;
-    return data.filter((row) =>
-      statusFilter === "success" ? row.type === "success" : row.type === "failure"
-    );
-  }, [data, statusFilter]);
+  type RowData = (typeof data)[number];
 
-  const columns: ColumnDef<RowResult>[] = useMemo(
+  const columns: ColumnDef<RowData>[] = useMemo(
     () => [
       {
-        accessorKey: "type",
+        id: "expander",
+        header: "",
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => row.toggleExpanded()}
+          >
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform",
+                row.getIsExpanded() && "rotate-180"
+              )}
+            />
+          </Button>
+        ),
+        size: 40,
+      },
+      {
+        accessorKey: "status",
         header: "Status",
         cell: ({ row }) => (
           <div className="flex items-center justify-center">
-            {row.original.type === "success" ? (
+            {row.original.status === "success" ? (
               <CheckCircle className="size-4 text-green-600" />
             ) : (
               <AlertCircle className="size-4 text-destructive" />
@@ -187,12 +241,12 @@ export function JobRowResultsTable({
         size: 80,
       },
       {
-        accessorKey: "identityElements",
+        accessorKey: "parsedIdentityElements",
         header: "Identity",
         cell: ({ row }) => {
-          const identity = row.original.identityElements;
+          const identity = row.original.parsedIdentityElements;
           if (!identity || identity.length === 0) {
-            return <span className="text-muted-foreground">—</span>;
+            return <span className="text-muted-foreground">-</span>;
           }
           const display = identity.join(", ");
           return (
@@ -212,7 +266,17 @@ export function JobRowResultsTable({
         },
       },
       {
-        accessorKey: "timestamp",
+        accessorKey: "attemptCount",
+        header: "Attempts",
+        cell: ({ row }) => (
+          <Badge variant="secondary" className="text-xs">
+            {row.original.attemptCount}
+          </Badge>
+        ),
+        size: 80,
+      },
+      {
+        accessorKey: "updatedAt",
         header: ({ column }) => (
           <Button
             variant="ghost"
@@ -220,24 +284,24 @@ export function JobRowResultsTable({
             className="-ml-3 h-8"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Time
+            Updated
             <ArrowUpDown className="ml-1 size-3" />
           </Button>
         ),
         cell: ({ row }) => (
           <span className="text-muted-foreground text-xs">
-            {formatTime(row.original.timestamp)}
+            {formatTime(row.original.updatedAt)}
           </span>
         ),
         size: 100,
       },
       {
-        accessorKey: "errorMessage",
-        header: "Error",
+        accessorKey: "latestError",
+        header: "Latest Error",
         cell: ({ row }) => {
-          const error = row.original.errorMessage;
+          const error = row.original.latestError;
           if (!error) {
-            return <span className="text-muted-foreground">—</span>;
+            return <span className="text-muted-foreground">-</span>;
           }
           return (
             <TooltipProvider>
@@ -259,7 +323,7 @@ export function JobRowResultsTable({
         id: "actions",
         header: "",
         cell: ({ row }) => {
-          if (row.original.type !== "failure") return null;
+          if (row.original.status !== "failed") return null;
           return <RetryButton rowId={row.original.id} jobId={jobId} />;
         },
         size: 60,
@@ -269,17 +333,19 @@ export function JobRowResultsTable({
   );
 
   const table = useReactTable({
-    data: filteredData,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onExpandedChange: setExpanded,
+    getRowCanExpand: () => true,
     state: {
       sorting,
-      columnFilters,
+      expanded,
     },
     initialState: {
       pagination: {
@@ -288,8 +354,8 @@ export function JobRowResultsTable({
     },
   });
 
-  const successCount = successRows?.length ?? 0;
-  const failedCount = failedRows?.length ?? 0;
+  const successCount = rows?.filter((r) => r.status === "success").length ?? 0;
+  const failedCount = rows?.filter((r) => r.status === "failed").length ?? 0;
 
   if (isLoading) {
     return (
@@ -299,7 +365,7 @@ export function JobRowResultsTable({
     );
   }
 
-  if (data.length === 0) {
+  if (!rows || rows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <p className="text-sm">No row results yet</p>
@@ -313,7 +379,7 @@ export function JobRowResultsTable({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setStatusFilter("all")}
+            onClick={() => onStatusFilterChange("all")}
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
               statusFilter === "all"
@@ -321,10 +387,10 @@ export function JobRowResultsTable({
                 : "bg-muted/50 text-muted-foreground hover:bg-muted"
             )}
           >
-            All ({data.length})
+            All ({total})
           </button>
           <button
-            onClick={() => setStatusFilter("success")}
+            onClick={() => onStatusFilterChange("success")}
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
               statusFilter === "success"
@@ -335,7 +401,7 @@ export function JobRowResultsTable({
             Success ({successCount})
           </button>
           <button
-            onClick={() => setStatusFilter("failed")}
+            onClick={() => onStatusFilterChange("failed")}
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
               statusFilter === "failed"
@@ -346,9 +412,7 @@ export function JobRowResultsTable({
             Failed ({failedCount})
           </button>
         </div>
-        <div className="text-sm text-muted-foreground">
-          {filteredData.length} rows
-        </div>
+        <div className="text-sm text-muted-foreground">{data.length} rows</div>
       </div>
 
       {/* Table */}
@@ -376,23 +440,34 @@ export function JobRowResultsTable({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={cn(
-                    row.original.type === "success"
-                      ? "bg-green-500/5 hover:bg-green-500/10"
-                      : "bg-destructive/5 hover:bg-destructive/10"
+                <>
+                  <TableRow
+                    key={row.id}
+                    className={cn(
+                      "cursor-pointer",
+                      row.original.status === "success"
+                        ? "bg-green-500/5 hover:bg-green-500/10"
+                        : "bg-destructive/5 hover:bg-destructive/10"
+                    )}
+                    onClick={() => row.toggleExpanded()}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {row.getIsExpanded() && (
+                    <TableRow key={`${row.id}-expanded`}>
+                      <TableCell colSpan={columns.length} className="p-0 bg-muted/30">
+                        <AttemptsList rowId={row.original.id} />
+                      </TableCell>
+                    </TableRow>
                   )}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                </>
               ))
             ) : (
               <TableRow>

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
 // iMIS version type - EMS (cloud) or 2017 (on-premise)
 export type ImisVersion = "EMS" | "2017";
@@ -49,11 +49,8 @@ export const jobs = sqliteTable("jobs", {
   // Mapping (JSON stringified PropertyMapping[])
   mappings: text("mappings").notNull(),
 
-  // Progress tracking
+  // Total expected rows (set after first query)
   totalRows: integer("total_rows"),
-  processedRows: integer("processed_rows").notNull().default(0),
-  successfulRows: integer("successful_rows").notNull().default(0),
-  failedRowCount: integer("failed_row_count").notNull().default(0),
 
   // Error tracking for failed queries
   failedQueryOffsets: text("failed_query_offsets"), // JSON array of offsets that failed
@@ -71,39 +68,71 @@ export const jobs = sqliteTable("jobs", {
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
 
-// Failed row status type
-export type FailedRowStatus = "pending" | "retrying" | "resolved";
+// ---------------------
+// Row and Attempt Tables
+// ---------------------
 
-// Failed rows table - stores failed inserts with encrypted payload for retry
-export const failedRows = sqliteTable("failed_rows", {
-  id: text("id").primaryKey(),
-  jobId: text("job_id").notNull(),
-  rowIndex: integer("row_index").notNull(), // Original row position in batch
-  encryptedPayload: text("encrypted_payload").notNull(), // AES-256-GCM encrypted JSON of row data
-  errorMessage: text("error_message").notNull(),
-  retryCount: integer("retry_count").notNull().default(0), // Manual retry count (from retryFailedRows)
-  autoRetryAttempts: integer("auto_retry_attempts").notNull().default(0), // Automatic retry attempts before giving up
-  status: text("status").notNull().$type<FailedRowStatus>(), // pending | retrying | resolved
-  createdAt: text("created_at").notNull(),
-  resolvedAt: text("resolved_at"),
-});
+// Row status type - derived from whether any attempt succeeded
+export type RowStatus = "success" | "failed";
 
-// Type inference helpers for failed rows
-export type FailedRow = typeof failedRows.$inferSelect;
-export type NewFailedRow = typeof failedRows.$inferInsert;
+// Rows table - unified table for all rows (replaces failedRows + successRows)
+export const rows = sqliteTable(
+  "rows",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id").notNull(),
+    rowIndex: integer("row_index").notNull(), // Original row position in source data
 
-// Success rows table - stores successful inserts with identity elements
-export const successRows = sqliteTable("success_rows", {
-  id: text("id").primaryKey(),
-  jobId: text("job_id").notNull(),
-  rowIndex: integer("row_index").notNull(), // Original row position in batch
-  identityElements: text("identity_elements").notNull(), // JSON array of identity values (e.g., ["23204", "21"])
-  createdAt: text("created_at").notNull(),
-});
+    // Encrypted source data for retry capability (always stored)
+    encryptedPayload: text("encrypted_payload").notNull(),
 
-// Type inference helpers for success rows
-export type SuccessRow = typeof successRows.$inferSelect;
-export type NewSuccessRow = typeof successRows.$inferInsert;
+    // Stored for query efficiency (denormalized from attempts)
+    status: text("status").notNull().$type<RowStatus>(),
+
+    // Identity elements from successful insert (null if failed)
+    identityElements: text("identity_elements"),
+
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("rows_job_id_idx").on(table.jobId),
+    index("rows_job_status_idx").on(table.jobId, table.status),
+  ],
+);
+
+// Type inference helpers for rows
+export type Row = typeof rows.$inferSelect;
+export type NewRow = typeof rows.$inferInsert;
+
+// Attempt reason type
+export type AttemptReason = "initial" | "auto_retry" | "manual_retry";
+
+// Attempts table - individual insert attempt records
+export const attempts = sqliteTable(
+  "attempts",
+  {
+    id: text("id").primaryKey(),
+    rowId: text("row_id").notNull(),
+
+    // Why this attempt was made
+    reason: text("reason").notNull().$type<AttemptReason>(),
+
+    // Result
+    success: integer("success", { mode: "boolean" }).notNull(),
+    errorMessage: text("error_message"),
+
+    // Identity elements if successful
+    identityElements: text("identity_elements"),
+
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("attempts_row_id_idx").on(table.rowId)],
+);
+
+// Type inference helpers for attempts
+export type Attempt = typeof attempts.$inferSelect;
+export type NewAttempt = typeof attempts.$inferInsert;
 
 // ---------------------
 // Observability Tables
