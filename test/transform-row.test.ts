@@ -169,6 +169,101 @@ describe("transformRow", () => {
     })
   })
 
+  describe("binary blob handling", () => {
+    it("should preserve binary blob structure", () => {
+      const binaryBlob = {
+        $type: "System.Byte[], mscorlib" as const,
+        $value: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
+      }
+      const sourceRow = {
+        name: "Test",
+        image: binaryBlob,
+      }
+      const mappings = [
+        createPropertyMapping("name", "Name"),
+        createPropertyMapping("image", "Image"),
+      ]
+
+      const result = transformRow(sourceRow, mappings)
+
+      expect(result).toEqual({
+        Name: "Test",
+        Image: binaryBlob,
+      })
+      expect(result.Image).toHaveProperty("$type", "System.Byte[], mscorlib")
+      expect(result.Image).toHaveProperty("$value", "SGVsbG8gV29ybGQ=")
+    })
+
+    it("should filter out objects that look like binary blobs but have wrong $type", () => {
+      const notABlob = {
+        $type: "System.String, mscorlib",
+        $value: "some string",
+      }
+      const sourceRow = {
+        name: "Test",
+        data: notABlob,
+      }
+      const mappings = [
+        createPropertyMapping("name", "Name"),
+        createPropertyMapping("data", "Data"),
+      ]
+
+      const result = transformRow(sourceRow, mappings)
+
+      expect(result).toEqual({ Name: "Test" })
+      expect(result).not.toHaveProperty("Data")
+    })
+
+    it("should filter out objects missing $value property", () => {
+      const notABlob = {
+        $type: "System.Byte[], mscorlib",
+        // Missing $value
+      }
+      const sourceRow = {
+        name: "Test",
+        data: notABlob,
+      }
+      const mappings = [
+        createPropertyMapping("name", "Name"),
+        createPropertyMapping("data", "Data"),
+      ]
+
+      const result = transformRow(sourceRow, mappings)
+
+      expect(result).toEqual({ Name: "Test" })
+      expect(result).not.toHaveProperty("Data")
+    })
+
+    it("should handle row with multiple binary blobs", () => {
+      const blob1 = {
+        $type: "System.Byte[], mscorlib" as const,
+        $value: "YmxvYjE=", // "blob1"
+      }
+      const blob2 = {
+        $type: "System.Byte[], mscorlib" as const,
+        $value: "YmxvYjI=", // "blob2"
+      }
+      const sourceRow = {
+        file1: blob1,
+        file2: blob2,
+        name: "Test",
+      }
+      const mappings = [
+        createPropertyMapping("file1", "File1"),
+        createPropertyMapping("file2", "File2"),
+        createPropertyMapping("name", "Name"),
+      ]
+
+      const result = transformRow(sourceRow, mappings)
+
+      expect(result).toEqual({
+        File1: blob1,
+        File2: blob2,
+        Name: "Test",
+      })
+    })
+  })
+
   describe("edge cases", () => {
     it("should return empty object when all mappings have null destination", () => {
       const sourceRow = { a: 1, b: 2 }

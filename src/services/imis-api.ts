@@ -1,4 +1,5 @@
 import { Effect, Layer, Data, Schema, ParseResult, Schedule, Duration } from "effect";
+import type { BinaryBlob } from "./migration-job";
 import * as HttpClient from "@effect/platform/HttpClient";
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
@@ -916,7 +917,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         entityTypeName: string,
         parentEntityTypeName: string,
         parentId: string | null,
-        properties: Record<string, string | number | boolean | null>,
+        properties: Record<string, string | number | boolean | null | BinaryBlob>,
       ) =>
         executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) => {
           // Build properties array
