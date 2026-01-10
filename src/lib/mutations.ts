@@ -114,12 +114,12 @@ export const useRetrySingleRow = (jobId: string) => {
 
   return useMutation({
     mutationFn: (rowId: string) => retrySingleRow(rowId),
-    onSuccess: (result) => {
-      // Invalidate failed rows query to refresh the list
-      queryClient.invalidateQueries(queries.jobs.failedRows(jobId));
+    onSuccess: () => {
+      // Invalidate rows query to refresh the list
+      queryClient.invalidateQueries(queries.jobs.rows(jobId));
       // Also invalidate the job itself to update counts
       queryClient.invalidateQueries(queries.jobs.byId(jobId));
-      queryClient.invalidateQueries(queries.jobs.list());
+      queryClient.invalidateQueries(queries.jobs.all());
     },
   });
 };

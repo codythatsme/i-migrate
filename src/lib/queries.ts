@@ -10,9 +10,10 @@ import {
   getTrace,
   listJobs,
   getJob,
-  getJobFailedRows,
-  getJobSuccessRows,
+  getJobRows,
+  getRowAttempts,
 } from "@/api/client";
+import type { RowStatus } from "@/api/client";
 
 // Query options factory using RPC client
 export const queries = {
@@ -94,7 +95,7 @@ export const queries = {
   },
 
   jobs: {
-    // Get all jobs
+    // Get all jobs (with derived counts)
     all: () =>
       queryOptions({
         queryKey: ["jobs"],
@@ -102,7 +103,7 @@ export const queries = {
         refetchInterval: 3000, // Auto-refresh every 3 seconds for progress updates
       }),
 
-    // Get a single job by ID
+    // Get a single job by ID (with derived counts)
     byId: (jobId: string | null) =>
       queryOptions({
         queryKey: ["jobs", jobId],
@@ -111,20 +112,20 @@ export const queries = {
         refetchInterval: 2000, // More frequent updates for single job view
       }),
 
-    // Get failed rows for a job
-    failedRows: (jobId: string | null) =>
+    // Get rows for a job (with attempt summary info)
+    rows: (jobId: string | null, status?: RowStatus) =>
       queryOptions({
-        queryKey: ["jobs", jobId, "failedRows"],
-        queryFn: () => getJobFailedRows(jobId!),
+        queryKey: ["jobs", jobId, "rows", status ?? "all"],
+        queryFn: () => getJobRows(jobId!, { status }),
         enabled: !!jobId,
       }),
 
-    // Get success rows for a job
-    successRows: (jobId: string | null) =>
+    // Get attempts for a specific row (for inline expansion)
+    rowAttempts: (rowId: string | null) =>
       queryOptions({
-        queryKey: ["jobs", jobId, "successRows"],
-        queryFn: () => getJobSuccessRows(jobId!),
-        enabled: !!jobId,
+        queryKey: ["rows", rowId, "attempts"],
+        queryFn: () => getRowAttempts(rowId!),
+        enabled: !!rowId,
       }),
   },
 };

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { queries } from "@/lib/queries";
 import { runJob, retryFailedRows, cancelJob, deleteJob } from "@/api/client";
+import type { RowStatus } from "@/api/client";
 import {
   StatusIcon,
   StatusBadge,
@@ -41,24 +42,26 @@ import {
 } from "@/components/job-status";
 import { JobRowResultsTable } from "@/components/job-row-results-table";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 export const Route = createFileRoute("/jobs/$jobId")({
   component: JobDetailsPage,
 });
+
+type StatusFilter = "all" | "success" | "failed";
 
 function JobDetailsPage() {
   const { jobId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const { data: job, isLoading: isLoadingJob } = useQuery(queries.jobs.byId(jobId));
-  const { data: failedRows, isLoading: isLoadingFailed } = useQuery(
-    queries.jobs.failedRows(jobId)
-  );
-  const { data: successRows, isLoading: isLoadingSuccess } = useQuery(
-    queries.jobs.successRows(jobId)
+
+  // Get rows with optional status filter
+  const rowStatus: RowStatus | undefined = statusFilter === "all" ? undefined : statusFilter;
+  const { data: rowsData, isLoading: isLoadingRows } = useQuery(
+    queries.jobs.rows(jobId, rowStatus)
   );
 
   const identityFieldNames = useMemo(() => {
@@ -81,7 +84,7 @@ function JobDetailsPage() {
     mutationFn: retryFailedRows,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["jobs", jobId, "failedRows"] });
+      queryClient.invalidateQueries({ queryKey: ["jobs", jobId, "rows"] });
     },
   });
 
@@ -336,26 +339,16 @@ function JobDetailsPage() {
 
       {/* Row Results Table */}
       <div className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          Row Results
-          {successRows && (
-            <span className="text-green-600 text-sm font-normal">
-              ({successRows.length} success)
-            </span>
-          )}
-          {failedRows && failedRows.length > 0 && (
-            <span className="text-destructive text-sm font-normal">
-              ({failedRows.length} failed)
-            </span>
-          )}
-        </h2>
+        <h2 className="text-lg font-semibold">Row Results</h2>
 
         <JobRowResultsTable
-          successRows={successRows}
-          failedRows={failedRows}
+          rows={rowsData?.rows}
+          total={rowsData?.total ?? 0}
           identityFieldNames={identityFieldNames}
           jobId={jobId}
-          isLoading={isLoadingFailed || isLoadingSuccess}
+          isLoading={isLoadingRows}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
         />
       </div>
 

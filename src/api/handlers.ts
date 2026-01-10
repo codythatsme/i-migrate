@@ -491,7 +491,7 @@ export const HandlersLive = ApiGroup.toLayer({
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService;
       const persistence = yield* PersistenceService;
-      const jobs = yield* jobService.listJobs();
+      const jobs = yield* jobService.listJobsWithCounts();
 
       // Add environment names to each job
       const jobsWithEnvs = yield* Effect.all(
@@ -519,7 +519,7 @@ export const HandlersLive = ApiGroup.toLayer({
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService;
       const persistence = yield* PersistenceService;
-      const job = yield* jobService.getJob(jobId);
+      const job = yield* jobService.getJobWithCounts(jobId);
 
       // Add environment names
       const sourceEnv = yield* persistence
@@ -596,11 +596,18 @@ export const HandlersLive = ApiGroup.toLayer({
       }),
     ),
 
-  "jobs.failedRows": ({ jobId }) =>
+  "jobs.rows": ({ jobId, status }) =>
     Effect.gen(function* () {
       const jobService = yield* MigrationJobService;
-      const failedRows = yield* jobService.getJobFailedRows(jobId);
-      return failedRows;
+      const result = yield* jobService.getJobRows(jobId, { status });
+      return result;
+    }).pipe(Effect.mapError(mapDatabaseError)),
+
+  "rows.attempts": ({ rowId }) =>
+    Effect.gen(function* () {
+      const jobService = yield* MigrationJobService;
+      const attempts = yield* jobService.getRowAttempts(rowId);
+      return attempts;
     }).pipe(Effect.mapError(mapDatabaseError)),
 
   "jobs.retrySingleRow": ({ rowId }) =>
@@ -615,13 +622,6 @@ export const HandlersLive = ApiGroup.toLayer({
         return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }));
       }),
     ),
-
-  "jobs.successRows": ({ jobId }) =>
-    Effect.gen(function* () {
-      const jobService = yield* MigrationJobService;
-      const successRows = yield* jobService.getJobSuccessRows(jobId);
-      return successRows;
-    }).pipe(Effect.mapError(mapDatabaseError)),
 
   "jobs.cancel": ({ jobId }) =>
     Effect.gen(function* () {

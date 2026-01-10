@@ -32,8 +32,6 @@ import {
   // Job schemas
   JobSchema,
   JobWithEnvironmentsSchema,
-  FailedRowSchema,
-  SuccessRowSchema,
   CreateJobRequestSchema,
   CreateJobResponseSchema,
   JobIdRequestSchema,
@@ -44,6 +42,11 @@ import {
   JobNotFoundErrorSchema,
   JobAlreadyRunningErrorSchema,
   MigrationErrorSchema,
+  // Row and Attempt schemas
+  GetJobRowsRequestSchema,
+  GetJobRowsResponseSchema,
+  GetRowAttemptsRequestSchema,
+  AttemptSchema,
 } from "./schemas";
 import {
   BoEntityDefinitionQueryResponseSchema,
@@ -289,17 +292,17 @@ const RetryFailedRows = Rpc.make("jobs.retry", {
   ),
 });
 
-/** Get failed rows for a job */
-const GetJobFailedRows = Rpc.make("jobs.failedRows", {
-  payload: JobIdRequestSchema,
-  success: Schema.Array(FailedRowSchema),
+/** Get rows for a job (with attempt info) */
+const GetJobRows = Rpc.make("jobs.rows", {
+  payload: GetJobRowsRequestSchema,
+  success: GetJobRowsResponseSchema,
   error: DatabaseErrorSchema,
 });
 
-/** Get success rows for a job */
-const GetJobSuccessRows = Rpc.make("jobs.successRows", {
-  payload: JobIdRequestSchema,
-  success: Schema.Array(SuccessRowSchema),
+/** Get attempts for a specific row */
+const GetRowAttempts = Rpc.make("rows.attempts", {
+  payload: GetRowAttemptsRequestSchema,
+  success: Schema.Array(AttemptSchema),
   error: DatabaseErrorSchema,
 });
 
@@ -358,8 +361,8 @@ export const ApiGroup = RpcGroup.make(
   RunJob,
   RetryFailedRows,
   RetrySingleRow,
-  GetJobFailedRows,
-  GetJobSuccessRows,
+  GetJobRows,
+  GetRowAttempts,
   CancelJob,
   DeleteJob,
 );
