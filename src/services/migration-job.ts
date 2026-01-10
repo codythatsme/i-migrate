@@ -76,8 +76,25 @@ export type JobWithProgress = Job & {
   progress: number; // 0-100 percentage
 };
 
-// Row data type for transformations
-type RowData = Record<string, string | number | boolean | null>;
+// Binary blob type for iMIS binary property values
+export type BinaryBlob = {
+  $type: "System.Byte[], mscorlib";
+  $value: string;
+};
+
+// Type guard to check if a value is a binary blob
+export const isBinaryBlob = (value: unknown): value is BinaryBlob => {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "$type" in value &&
+    "$value" in value &&
+    (value as { $type: string }).$type === "System.Byte[], mscorlib"
+  );
+};
+
+// Row data type for transformations (includes binary blobs)
+type RowData = Record<string, string | number | boolean | null | BinaryBlob>;
 
 // ---------------------
 // Retry Configuration
@@ -95,7 +112,7 @@ const queryRetrySchedule = Schedule.exponential(Duration.millis(1000), 2).pipe(
 
 /**
  * Transform a source row to destination format using property mappings.
- * Filters out non-primitive values and only includes mappings with a destination.
+ * Filters out non-primitive values (except binary blobs) and only includes mappings with a destination.
  */
 export const transformRow = (
   sourceRow: Record<string, unknown>,
@@ -105,8 +122,12 @@ export const transformRow = (
   for (const mapping of mappings) {
     if (mapping.destinationProperty !== null) {
       const value = sourceRow[mapping.sourceProperty];
-      // Only include primitive values
-      if (
+      // Include binary blobs (preserving structure for iMIS API)
+      if (isBinaryBlob(value)) {
+        result[mapping.destinationProperty] = value;
+      }
+      // Include primitive values
+      else if (
         value === null ||
         typeof value === "string" ||
         typeof value === "number" ||
