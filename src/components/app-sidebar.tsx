@@ -39,6 +39,15 @@ const navItems = [
   },
 ];
 
+function isActiveRoute(currentPath: string, itemUrl: string): boolean {
+  // Exact match for root path
+  if (itemUrl === "/") {
+    return currentPath === "/";
+  }
+  // For other paths, check if current path starts with the item URL
+  return currentPath === itemUrl || currentPath.startsWith(itemUrl + "/");
+}
+
 export function AppSidebar() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -71,7 +80,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={currentPath === item.url}
+                    isActive={isActiveRoute(currentPath, item.url)}
                     tooltip={item.title}
                   >
                     <Link to={item.url}>
