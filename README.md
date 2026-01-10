@@ -123,7 +123,7 @@ Configuration and job metadata are stored in a local SQLite database at `data/i-
 
 ## Building from Source
 
-Requires [Bun](https://bun.sh) v1.1.0 or later.
+Requires [Bun](https://bun.sh) v1.3.0 or later.
 
 ```bash
 # Install dependencies
