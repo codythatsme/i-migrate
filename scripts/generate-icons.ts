@@ -7,7 +7,7 @@
 
 import sharp from "sharp";
 import { execSync } from "child_process";
-import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, rmSync } from "fs";
 import path from "path";
 
 const ASSETS_DIR = path.join(import.meta.dir, "..", "assets");

@@ -7,7 +7,6 @@ import type {
   PropertyTypeString,
   PropertyTypeInteger,
   PropertyTypeBoolean,
-  BoProperty,
 } from "../src/api/imis-schemas"
 
 // ---------------------

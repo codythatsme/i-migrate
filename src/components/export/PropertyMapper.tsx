@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { queries } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -24,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { BoProperty, BoEntityDefinition } from "@/api/client";
+import type { BoProperty } from "@/api/client";
 
 // ---------------------
 // Types

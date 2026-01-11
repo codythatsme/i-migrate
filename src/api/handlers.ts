@@ -14,7 +14,6 @@ import {
   TraceStoreErrorSchema,
   JobNotFoundErrorSchema,
   JobAlreadyRunningErrorSchema,
-  MigrationErrorSchema,
 } from "./schemas";
 import {
   PersistenceService,
@@ -37,7 +36,6 @@ import {
   MigrationJobService,
   JobNotFoundError,
   JobAlreadyRunningError,
-  MigrationError,
 } from "../services/migration-job";
 import type { NewEnvironment } from "../db/schema";
 
@@ -81,9 +79,6 @@ const mapJobNotFoundError = (error: JobNotFoundError) =>
 
 const mapJobAlreadyRunningError = (error: JobAlreadyRunningError) =>
   new JobAlreadyRunningErrorSchema({ jobId: error.jobId });
-
-const mapMigrationError = (error: MigrationError) =>
-  new MigrationErrorSchema({ message: error.message });
 
 const mapInvalidCredentialsError = (error: InvalidCredentialsError) =>
   new InvalidCredentialsErrorSchema({ message: error.message });

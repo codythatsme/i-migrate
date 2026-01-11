@@ -1,7 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { Server, AlertTriangle } from "lucide-react";
+import { Server } from "lucide-react";
 import { useUpdateEnvironment, useSetPassword } from "@/lib/mutations";
-import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

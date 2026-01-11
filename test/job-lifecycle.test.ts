@@ -172,8 +172,8 @@ describe("Job Lifecycle", () => {
       const job = db.select().from(jobs).where(eq(jobs.id, jobId)).get()
 
       expect(job?.createdAt).toBeDefined()
-      expect(job?.createdAt! >= beforeCreate).toBe(true)
-      expect(job?.createdAt! <= afterCreate).toBe(true)
+      expect(job?.createdAt && job.createdAt >= beforeCreate).toBe(true)
+      expect(job?.createdAt && job.createdAt <= afterCreate).toBe(true)
       expect(job?.startedAt).toBeNull()
       expect(job?.completedAt).toBeNull()
     })

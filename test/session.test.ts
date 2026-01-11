@@ -6,7 +6,7 @@
  * - Clear session behavior
  */
 
-import { describe, it, expect, beforeEach, mock } from "bun:test"
+import { describe, it, expect, beforeEach } from "bun:test"
 import { Effect } from "effect"
 import { SessionService } from "../src/services/session"
 

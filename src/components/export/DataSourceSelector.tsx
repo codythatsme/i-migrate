@@ -1,22 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Database,
-  Search,
-  Loader2,
-  AlertCircle,
-  Filter,
-  Info,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import { Database, Search, AlertCircle, Filter, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { queries } from "@/lib/queries";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import type { BoEntityDefinition } from "@/api/client";
-import { clampBigDecimal } from "effect/Schema";
 
 // Compatibility filter for destination selection
 type CompatibilityFilter = {

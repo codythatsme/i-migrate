@@ -11,7 +11,6 @@ import {
 	createTestEnvironment,
 	cleanupTestEnvironment,
 	runExpectSuccess,
-	runExpectFailure,
 	TEST_QUERY_PATH,
 	getTestConfig,
 } from "./setup"

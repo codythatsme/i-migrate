@@ -1,14 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Folder,
-  FileSearch,
-  Search,
-  Loader2,
-  AlertCircle,
-  ChevronRight,
-  ArrowUp,
-} from "lucide-react";
+import { Folder, FileSearch, Search, AlertCircle, ChevronRight, ArrowUp } from "lucide-react";
 import { queries } from "@/lib/queries";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,7 +39,7 @@ export function QueryFileBrowser({
 }: QueryFileBrowserProps) {
   const [currentPath, setCurrentPath] = useState(ROOT_PATH);
   const [pathInput, setPathInput] = useState(ROOT_PATH);
-  const [isEditingPath, setIsEditingPath] = useState(false);
+  const [, setIsEditingPath] = useState(false);
 
   // Sync pathInput when currentPath changes
   useEffect(() => {

@@ -12,7 +12,6 @@ import {
 	shouldRunIntegrationTests,
 	createTestEnvironment,
 	cleanupTestEnvironment,
-	runWithImisServices,
 	runWithSession,
 	runExpectFailure,
 	runExpectSuccess,
@@ -112,7 +111,7 @@ describe.skipIf(!shouldRunIntegrationTests())("iMIS Authentication", () => {
 		it("should refresh token automatically on 401", async () => {
 			// Authenticate first
 			await runExpectSuccess(ImisApiService.authenticate(envId))
-			const originalToken = await runWithSession(SessionService.getImisToken(envId))
+			await runWithSession(SessionService.getImisToken(envId))
 
 			// Manually clear the token to simulate expiry
 			// The service will attempt to use no token, get 401, then refresh

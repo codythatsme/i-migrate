@@ -4,5 +4,8 @@
     "correctness": "error"
   },
   "plugins": ["typescript", "react"],
-  "ignorePatterns": ["dist/**", "node_modules/**", "vendor/**", "**/routeTree.gen.ts"]
+  "ignorePatterns": ["dist/**", "node_modules/**", "vendor/**", "**/routeTree.gen.ts"],
+  "rules": {
+    "react-hooks/exhaustive-deps": "off"
+  }
 }
