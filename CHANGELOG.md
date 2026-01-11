@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-01-11
+
+### Added
+
+- Export traces to JSON with automatic sanitization of sensitive data (environment IDs, URLs)
+
+## [0.4.0] - 2025-01-11
+
+### Added
+
+- Unified rows/attempts tracking for job results
+- Redesigned job details with dedicated page and data table
+
+### Changed
+
+- Update Bun version requirement to v1.3.0
+
 ## [0.3.4] - 2025-01-10
 
 ### Fixed
