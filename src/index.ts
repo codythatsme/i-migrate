@@ -89,7 +89,9 @@ if (!process.env.__BROWSER_OPENED__) {
   if (platform === "win32") {
     // "start" is a shell built-in on Windows, so we need to run it through cmd.exe
     // The empty string after "start" is the window title (required when URL contains special chars)
-    Bun.spawn(["cmd", "/c", "start", "", server.url.href], { stdio: ["ignore", "ignore", "ignore"] });
+    Bun.spawn(["cmd", "/c", "start", "", server.url.href], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
   } else {
     const command = platform === "darwin" ? "open" : "xdg-open";
     Bun.spawn([command, server.url.href], { stdio: ["ignore", "ignore", "ignore"] });

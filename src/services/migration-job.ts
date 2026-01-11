@@ -235,14 +235,23 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
       const getFailedRowsForJob = (jobId: string) =>
         Effect.try({
           try: () =>
-            db.select().from(rows).where(and(eq(rows.jobId, jobId), eq(rows.status, "failed"))).all(),
+            db
+              .select()
+              .from(rows)
+              .where(and(eq(rows.jobId, jobId), eq(rows.status, "failed")))
+              .all(),
           catch: (cause) => new DatabaseError({ message: "Failed to fetch failed rows", cause }),
         });
 
       const getAttemptsForRow = (rowId: string) =>
         Effect.try({
           try: () =>
-            db.select().from(attempts).where(eq(attempts.rowId, rowId)).orderBy(attempts.createdAt).all(),
+            db
+              .select()
+              .from(attempts)
+              .where(eq(attempts.rowId, rowId))
+              .orderBy(attempts.createdAt)
+              .all(),
           catch: (cause) => new DatabaseError({ message: "Failed to fetch attempts", cause }),
         });
 
@@ -903,9 +912,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             // Get the row
             const row = yield* getRowById(rowId);
             if (!row) {
-              return yield* Effect.fail(
-                new DatabaseError({ message: `Row not found: ${rowId}` }),
-              );
+              return yield* Effect.fail(new DatabaseError({ message: `Row not found: ${rowId}` }));
             }
 
             if (row.status !== "failed") {
@@ -980,7 +987,9 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                 ? (JSON.parse(job.failedQueryOffsets) as number[])
                 : [];
               const shouldMarkCompleted =
-                counts.failedRowCount === 0 && failedOffsets.length === 0 && job.status === "partial";
+                counts.failedRowCount === 0 &&
+                failedOffsets.length === 0 &&
+                job.status === "partial";
 
               if (shouldMarkCompleted) {
                 yield* updateJobStatus(row.jobId, { status: "completed" });
@@ -1076,7 +1085,9 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         getJobRows: (jobId: string, options?: { status?: RowStatus }) =>
           Effect.gen(function* () {
             // Build query with optional filters
-            const statusFilter = options?.status ? and(eq(rows.jobId, jobId), eq(rows.status, options.status)) : eq(rows.jobId, jobId);
+            const statusFilter = options?.status
+              ? and(eq(rows.jobId, jobId), eq(rows.status, options.status))
+              : eq(rows.jobId, jobId);
 
             // Get total count
             const totalResult = yield* Effect.try({
@@ -1092,13 +1103,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
 
             // Get all rows
             const rowsList = yield* Effect.try({
-              try: () =>
-                db
-                  .select()
-                  .from(rows)
-                  .where(statusFilter)
-                  .orderBy(rows.rowIndex)
-                  .all(),
+              try: () => db.select().from(rows).where(statusFilter).orderBy(rows.rowIndex).all(),
               catch: (cause) => new DatabaseError({ message: "Failed to fetch rows", cause }),
             });
 

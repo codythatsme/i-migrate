@@ -1,10 +1,4 @@
-import {
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Loader2,
-  XCircle,
-} from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { JobStatus } from "@/api/client";
 

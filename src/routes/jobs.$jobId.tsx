@@ -61,7 +61,7 @@ function JobDetailsPage() {
   // Get rows with optional status filter
   const rowStatus: RowStatus | undefined = statusFilter === "all" ? undefined : statusFilter;
   const { data: rowsData, isLoading: isLoadingRows } = useQuery(
-    queries.jobs.rows(jobId, rowStatus)
+    queries.jobs.rows(jobId, rowStatus),
   );
 
   const identityFieldNames = useMemo(() => {
@@ -173,9 +173,7 @@ function JobDetailsPage() {
             </Button>
           )}
           {job.failedRowCount > 0 &&
-            (job.status === "completed" ||
-              job.status === "partial" ||
-              job.status === "failed") && (
+            (job.status === "completed" || job.status === "partial" || job.status === "failed") && (
               <Button
                 size="sm"
                 variant="outline"
@@ -217,9 +215,7 @@ function JobDetailsPage() {
             {job.sourceEnvironmentName}
           </span>
           <ArrowRight className="size-4 text-muted-foreground" />
-          <span className="px-2 py-1 bg-muted rounded font-medium">
-            {job.destEnvironmentName}
-          </span>
+          <span className="px-2 py-1 bg-muted rounded font-medium">{job.destEnvironmentName}</span>
           <span className="text-muted-foreground ml-auto">
             Duration: {formatDuration(job.startedAt, job.completedAt)}
           </span>
@@ -238,7 +234,7 @@ function JobDetailsPage() {
               <div
                 className={cn(
                   "h-full transition-all duration-500",
-                  job.failedRowCount > 0 ? "bg-amber-500" : "bg-primary"
+                  job.failedRowCount > 0 ? "bg-amber-500" : "bg-primary",
                 )}
                 style={{ width: `${progress}%` }}
               />
@@ -292,9 +288,7 @@ function JobDetailsPage() {
                       const mappings = JSON.parse(job.mappings) as Array<{
                         destinationProperty: string | null;
                       }>;
-                      const active = mappings.filter(
-                        (m) => m.destinationProperty !== null
-                      ).length;
+                      const active = mappings.filter((m) => m.destinationProperty !== null).length;
                       return `${active} fields`;
                     } catch {
                       return "—";
@@ -307,8 +301,7 @@ function JobDetailsPage() {
                   <span className="text-xs text-primary font-medium">Processing Rate</span>
                   <span className="text-sm font-mono text-primary">
                     {(() => {
-                      const elapsed =
-                        (Date.now() - new Date(job.startedAt!).getTime()) / 1000;
+                      const elapsed = (Date.now() - new Date(job.startedAt!).getTime()) / 1000;
                       if (elapsed < 1) return "—";
                       const rate = job.processedRows / elapsed;
                       return rate >= 1
@@ -371,9 +364,9 @@ function JobDetailsPage() {
               <div className="text-sm">
                 <p className="font-medium text-amber-600">Warning: Partial Job</p>
                 <p className="text-muted-foreground mt-1">
-                  This job has {job.failedRowCount} failed records that haven't been
-                  retried. Deleting will permanently remove these records and you won't be
-                  able to retry them.
+                  This job has {job.failedRowCount} failed records that haven't been retried.
+                  Deleting will permanently remove these records and you won't be able to retry
+                  them.
                 </p>
               </div>
             </div>

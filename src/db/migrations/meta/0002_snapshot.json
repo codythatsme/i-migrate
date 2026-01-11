@@ -60,9 +60,7 @@
       "indexes": {
         "attempts_row_id_idx": {
           "name": "attempts_row_id_idx",
-          "columns": [
-            "row_id"
-          ],
+          "columns": ["row_id"],
           "isUnique": false
         }
       },
@@ -339,17 +337,12 @@
       "indexes": {
         "rows_job_id_idx": {
           "name": "rows_job_id_idx",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         },
         "rows_job_status_idx": {
           "name": "rows_job_status_idx",
-          "columns": [
-            "job_id",
-            "status"
-          ],
+          "columns": ["job_id", "status"],
           "isUnique": false
         }
       },
