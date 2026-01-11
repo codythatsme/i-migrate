@@ -20,6 +20,7 @@ CREATE TABLE `jobs` (
 	`successful_rows` integer NOT NULL DEFAULT 0,
 	`failed_row_count` integer NOT NULL DEFAULT 0,
 	`failed_query_offsets` text,
+	`identity_field_names` text,
 	`started_at` text,
 	`completed_at` text,
 	`created_at` text NOT NULL

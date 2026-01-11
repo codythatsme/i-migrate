@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
+import { migrations } from "./migrations";
 
 // Ensure data directory exists
 import { mkdirSync, existsSync } from "node:fs";
@@ -35,132 +36,51 @@ if (!existsSync(dbDir)) {
 const sqlite = new Database(dbPath, { create: true });
 sqlite.run("PRAGMA journal_mode = WAL;");
 
-// Auto-create tables if they don't exist (for portable executable)
-// This embeds the schema directly since migration files aren't bundled
-function initializeSchema() {
-  // Check if tables exist
-  const tables = sqlite.query("SELECT name FROM sqlite_master WHERE type='table'").all() as {
-    name: string;
-  }[];
-  const tableNames = new Set(tables.map((t) => t.name));
+// Run embedded migrations (SQL files bundled at build time)
+function runMigrations() {
+  // Create migrations tracking table
+  sqlite.run(`
+    CREATE TABLE IF NOT EXISTS __migrations (
+      id TEXT PRIMARY KEY NOT NULL,
+      applied_at TEXT NOT NULL
+    )
+  `);
 
-  if (!tableNames.has("environments")) {
-    sqlite.run(`
-      CREATE TABLE environments (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        base_url TEXT NOT NULL,
-        username TEXT NOT NULL,
-        version TEXT NOT NULL DEFAULT 'EMS',
-        icon TEXT,
-        query_concurrency INTEGER NOT NULL DEFAULT 5,
-        insert_concurrency INTEGER NOT NULL DEFAULT 50,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-  }
+  // Get already-applied migrations
+  const applied = new Set(
+    (sqlite.query("SELECT id FROM __migrations").all() as { id: string }[]).map((r) => r.id),
+  );
 
-  if (!tableNames.has("jobs")) {
-    sqlite.run(`
-      CREATE TABLE jobs (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        status TEXT NOT NULL,
-        mode TEXT NOT NULL,
-        source_environment_id TEXT NOT NULL,
-        source_query_path TEXT,
-        source_entity_type TEXT,
-        dest_environment_id TEXT NOT NULL,
-        dest_entity_type TEXT NOT NULL,
-        mappings TEXT NOT NULL,
-        total_rows INTEGER,
-        failed_query_offsets TEXT,
-        identity_field_names TEXT,
-        started_at TEXT,
-        completed_at TEXT,
-        created_at TEXT NOT NULL
-      )
-    `);
-  } else {
-    // Migration: add identity_field_names column if it doesn't exist
-    const jobColumns = sqlite.query("PRAGMA table_info(jobs)").all() as { name: string }[];
-    const jobColumnNames = new Set(jobColumns.map((c) => c.name));
-    if (!jobColumnNames.has("identity_field_names")) {
-      sqlite.run("ALTER TABLE jobs ADD COLUMN identity_field_names TEXT");
+  // Run pending migrations in order
+  for (const { id, sql } of migrations) {
+    if (applied.has(id)) continue;
+
+    // Parse statements by delimiter
+    const statements = sql
+      .split("--> statement-breakpoint")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    // Run in transaction
+    sqlite.run("BEGIN");
+    try {
+      for (const stmt of statements) {
+        sqlite.run(stmt);
+      }
+      sqlite.run(`INSERT INTO __migrations (id, applied_at) VALUES (?, ?)`, [
+        id,
+        new Date().toISOString(),
+      ]);
+      sqlite.run("COMMIT");
+      console.log(`Applied migration: ${id}`);
+    } catch (err) {
+      sqlite.run("ROLLBACK");
+      throw new Error(`Migration ${id} failed: ${err}`);
     }
-  }
-
-  // Create rows table (unified success/failed rows)
-  if (!tableNames.has("rows")) {
-    sqlite.run(`
-      CREATE TABLE rows (
-        id TEXT PRIMARY KEY NOT NULL,
-        job_id TEXT NOT NULL,
-        row_index INTEGER NOT NULL,
-        encrypted_payload TEXT NOT NULL,
-        status TEXT NOT NULL,
-        identity_elements TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-    sqlite.run(`CREATE INDEX rows_job_id_idx ON rows (job_id)`);
-    sqlite.run(`CREATE INDEX rows_job_status_idx ON rows (job_id, status)`);
-  }
-
-  // Create attempts table for tracking individual insert attempts
-  if (!tableNames.has("attempts")) {
-    sqlite.run(`
-      CREATE TABLE attempts (
-        id TEXT PRIMARY KEY NOT NULL,
-        row_id TEXT NOT NULL,
-        reason TEXT NOT NULL,
-        success INTEGER NOT NULL,
-        error_message TEXT,
-        identity_elements TEXT,
-        created_at TEXT NOT NULL
-      )
-    `);
-    sqlite.run(`CREATE INDEX attempts_row_id_idx ON attempts (row_id)`);
-  }
-
-  if (!tableNames.has("traces")) {
-    sqlite.run(`
-      CREATE TABLE traces (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        status TEXT NOT NULL,
-        start_time INTEGER NOT NULL,
-        end_time INTEGER,
-        duration_ms INTEGER,
-        error_message TEXT,
-        created_at TEXT NOT NULL
-      )
-    `);
-  }
-
-  if (!tableNames.has("spans")) {
-    sqlite.run(`
-      CREATE TABLE spans (
-        id TEXT PRIMARY KEY NOT NULL,
-        trace_id TEXT NOT NULL,
-        parent_span_id TEXT,
-        name TEXT NOT NULL,
-        status TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        start_time INTEGER NOT NULL,
-        end_time INTEGER,
-        duration_ms INTEGER,
-        attributes TEXT,
-        events TEXT,
-        error_cause TEXT
-      )
-    `);
   }
 }
 
-initializeSchema();
+runMigrations();
 
 // Create Drizzle instance with schema
 export const db = drizzle(sqlite, { schema });
