@@ -116,6 +116,8 @@ export class ImisAuthErrorSchema extends Schema.TaggedError<ImisAuthErrorSchema>
   "ImisAuthError",
   {
     message: Schema.String,
+    statusCode: Schema.optionalWith(Schema.Number, { exact: true }),
+    responseBody: Schema.optionalWith(Schema.String, { exact: true }),
   },
 ) {}
 
@@ -123,6 +125,8 @@ export class InvalidCredentialsErrorSchema extends Schema.TaggedError<InvalidCre
   "InvalidCredentialsError",
   {
     message: Schema.String,
+    statusCode: Schema.optionalWith(Schema.Number, { exact: true }),
+    responseBody: Schema.optionalWith(Schema.String, { exact: true }),
   },
 ) {}
 
@@ -138,6 +142,8 @@ export class ImisRequestErrorSchema extends Schema.TaggedError<ImisRequestErrorS
   "ImisRequestError",
   {
     message: Schema.String,
+    statusCode: Schema.optionalWith(Schema.Number, { exact: true }),
+    responseBody: Schema.optionalWith(Schema.String, { exact: true }),
   },
 ) {}
 
@@ -146,6 +152,7 @@ export class ImisResponseErrorSchema extends Schema.TaggedError<ImisResponseErro
   {
     message: Schema.String,
     status: Schema.Number,
+    responseBody: Schema.optionalWith(Schema.String, { exact: true }),
   },
 ) {}
 

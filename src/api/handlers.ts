@@ -55,14 +55,32 @@ const mapMissingCredentialsError = (error: MissingCredentialsError) =>
     message: "Password is required. Please enter your password first.",
   });
 
-const mapImisAuthError = (error: ImisAuthError) =>
-  new ImisAuthErrorSchema({ message: error.message });
+const mapImisAuthError = (error: ImisAuthError) => {
+  const cause = error.cause as { status?: number; body?: string } | undefined;
+  return new ImisAuthErrorSchema({
+    message: error.message,
+    statusCode: cause?.status,
+    responseBody: cause?.body,
+  });
+};
 
-const mapImisRequestError = (error: ImisRequestError) =>
-  new ImisRequestErrorSchema({ message: error.message });
+const mapImisRequestError = (error: ImisRequestError) => {
+  const cause = error.cause as { status?: number; body?: string } | undefined;
+  return new ImisRequestErrorSchema({
+    message: error.message,
+    statusCode: cause?.status,
+    responseBody: cause?.body,
+  });
+};
 
-const mapImisResponseError = (error: ImisResponseError) =>
-  new ImisResponseErrorSchema({ message: error.message, status: error.status });
+const mapImisResponseError = (error: ImisResponseError) => {
+  const cause = error.cause as { body?: string } | undefined;
+  return new ImisResponseErrorSchema({
+    message: error.message,
+    status: error.status,
+    responseBody: cause?.body,
+  });
+};
 
 const mapImisSchemaError = (error: ImisSchemaError) =>
   new ImisSchemaErrorSchema({
@@ -80,8 +98,14 @@ const mapJobNotFoundError = (error: JobNotFoundError) =>
 const mapJobAlreadyRunningError = (error: JobAlreadyRunningError) =>
   new JobAlreadyRunningErrorSchema({ jobId: error.jobId });
 
-const mapInvalidCredentialsError = (error: InvalidCredentialsError) =>
-  new InvalidCredentialsErrorSchema({ message: error.message });
+const mapInvalidCredentialsError = (error: InvalidCredentialsError) => {
+  const cause = error.cause as { status?: number; body?: string } | undefined;
+  return new InvalidCredentialsErrorSchema({
+    message: error.message,
+    statusCode: cause?.status,
+    responseBody: cause?.body,
+  });
+};
 
 const mapNotStaffAccountError = (error: NotStaffAccountError) =>
   new NotStaffAccountErrorSchema({ username: error.username, message: error.message });
