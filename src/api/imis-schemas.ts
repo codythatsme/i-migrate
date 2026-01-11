@@ -216,6 +216,22 @@ export const QueryPropertyDataSchema = Schema.Struct({
   DataTypeName: QueryDataTypeNameSchema,
 });
 
+/**
+ * 2017 environments may omit several fields from query properties.
+ */
+export const QueryPropertyData2017Schema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryPropertyData, Asi.Contracts"),
+  QuerySourceId: Schema.optionalWith(Schema.String, { exact: true }),
+  Name: Schema.String,
+  PropertyName: Schema.optionalWith(Schema.String, { exact: true }),
+  Alias: Schema.optionalWith(Schema.String, { exact: true }),
+  Caption: Schema.optionalWith(Schema.String, { exact: true }),
+  DisplayFormat: Schema.optionalWith(DisplayFormatSchema, { exact: true }),
+  DisplayOrder: Schema.optionalWith(Schema.Number, { exact: true }),
+  Link: Schema.optionalWith(Schema.String, { exact: true }),
+  DataTypeName: QueryDataTypeNameSchema,
+});
+
 export const QueryRelationDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryRelationData, Asi.Contracts"),
   LeftQuerySourceId: Schema.String,
@@ -223,6 +239,18 @@ export const QueryRelationDataSchema = Schema.Struct({
   RightQuerySourceId: Schema.String,
   RightPropertyName: Schema.String,
   RelationType: RelationTypeSchema,
+});
+
+/**
+ * 2017 environments may omit RelationType from query relations.
+ */
+export const QueryRelationData2017Schema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QueryRelationData, Asi.Contracts"),
+  LeftQuerySourceId: Schema.String,
+  LeftPropertyName: Schema.String,
+  RightQuerySourceId: Schema.String,
+  RightPropertyName: Schema.String,
+  RelationType: Schema.optionalWith(RelationTypeSchema, { exact: true }),
 });
 
 export const QuerySourceDataSchema = Schema.Struct({
@@ -234,6 +262,18 @@ export const QuerySourceDataSchema = Schema.Struct({
   BusinessControllerName: Schema.String,
 });
 
+/**
+ * 2017 environments may omit BusinessControllerName from query sources.
+ */
+export const QuerySourceData2017Schema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.QuerySourceData, Asi.Contracts"),
+  QuerySourceId: Schema.String,
+  QuerySourceType: QuerySourceTypeSchema,
+  Name: Schema.String,
+  Description: Schema.optionalWith(Schema.String, { exact: true }),
+  BusinessControllerName: Schema.optionalWith(Schema.String, { exact: true }),
+});
+
 export const QueryDefinitionSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.IqaQueryDefinitionData, Asi.Contracts"),
   Document: DocumentDataSchema,
@@ -242,6 +282,21 @@ export const QueryDefinitionSchema = Schema.Struct({
   Properties: SoaCollectionSchema(QueryPropertyDataSchema),
   Relations: SoaCollectionSchema(QueryRelationDataSchema),
   Sources: SoaCollectionSchema(QuerySourceDataSchema),
+  QueryDefinitionId: Schema.String,
+  LimitResultsCount: Schema.optionalWith(Schema.Number, { exact: true }),
+});
+
+/**
+ * 2017 environments return query definitions without the Document field
+ * and with several optional fields in properties, relations, and sources.
+ */
+export const QueryDefinition2017Schema = Schema.Struct({
+  $type: Schema.Literal("Asi.Soa.Core.DataContracts.IqaQueryDefinitionData, Asi.Contracts"),
+  Parameters: SoaCollectionSchema(CriteriaDataSchema),
+  Path: Schema.String,
+  Properties: SoaCollectionSchema(QueryPropertyData2017Schema),
+  Relations: SoaCollectionSchema(QueryRelationData2017Schema),
+  Sources: SoaCollectionSchema(QuerySourceData2017Schema),
   QueryDefinitionId: Schema.String,
   LimitResultsCount: Schema.optionalWith(Schema.Number, { exact: true }),
 });
@@ -664,6 +719,7 @@ export type BoEntityDefinition = typeof BoEntityDefinitionSchema.Type;
 
 export type GenericProperty = typeof GenericPropertySchema.Type;
 export type QueryDefinition = typeof QueryDefinitionSchema.Type;
+export type QueryDefinition2017 = typeof QueryDefinition2017Schema.Type;
 export type QueryData = typeof QueryDataSchema.Type;
 export type CriteriaData = typeof CriteriaDataSchema.Type;
 

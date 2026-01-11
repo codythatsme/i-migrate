@@ -1,11 +1,21 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Folder, FileSearch, Search, AlertCircle, ChevronRight, ArrowUp } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import {
+  Folder,
+  FileSearch,
+  Search,
+  AlertCircle,
+  ChevronRight,
+  ArrowUp,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { queries } from "@/lib/queries";
+import { getQueryDefinition } from "@/api/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { DocumentSummaryData } from "@/api/client";
+import type { DocumentSummaryData, ImisVersion } from "@/api/client";
 
 // ---------------------
 // Constants
@@ -20,6 +30,7 @@ const FILE_TYPES = ["FOL", "IQD"];
 
 type QueryFileBrowserProps = {
   environmentId: string | null;
+  environmentVersion?: ImisVersion;
   selectedQueryPath: string | null;
   onSelect: (path: string, name: string) => void;
   title?: string;
@@ -32,19 +43,59 @@ type QueryFileBrowserProps = {
 
 export function QueryFileBrowser({
   environmentId,
+  environmentVersion,
   selectedQueryPath,
   onSelect,
   title = "Select Query",
   description = "Browse the CMS to find a query (IQA) to export from.",
 }: QueryFileBrowserProps) {
-  const [currentPath, setCurrentPath] = useState(ROOT_PATH);
-  const [pathInput, setPathInput] = useState(ROOT_PATH);
-  const [, setIsEditingPath] = useState(false);
+  const is2017 = environmentVersion === "2017";
 
-  // Sync pathInput when currentPath changes
+  const [currentPath, setCurrentPath] = useState(ROOT_PATH);
+  const [pathInput, setPathInput] = useState(is2017 ? "" : ROOT_PATH);
+  const [, setIsEditingPath] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isValidated, setIsValidated] = useState(false);
+
+  // Sync pathInput when currentPath changes (EMS mode only)
   useEffect(() => {
-    setPathInput(currentPath);
-  }, [currentPath]);
+    if (!is2017) {
+      setPathInput(currentPath);
+    }
+  }, [currentPath, is2017]);
+
+  // Reset validation state when path input changes (2017 mode)
+  useEffect(() => {
+    if (is2017) {
+      setValidationError(null);
+      setIsValidated(false);
+    }
+  }, [pathInput, is2017]);
+
+  // Mutation for validating query path (2017 mode)
+  const validateQueryMutation = useMutation({
+    mutationFn: async (path: string) => {
+      if (!environmentId) throw new Error("No environment selected");
+      const result = await getQueryDefinition(environmentId, path);
+      // API returns { Result: null } if query not found
+      if (!result.Result) {
+        throw new Error("Query not found at this path");
+      }
+      return result;
+    },
+    onSuccess: (data, path) => {
+      setValidationError(null);
+      setIsValidated(true);
+      // Extract query name from the definition or path
+      const queryName = data.Result?.Document?.Name ?? path.split("/").pop() ?? path;
+      onSelect(path, queryName);
+    },
+    onError: (error) => {
+      setIsValidated(false);
+      const message = error instanceof Error ? error.message : "Failed to validate query path";
+      setValidationError(message);
+    },
+  });
 
   // Fetch the current folder document to get its DocumentId
   const {
@@ -112,9 +163,20 @@ export function QueryFileBrowser({
 
   const handlePathSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPath = pathInput.trim() || ROOT_PATH;
-    setCurrentPath(cleanPath);
-    setIsEditingPath(false);
+    const cleanPath = pathInput.trim();
+
+    if (is2017) {
+      // 2017 mode: Validate the query path
+      if (!cleanPath) {
+        setValidationError("Please enter a query path");
+        return;
+      }
+      validateQueryMutation.mutate(cleanPath);
+    } else {
+      // EMS mode: Navigate to path
+      setCurrentPath(cleanPath || ROOT_PATH);
+      setIsEditingPath(false);
+    }
   };
 
   const handleDocumentClick = (doc: DocumentSummaryData) => {
@@ -142,6 +204,76 @@ export function QueryFileBrowser({
     );
   }
 
+  // 2017 Mode: Simplified path input with validation
+  if (is2017) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <p className="text-sm text-muted-foreground">
+            Enter the full path to your IQA query. Document browsing is not available for 2017
+            environments.
+          </p>
+        </div>
+
+        {/* Path Input with validation */}
+        <form onSubmit={handlePathSubmit} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="$/Path/To/Query"
+              className={`pl-9 font-mono text-sm ${
+                isValidated
+                  ? "border-green-500 focus-visible:ring-green-500"
+                  : validationError
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : ""
+              }`}
+              value={pathInput}
+              onChange={(e) => setPathInput(e.target.value)}
+              disabled={validateQueryMutation.isPending}
+            />
+            {isValidated && (
+              <CheckCircle2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-green-500" />
+            )}
+          </div>
+          <Button
+            type="submit"
+            variant="outline"
+            size="default"
+            disabled={validateQueryMutation.isPending || !pathInput.trim()}
+          >
+            {validateQueryMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Validating
+              </>
+            ) : (
+              "Validate"
+            )}
+          </Button>
+        </form>
+
+        {/* Validation error */}
+        {validationError && (
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{validationError}</span>
+          </div>
+        )}
+
+        {/* Success message */}
+        {isValidated && selectedQueryPath && (
+          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-500">
+            <CheckCircle2 className="size-4 shrink-0" />
+            <span className="font-mono">{selectedQueryPath}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // EMS Mode: Full file browser
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
