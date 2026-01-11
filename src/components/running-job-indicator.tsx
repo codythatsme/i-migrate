@@ -26,7 +26,6 @@ function getProgressRate(job: JobWithEnvironments) {
 export function RunningJobIndicator() {
   const { data: jobs } = useQuery({
     ...queries.jobs.all(),
-    enabled: false,
   });
   const runningJob = jobs?.find((j) => j.status === "running");
   const [open, setOpen] = useState(false);
