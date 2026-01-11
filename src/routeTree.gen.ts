@@ -8,131 +8,144 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as TracesRouteImport } from "./routes/traces";
-import { Route as ExportRouteImport } from "./routes/export";
-import { Route as EnvironmentsRouteImport } from "./routes/environments";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as JobsIndexRouteImport } from "./routes/jobs.index";
-import { Route as JobsJobIdRouteImport } from "./routes/jobs.$jobId";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as TracesRouteImport } from './routes/traces'
+import { Route as ExportRouteImport } from './routes/export'
+import { Route as EnvironmentsRouteImport } from './routes/environments'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as JobsIndexRouteImport } from './routes/jobs.index'
+import { Route as JobsJobIdRouteImport } from './routes/jobs.$jobId'
 
 const TracesRoute = TracesRouteImport.update({
-  id: "/traces",
-  path: "/traces",
+  id: '/traces',
+  path: '/traces',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ExportRoute = ExportRouteImport.update({
-  id: "/export",
-  path: "/export",
+  id: '/export',
+  path: '/export',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const EnvironmentsRoute = EnvironmentsRouteImport.update({
-  id: "/environments",
-  path: "/environments",
+  id: '/environments',
+  path: '/environments',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const JobsIndexRoute = JobsIndexRouteImport.update({
-  id: "/jobs/",
-  path: "/jobs/",
+  id: '/jobs/',
+  path: '/jobs/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const JobsJobIdRoute = JobsJobIdRouteImport.update({
-  id: "/jobs/$jobId",
-  path: "/jobs/$jobId",
+  id: '/jobs/$jobId',
+  path: '/jobs/$jobId',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/environments": typeof EnvironmentsRoute;
-  "/export": typeof ExportRoute;
-  "/traces": typeof TracesRoute;
-  "/jobs/$jobId": typeof JobsJobIdRoute;
-  "/jobs": typeof JobsIndexRoute;
+  '/': typeof IndexRoute
+  '/environments': typeof EnvironmentsRoute
+  '/export': typeof ExportRoute
+  '/traces': typeof TracesRoute
+  '/jobs/$jobId': typeof JobsJobIdRoute
+  '/jobs': typeof JobsIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/environments": typeof EnvironmentsRoute;
-  "/export": typeof ExportRoute;
-  "/traces": typeof TracesRoute;
-  "/jobs/$jobId": typeof JobsJobIdRoute;
-  "/jobs": typeof JobsIndexRoute;
+  '/': typeof IndexRoute
+  '/environments': typeof EnvironmentsRoute
+  '/export': typeof ExportRoute
+  '/traces': typeof TracesRoute
+  '/jobs/$jobId': typeof JobsJobIdRoute
+  '/jobs': typeof JobsIndexRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/environments": typeof EnvironmentsRoute;
-  "/export": typeof ExportRoute;
-  "/traces": typeof TracesRoute;
-  "/jobs/$jobId": typeof JobsJobIdRoute;
-  "/jobs/": typeof JobsIndexRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/environments': typeof EnvironmentsRoute
+  '/export': typeof ExportRoute
+  '/traces': typeof TracesRoute
+  '/jobs/$jobId': typeof JobsJobIdRoute
+  '/jobs/': typeof JobsIndexRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/environments" | "/export" | "/traces" | "/jobs/$jobId" | "/jobs";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/environments" | "/export" | "/traces" | "/jobs/$jobId" | "/jobs";
-  id: "__root__" | "/" | "/environments" | "/export" | "/traces" | "/jobs/$jobId" | "/jobs/";
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/environments'
+    | '/export'
+    | '/traces'
+    | '/jobs/$jobId'
+    | '/jobs'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/environments' | '/export' | '/traces' | '/jobs/$jobId' | '/jobs'
+  id:
+    | '__root__'
+    | '/'
+    | '/environments'
+    | '/export'
+    | '/traces'
+    | '/jobs/$jobId'
+    | '/jobs/'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  EnvironmentsRoute: typeof EnvironmentsRoute;
-  ExportRoute: typeof ExportRoute;
-  TracesRoute: typeof TracesRoute;
-  JobsJobIdRoute: typeof JobsJobIdRoute;
-  JobsIndexRoute: typeof JobsIndexRoute;
+  IndexRoute: typeof IndexRoute
+  EnvironmentsRoute: typeof EnvironmentsRoute
+  ExportRoute: typeof ExportRoute
+  TracesRoute: typeof TracesRoute
+  JobsJobIdRoute: typeof JobsJobIdRoute
+  JobsIndexRoute: typeof JobsIndexRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/traces": {
-      id: "/traces";
-      path: "/traces";
-      fullPath: "/traces";
-      preLoaderRoute: typeof TracesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/export": {
-      id: "/export";
-      path: "/export";
-      fullPath: "/export";
-      preLoaderRoute: typeof ExportRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/environments": {
-      id: "/environments";
-      path: "/environments";
-      fullPath: "/environments";
-      preLoaderRoute: typeof EnvironmentsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/jobs/": {
-      id: "/jobs/";
-      path: "/jobs";
-      fullPath: "/jobs";
-      preLoaderRoute: typeof JobsIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/jobs/$jobId": {
-      id: "/jobs/$jobId";
-      path: "/jobs/$jobId";
-      fullPath: "/jobs/$jobId";
-      preLoaderRoute: typeof JobsJobIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/traces': {
+      id: '/traces'
+      path: '/traces'
+      fullPath: '/traces'
+      preLoaderRoute: typeof TracesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/environments': {
+      id: '/environments'
+      path: '/environments'
+      fullPath: '/environments'
+      preLoaderRoute: typeof EnvironmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jobs/': {
+      id: '/jobs/'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof JobsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jobs/$jobId': {
+      id: '/jobs/$jobId'
+      path: '/jobs/$jobId'
+      fullPath: '/jobs/$jobId'
+      preLoaderRoute: typeof JobsJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -143,7 +156,7 @@ const rootRouteChildren: RootRouteChildren = {
   TracesRoute: TracesRoute,
   JobsJobIdRoute: JobsJobIdRoute,
   JobsIndexRoute: JobsIndexRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
