@@ -83,8 +83,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   const queryClient = useQueryClient();
 
   const [queryState, setQueryState] = useQueryStates(exportSearchParams);
-  const { step, sourceEntity, sourceQuery, sourceQueryName, destEnv, destEntity, jobName } =
-    queryState;
+  const { step, sourceEntity, sourceQuery, destEnv, destEntity, jobName } = queryState;
 
   // Use initialMode from props if provided, otherwise use URL state
   const mode = initialMode ?? queryState.mode;

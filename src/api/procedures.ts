@@ -27,10 +27,8 @@ import {
   StoredTraceSchema,
   ListTracesRequestSchema,
   GetTraceRequestSchema,
-  TraceNotFoundErrorSchema,
   TraceStoreErrorSchema,
   // Job schemas
-  JobSchema,
   JobWithEnvironmentsSchema,
   CreateJobRequestSchema,
   CreateJobResponseSchema,

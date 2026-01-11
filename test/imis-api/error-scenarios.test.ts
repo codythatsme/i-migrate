@@ -17,9 +17,6 @@ import {
 	TEST_QUERY_PATH,
 	getTestConfig,
 } from "./setup"
-import { db } from "@/db/client"
-import { environments } from "@/db/schema"
-import { eq } from "drizzle-orm"
 
 describe.skipIf(!shouldRunIntegrationTests())("iMIS Error Handling", () => {
 	let envId: string

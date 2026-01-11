@@ -16,7 +16,6 @@ import {
   Iqa2017ResponseSchema,
   DataSourceResponseSchema,
   GetUserRolesResponseSchema,
-  GenericEntityDataSchema,
   type IqaQueryResponse,
   type Iqa2017Response,
   type DataSourceResponse,

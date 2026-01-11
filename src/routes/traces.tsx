@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { queries } from "@/lib/queries";
 import { clearTraces, exportTraces } from "@/api/client";
 import { downloadTracesJson } from "@/lib/trace-export";
-import type { TraceSummary, StoredTrace, StoredSpan } from "@/api/client";
+import type { TraceSummary, StoredSpan } from "@/api/client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/traces")({

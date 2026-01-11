@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Server, AlertTriangle } from "lucide-react";
+import { Server } from "lucide-react";
 import { useCreateEnvironment, useSetPassword } from "@/lib/mutations";
 import { Button } from "@/components/ui/button";
 import {
