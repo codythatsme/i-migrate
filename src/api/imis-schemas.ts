@@ -363,7 +363,9 @@ const PropertyBaseFields = {
   Required: Schema.optionalWith(Schema.Boolean, { exact: true }),
   Logged: Schema.optionalWith(Schema.Boolean, { exact: true }),
   RenderingInformation: Schema.optionalWith(PropertyRenderingInformationSchema, { exact: true }),
-  ExtendedPropertyInformation: Schema.optionalWith(ExtendedPropertyInformationSchema, { exact: true }),
+  ExtendedPropertyInformation: Schema.optionalWith(ExtendedPropertyInformationSchema, {
+    exact: true,
+  }),
   Rule: Schema.optionalWith(PropertyRuleSchema, { exact: true }),
 };
 

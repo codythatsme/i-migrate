@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-01-11
+
+### Fixed
+
+- Add iMIS 2017 environment compatibility for query definitions (sparse API responses, missing Document field)
+- Handle optional fields in 2017 data source responses (Description, Properties, PrimaryParentEntityTypeName)
+- Preserve iMIS error details through RPC boundary for better error messages
+- Make BoEntityDefinition schema fields optional for sparse API responses
+- Improve auth error handling with granular types and span context
+- Resolve TypeScript strict mode errors
+- Fix Effect layer composition ordering
+
 ## [0.5.1] - 2025-01-11
 
 ### Fixed

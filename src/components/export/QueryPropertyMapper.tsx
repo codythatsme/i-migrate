@@ -501,7 +501,9 @@ const QueryMappingRow = memo(function QueryMappingRow({
                   <Info className="size-3.5 text-muted-foreground/50" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs">{is2017 ? "Property" : "Caption"}: {tooltipName}</p>
+                  <p className="text-xs">
+                    {is2017 ? "Property" : "Caption"}: {tooltipName}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
