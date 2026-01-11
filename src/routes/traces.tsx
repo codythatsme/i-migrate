@@ -46,7 +46,7 @@ function TracesPage() {
   const exportMutation = useMutation({
     mutationFn: async () => {
       const traces = await exportTraces();
-      downloadTracesJson(traces);
+      downloadTracesJson([...traces]);
     },
   });
 

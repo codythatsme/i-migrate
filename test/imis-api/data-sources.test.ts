@@ -83,7 +83,7 @@ describe.skipIf(!shouldRunIntegrationTests())("iMIS Data Sources", () => {
 
 			// Check property structure
 			const firstEntity = entitiesWithProperties[0]
-			const firstProperty = firstEntity.Properties.$values[0]
+			const firstProperty = firstEntity!.Properties.$values[0]
 			expect(firstProperty).toHaveProperty("Name")
 			expect(firstProperty).toHaveProperty("$type")
 		})
