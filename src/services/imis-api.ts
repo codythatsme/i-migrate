@@ -942,6 +942,17 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           // EMS wraps in { Result: ... }
           return yield* Schema.decodeUnknown(QueryDefinitionResultSchema)(rawResult);
         }).pipe(
+          Effect.mapError((error) => {
+            if (isParseError(error)) {
+              return new ImisSchemaError({
+                message: `Response from /api/QueryDefinition/_execute did not match expected schema`,
+                endpoint: "/api/QueryDefinition/_execute",
+                parseError: formatParseError(error),
+                cause: error,
+              });
+            }
+            return error;
+          }),
           Effect.withSpan("imis.getQueryDefinition", {
             attributes: {
               environmentId: envId,
@@ -1220,7 +1231,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               const entityDef = definitions.Items.$values.find(
                 (d) => d.EntityTypeName === entityTypeName,
               );
-              if (!entityDef) return [] as string[];
+              if (!entityDef || !entityDef.Properties) return [] as string[];
               return entityDef.Properties.$values
                 .filter((p) => p.IsIdentity === true)
                 .map((p) => p.Name);

@@ -197,11 +197,11 @@ export function PropertyMapper({
   }, [destData, destinationEntityType]);
 
   const sourceProperties = useMemo(() => {
-    return sourceEntity?.Properties.$values ?? [];
+    return sourceEntity?.Properties?.$values ?? [];
   }, [sourceEntity]);
 
   const destProperties = useMemo(() => {
-    return destEntity?.Properties.$values ?? [];
+    return destEntity?.Properties?.$values ?? [];
   }, [destEntity]);
 
   // Lookup Maps for O(1) access instead of O(n) .find() calls

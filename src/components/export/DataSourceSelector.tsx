@@ -94,7 +94,7 @@ export function DataSourceSelector({
     return compatibleSources.filter(
       (source) =>
         source.EntityTypeName.toLowerCase().includes(searchLower) ||
-        source.Description.toLowerCase().includes(searchLower),
+        (source.Description ?? "").toLowerCase().includes(searchLower),
     );
   }, [compatibleSources, search]);
 
@@ -275,7 +275,7 @@ type DataSourceCardProps = {
 };
 
 function DataSourceCard({ source, isSelected, onSelect }: DataSourceCardProps) {
-  const propertyCount = source.Properties.$values.length;
+  const propertyCount = source.Properties?.$values.length ?? 0;
 
   return (
     <Card

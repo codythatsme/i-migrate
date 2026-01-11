@@ -150,7 +150,7 @@ export function QueryPropertyMapper({
   }, [queryDefinition]);
 
   const destProperties = useMemo(() => {
-    return destEntity?.Properties.$values ?? [];
+    return destEntity?.Properties?.$values ?? [];
   }, [destEntity]);
 
   // Lookup Maps for O(1) access instead of O(n) .find() calls

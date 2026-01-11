@@ -40,11 +40,9 @@ const PlatformLive = Layer.mergeAll(BunFileSystem.layer, BunPath.layer).pipe(
 
 // Complete layer for RPC server
 // TracerLive must be merged at the top level to set the tracer for all Effects
-const RpcLive = Layer.mergeAll(
-  HandlersWithDeps,
-  RpcSerialization.layerJson,
-  PlatformLive,
-  TracerLive, // Sets the custom tracer for all Effect.withSpan calls
+// Use Layer.provideMerge to ensure proper dependency ordering
+const RpcLive = Layer.mergeAll(RpcSerialization.layerJson, PlatformLive, TracerLive).pipe(
+  Layer.provideMerge(HandlersWithDeps),
 );
 
 // ---------------------

@@ -179,6 +179,8 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     if (mode !== "datasource" || !selectedSourceEntity) return undefined;
     // Standard sources can migrate to any Multi/Single destination - skip compatibility filter
     if (selectedSourceEntity.ObjectTypeName === "Standard") return undefined;
+    // Skip filter if primary parent is undefined (can't filter properly)
+    if (!selectedSourceEntity.PrimaryParentEntityTypeName) return undefined;
     return {
       objectTypeName: selectedSourceEntity.ObjectTypeName,
       primaryParentEntityTypeName: selectedSourceEntity.PrimaryParentEntityTypeName,
