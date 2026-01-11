@@ -73,6 +73,28 @@ export class NotStaffAccountError extends Data.TaggedError("NotStaffAccountError
 }> {}
 
 // ---------------------
+// Internal Auth Errors (not exported - mapped to InvalidCredentialsError at boundary)
+// ---------------------
+
+class AuthHttpError extends Data.TaggedError("AuthHttpError")<{
+  readonly status: number;
+  readonly body: string;
+}> {
+  override get message() {
+    return `Authentication failed: HTTP ${this.status}`;
+  }
+}
+
+class AuthParseError extends Data.TaggedError("AuthParseError")<{
+  readonly parseError: ParseResult.ParseError;
+  readonly rawBody: string;
+}> {
+  override get message() {
+    return `Failed to parse token response: ${this.parseError.message}`;
+  }
+}
+
+// ---------------------
 // Retry Configuration
 // ---------------------
 
@@ -399,29 +421,77 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           Effect.scoped,
         );
 
+        // Read body once for both error reporting and parsing
+        const rawBody = yield* response.text;
+
+        // HTTP error - preserve status and body for debugging
         if (response.status < 200 || response.status >= 300) {
           return yield* Effect.fail(
-            new InvalidCredentialsError({
-              message: "Authentication failed. Please check your username and password.",
+            new AuthHttpError({
+              status: response.status,
+              body: rawBody,
             }),
           );
         }
 
-        const tokenData = yield* HttpClientResponse.schemaBodyJson(TokenResponse)(response).pipe(
+        // Parse JSON and validate schema
+        const json = yield* Effect.try({
+          try: () => JSON.parse(rawBody) as unknown,
+          catch: (error) =>
+            new AuthParseError({
+              parseError: new ParseResult.ParseError({
+                issue: new ParseResult.Type(Schema.Unknown.ast, rawBody, `Invalid JSON: ${error}`),
+              }),
+              rawBody,
+            }),
+        });
+
+        const tokenData = yield* Schema.decodeUnknown(TokenResponse)(json).pipe(
           Effect.mapError(
-            () =>
-              new InvalidCredentialsError({
-                message: "Authentication failed. Please check your username and password.",
+            (parseError) =>
+              new AuthParseError({
+                parseError,
+                rawBody,
               }),
           ),
         );
 
         return tokenData.access_token;
       }).pipe(
+        Effect.withSpan("imis.authenticateWithPassword", {
+          attributes: { endpoint: "/token" },
+        }),
+        // Annotate span with error details for debugging
+        Effect.tapError((error) =>
+          Effect.annotateCurrentSpan({
+            "error.type": error._tag,
+            "error.message": error.message,
+            ...(error instanceof AuthHttpError && {
+              "http.response.status": error.status,
+              "http.response.body": error.body,
+            }),
+            ...(error instanceof AuthParseError && {
+              "parse.rawBody": error.rawBody,
+            }),
+          }),
+        ),
+        // Map internal errors to InvalidCredentialsError at boundary
         Effect.mapError((error) => {
-          if (error instanceof InvalidCredentialsError) return error;
+          if (error instanceof AuthHttpError) {
+            return new InvalidCredentialsError({
+              message: error.message,
+              cause: error,
+            });
+          }
+          if (error instanceof AuthParseError) {
+            return new InvalidCredentialsError({
+              message: error.message,
+              cause: error,
+            });
+          }
+          // Network/transport errors
           return new InvalidCredentialsError({
-            message: "Authentication failed. Please check your username and password.",
+            message: "Authentication failed due to network error",
             cause: error,
           });
         }),
