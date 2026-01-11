@@ -141,15 +141,18 @@ describe("Encryption", () => {
     })
 
     it("should handle empty objects and arrays", async () => {
-      const emptyObject = {}
-      const emptyArray: unknown[] = []
+      const emptyObject: Record<string, never> = {}
+      const emptyArray: never[] = []
       const password = "empty-password"
 
       const encryptedObj = await encryptJson(emptyObject, password)
       const encryptedArr = await encryptJson(emptyArray, password)
 
-      expect(await decryptJson(encryptedObj, password)).toEqual({})
-      expect(await decryptJson(encryptedArr, password)).toEqual([])
+      const decryptedObj = await decryptJson<typeof emptyObject>(encryptedObj, password)
+      const decryptedArr = await decryptJson<typeof emptyArray>(encryptedArr, password)
+
+      expect(decryptedObj).toEqual(emptyObject)
+      expect(decryptedArr).toEqual(emptyArray)
     })
   })
 

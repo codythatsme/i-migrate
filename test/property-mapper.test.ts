@@ -98,9 +98,9 @@ describe("checkCompatibility", () => {
 
       expect(result.compatible).toBe(false)
       expect(result.warnings).toHaveLength(1)
-      expect(result.warnings[0].type).toBe("typeMismatch")
-      expect(result.warnings[0].message).toContain("String")
-      expect(result.warnings[0].message).toContain("Integer")
+      expect(result.warnings[0]!.type).toBe("typeMismatch")
+      expect(result.warnings[0]!.message).toContain("String")
+      expect(result.warnings[0]!.message).toContain("Integer")
     })
 
     it("should return compatible: false for Boolean vs String", () => {
@@ -122,10 +122,10 @@ describe("checkCompatibility", () => {
 
       expect(result.compatible).toBe(true)
       expect(result.warnings).toHaveLength(1)
-      expect(result.warnings[0].type).toBe("maxLength")
-      expect(result.warnings[0].message).toContain("500")
-      expect(result.warnings[0].message).toContain("100")
-      expect(result.warnings[0].message).toContain("truncated")
+      expect(result.warnings[0]!.type).toBe("maxLength")
+      expect(result.warnings[0]!.message).toContain("500")
+      expect(result.warnings[0]!.message).toContain("100")
+      expect(result.warnings[0]!.message).toContain("truncated")
     })
 
     it("should not warn when source MaxLength <= dest MaxLength", () => {
@@ -202,9 +202,9 @@ describe("findAutoMappings", () => {
       const mappings = findAutoMappings(sourceProps, destProps, {})
 
       expect(mappings).toHaveLength(3)
-      expect(mappings[0].destinationProperty).toBe("A")
-      expect(mappings[1].destinationProperty).toBeNull()
-      expect(mappings[2].destinationProperty).toBeNull()
+      expect(mappings[0]!.destinationProperty).toBe("A")
+      expect(mappings[1]!.destinationProperty).toBeNull()
+      expect(mappings[2]!.destinationProperty).toBeNull()
     })
   })
 

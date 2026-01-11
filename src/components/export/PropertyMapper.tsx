@@ -246,7 +246,7 @@ export function PropertyMapper({
   );
 
   // Track previous validation state to avoid infinite loops
-  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>();
+  const prevValidationRef = useRef<{ isMapped: boolean; error: string | null }>(undefined);
 
   // Report validation state to parent only when it actually changes
   useEffect(() => {

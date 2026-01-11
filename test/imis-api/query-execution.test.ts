@@ -58,7 +58,7 @@ describe.skipIf(!shouldRunIntegrationTests())("iMIS Query Execution", () => {
 					const firstProp = properties[0]
 					expect(firstProp).toHaveProperty("Name")
 					// Property may have different type info fields depending on iMIS version
-					expect(typeof firstProp.Name).toBe("string")
+					expect(typeof firstProp!.Name).toBe("string")
 				}
 			}
 		})
@@ -138,7 +138,7 @@ describe.skipIf(!shouldRunIntegrationTests())("iMIS Query Execution", () => {
 				expect(typeof firstRow).toBe("object")
 
 				// Values should be primitives, not wrapped in $type/$value
-				for (const value of Object.values(firstRow)) {
+				for (const value of Object.values(firstRow!)) {
 					if (value !== null && typeof value === "object") {
 						// Binary data (blobs) may still have $type
 						expect(value).not.toHaveProperty("$value")
@@ -208,7 +208,7 @@ describe.skipIf(!shouldRunIntegrationTests())("iMIS Query Execution", () => {
 					const firstRow = result.Items.$values[0]
 
 					// Values should be unwrapped (no $type/$value wrappers)
-					for (const value of Object.values(firstRow)) {
+					for (const value of Object.values(firstRow!)) {
 						if (value !== null && typeof value === "object") {
 							// Only blobs should have $type
 							if ((value as Record<string, unknown>).$type) {
