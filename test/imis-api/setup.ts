@@ -8,7 +8,7 @@
  *   IMIS_VERSION  - Optional: "EMS" (default) or "2017"
  */
 
-import { Effect, Cause, Option, Exit } from "effect"
+import { Effect, Cause, Option, Exit, Layer } from "effect"
 import { ImisApiService } from "@/services/imis-api"
 import { SessionService } from "@/services/session"
 import { PersistenceService } from "@/services/persistence"
@@ -122,9 +122,9 @@ export const runWithImisServices = <A, E>(
 ): Promise<A> => {
 	return Effect.runPromise(
 		effect.pipe(
-			Effect.provide(ImisApiService.Default),
-			Effect.provide(SessionService.Default),
-			Effect.provide(PersistenceService.Default)
+			Effect.provide(
+				Layer.mergeAll(ImisApiService.Default, SessionService.Default, PersistenceService.Default)
+			)
 		)
 	)
 }
@@ -146,9 +146,9 @@ export const runWithImisServicesExit = <A, E>(
 ): Promise<Exit.Exit<A, E>> => {
 	return Effect.runPromiseExit(
 		effect.pipe(
-			Effect.provide(ImisApiService.Default),
-			Effect.provide(SessionService.Default),
-			Effect.provide(PersistenceService.Default)
+			Effect.provide(
+				Layer.mergeAll(ImisApiService.Default, SessionService.Default, PersistenceService.Default)
+			)
 		)
 	)
 }

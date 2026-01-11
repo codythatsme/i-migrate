@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterAll } from "bun:test"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { db } from "../src/db/client"
 import { jobs, rows, environments } from "../src/db/schema"
 import { eq } from "drizzle-orm"
@@ -24,18 +24,19 @@ import { createPropertyMapping } from "./setup"
 const TEST_SOURCE_ENV_ID = "test-source-env-00000000"
 const TEST_DEST_ENV_ID = "test-dest-env-00000000"
 
+// Combined service layer for tests
+const TestServicesLayer = Layer.mergeAll(
+  MigrationJobService.Default,
+  SessionService.Default,
+  PersistenceService.Default,
+  ImisApiService.Default
+)
+
 // Helper to run Effect programs with real services
 const runWithServices = <A, E>(
   effect: Effect.Effect<A, E, MigrationJobService>
 ): Promise<A> => {
-  return Effect.runPromise(
-    effect.pipe(
-      Effect.provide(MigrationJobService.Default),
-      Effect.provide(SessionService.Default),
-      Effect.provide(PersistenceService.Default),
-      Effect.provide(ImisApiService.Default)
-    )
-  )
+  return Effect.runPromise(effect.pipe(Effect.provide(TestServicesLayer)))
 }
 
 // Cleanup helper
@@ -204,12 +205,7 @@ describe("Job Lifecycle", () => {
       const nonExistentId = "00000000-0000-0000-0000-000000000000"
 
       const result = await Effect.runPromiseExit(
-        MigrationJobService.getJob(nonExistentId).pipe(
-          Effect.provide(MigrationJobService.Default),
-          Effect.provide(SessionService.Default),
-          Effect.provide(PersistenceService.Default),
-          Effect.provide(ImisApiService.Default)
-        )
+        MigrationJobService.getJob(nonExistentId).pipe(Effect.provide(TestServicesLayer))
       )
 
       expect(result._tag).toBe("Failure")
@@ -304,12 +300,7 @@ describe("Job Lifecycle", () => {
       const nonExistentId = "00000000-0000-0000-0000-000000000001"
 
       const result = await Effect.runPromiseExit(
-        MigrationJobService.deleteJob(nonExistentId).pipe(
-          Effect.provide(MigrationJobService.Default),
-          Effect.provide(SessionService.Default),
-          Effect.provide(PersistenceService.Default),
-          Effect.provide(ImisApiService.Default)
-        )
+        MigrationJobService.deleteJob(nonExistentId).pipe(Effect.provide(TestServicesLayer))
       )
 
       expect(result._tag).toBe("Failure")
@@ -338,12 +329,7 @@ describe("Job Lifecycle", () => {
 
       // Try to run it - should fail
       const result = await Effect.runPromiseExit(
-        MigrationJobService.runJob(jobId).pipe(
-          Effect.provide(MigrationJobService.Default),
-          Effect.provide(SessionService.Default),
-          Effect.provide(PersistenceService.Default),
-          Effect.provide(ImisApiService.Default)
-        )
+        MigrationJobService.runJob(jobId).pipe(Effect.provide(TestServicesLayer))
       )
 
       expect(result._tag).toBe("Failure")
@@ -374,12 +360,7 @@ describe("Job Lifecycle", () => {
 
       // Try to run it - should fail
       const result = await Effect.runPromiseExit(
-        MigrationJobService.runJob(jobId).pipe(
-          Effect.provide(MigrationJobService.Default),
-          Effect.provide(SessionService.Default),
-          Effect.provide(PersistenceService.Default),
-          Effect.provide(ImisApiService.Default)
-        )
+        MigrationJobService.runJob(jobId).pipe(Effect.provide(TestServicesLayer))
       )
 
       expect(result._tag).toBe("Failure")
