@@ -299,16 +299,16 @@ export const ExtendedPropertyInformationSchema = Schema.Struct({
 const PropertyBaseFields = {
   PropertyTypeName: BoPropertyTypeNameSchema,
   Name: Schema.String,
-  Description: Schema.String,
-  Caption: Schema.String,
+  Description: Schema.optionalWith(Schema.String, { exact: true }),
+  Caption: Schema.optionalWith(Schema.String, { exact: true }),
   DefaultValue: Schema.optionalWith(SoaDefaultValueSchema, { exact: true }),
-  DisplayMask: Schema.String,
+  DisplayMask: Schema.optionalWith(Schema.String, { exact: true }),
   IsIdentity: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  Visible: Schema.Boolean,
+  Visible: Schema.optionalWith(Schema.Boolean, { exact: true }),
   Required: Schema.optionalWith(Schema.Boolean, { exact: true }),
   Logged: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  RenderingInformation: PropertyRenderingInformationSchema,
-  ExtendedPropertyInformation: ExtendedPropertyInformationSchema,
+  RenderingInformation: Schema.optionalWith(PropertyRenderingInformationSchema, { exact: true }),
+  ExtendedPropertyInformation: Schema.optionalWith(ExtendedPropertyInformationSchema, { exact: true }),
   Rule: Schema.optionalWith(PropertyRuleSchema, { exact: true }),
 };
 
@@ -409,13 +409,13 @@ export const RelatedEntityDataCollectionSchema = Schema.Struct({
 export const BoEntityDefinitionSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.BOEntityDefinitionData, Asi.Contracts"),
   ObjectTypeName: ObjectTypeNameSchema,
-  Description: Schema.String,
+  Description: Schema.optionalWith(Schema.String, { exact: true }),
   EntityTypeName: Schema.String,
-  PrimaryParentEntityTypeName: Schema.String,
-  Properties: SoaCollectionSchema(BoPropertySchema),
-  RelatedEntities: RelatedEntityDataCollectionSchema,
+  PrimaryParentEntityTypeName: Schema.optionalWith(Schema.String, { exact: true }),
+  Properties: Schema.optionalWith(SoaCollectionSchema(BoPropertySchema), { exact: true }),
+  RelatedEntities: Schema.optionalWith(RelatedEntityDataCollectionSchema, { exact: true }),
   IsDesignable: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  Indexes: SoaCollectionSchema(IndexSchema),
+  Indexes: Schema.optionalWith(SoaCollectionSchema(IndexSchema), { exact: true }),
 });
 
 // ---------------------
