@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-01-11
+
+### Fixed
+
+- Skip role check for iMIS 2017 environments (UserSecurity endpoint not supported)
+
 ## [0.5.0] - 2025-01-11
 
 ### Added
