@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Download,
   Loader2,
   RefreshCw,
   Trash2,
@@ -17,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { queries } from "@/lib/queries";
-import { clearTraces } from "@/api/client";
+import { clearTraces, exportTraces } from "@/api/client";
+import { downloadTracesJson } from "@/lib/trace-export";
 import type { TraceSummary, StoredTrace, StoredSpan } from "@/api/client";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,13 @@ function TracesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["traces"] });
       setSelectedTraceId(null);
+    },
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const traces = await exportTraces();
+      downloadTracesJson(traces);
     },
   });
 
@@ -124,6 +133,15 @@ function TracesPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn("size-4", isFetching && "animate-spin")} />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending || !traces?.length}
+          >
+            <Download className={cn("size-4", exportMutation.isPending && "animate-pulse")} />
+            Export
           </Button>
           <Button
             variant="outline"

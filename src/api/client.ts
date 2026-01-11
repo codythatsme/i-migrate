@@ -130,6 +130,9 @@ export const getTrace = (traceId: string) => withClient((client) => client.trace
 /** Clear all traces */
 export const clearTraces = () => withClient((client) => client.traces.clear());
 
+/** Export all traces (returns full trace data for download) */
+export const exportTraces = () => withClient((client) => client.traces.export());
+
 // ---------------------
 // Job Functions
 // ---------------------

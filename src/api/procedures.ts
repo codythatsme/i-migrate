@@ -234,6 +234,12 @@ const ClearTraces = Rpc.make("traces.clear", {
   error: TraceStoreErrorSchema,
 });
 
+/** Export all traces with full span data */
+const ExportTraces = Rpc.make("traces.export", {
+  success: Schema.Array(StoredTraceSchema),
+  error: TraceStoreErrorSchema,
+});
+
 // ---------------------
 // Job Procedures
 // ---------------------
@@ -354,6 +360,7 @@ export const ApiGroup = RpcGroup.make(
   ListTraces,
   GetTrace,
   ClearTraces,
+  ExportTraces,
   // Jobs
   CreateJob,
   ListJobs,
