@@ -41,12 +41,13 @@ Examples:
 
 ## Preparing a Release
 
-1. Move `[Unreleased]` entries to new version section in `CHANGELOG.md`
-2. Add release date: `## [X.Y.Z] - YYYY-MM-DD`
-3. Update version in `package.json`
-4. Commit: `chore: release vX.Y.Z`
-5. Tag: `git tag vX.Y.Z`
-6. Push: `git push origin main --tags`
+1. Run pre-release checks: `bun run format && bun run lint && bun run check-types`
+2. Move `[Unreleased]` entries to new version section in `CHANGELOG.md`
+3. Add release date: `## [X.Y.Z] - YYYY-MM-DD`
+4. Update version in `package.json`
+5. Commit: `chore: release vX.Y.Z`
+6. Tag: `git tag vX.Y.Z`
+7. Push: `git push origin main --tags`
 
 ## Version Numbering
 
