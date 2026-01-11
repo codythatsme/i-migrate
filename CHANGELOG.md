@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-01-11
+
+### Fixed
+
+- Handle missing Value field in 2017 IQA query responses
+- Enable running job indicator query
+
 ## [0.5.2] - 2025-01-11
 
 ### Fixed
