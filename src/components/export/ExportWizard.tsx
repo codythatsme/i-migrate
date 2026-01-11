@@ -185,7 +185,8 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     };
   }, [mode, selectedSourceEntity]);
 
-  // Check if destination environment needs a password
+  // Get source and destination environment info
+  const sourceEnvironment = environments?.find((env) => env.id === sourceEnvironmentId);
   const destinationEnvironment = environments?.find((env) => env.id === destEnv);
   const destNeedsPassword =
     destEnv !== null && destinationEnvironment !== undefined && !destinationEnvironment.hasPassword;
@@ -397,6 +398,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
         {step === 1 && mode === "query" && (
           <QueryFileBrowser
             environmentId={sourceEnvironmentId}
+            environmentVersion={sourceEnvironment?.version}
             selectedQueryPath={sourceQuery}
             onSelect={handleQuerySelect}
             title="Select Source Query"
@@ -460,6 +462,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               mappings={mappings}
               onMappingsChange={setMappings}
               onValidationChange={handleValidationChange}
+              sourceEnvironmentVersion={sourceEnvironment?.version}
             />
           )}
 

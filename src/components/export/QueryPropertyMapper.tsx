@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { BoProperty, QueryDefinition, QueryPropertyData } from "@/api/client";
+import type { BoProperty, ImisVersion, QueryDefinition, QueryPropertyData } from "@/api/client";
 import { type PropertyMapping, checkIsPrimaryRequired } from "./PropertyMapper";
 
 // ---------------------
@@ -50,6 +50,7 @@ type QueryPropertyMapperProps = {
   mappings: PropertyMapping[];
   onMappingsChange: (mappings: PropertyMapping[]) => void;
   onValidationChange?: (isValid: boolean, errors: string[]) => void;
+  sourceEnvironmentVersion?: ImisVersion;
 };
 
 // ---------------------
@@ -130,6 +131,7 @@ export function QueryPropertyMapper({
   mappings,
   onMappingsChange,
   onValidationChange,
+  sourceEnvironmentVersion,
 }: QueryPropertyMapperProps) {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -427,6 +429,7 @@ export function QueryPropertyMapper({
                   selectedDestination={mapping?.destinationProperty ?? null}
                   onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
                   compatibility={compatibility}
+                  is2017={sourceEnvironmentVersion === "2017"}
                 />
               );
             })
@@ -457,6 +460,7 @@ type QueryMappingRowProps = {
   selectedDestination: string | null;
   onDestinationChange: (destination: string | null) => void;
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null;
+  is2017: boolean;
 };
 
 const QueryMappingRow = memo(function QueryMappingRow({
@@ -465,11 +469,16 @@ const QueryMappingRow = memo(function QueryMappingRow({
   selectedDestination,
   onDestinationChange,
   compatibility,
+  is2017,
 }: QueryMappingRowProps) {
   const sourceType = queryProperty.DataTypeName;
   const boCompatibleType = getBoCompatibleType(sourceType);
   const isMapped = selectedDestination !== null;
-  const displayName = queryProperty.Alias || queryProperty.PropertyName;
+  const propertyName = queryProperty.Alias || queryProperty.PropertyName;
+  // For 2017: show Caption as main name, PropertyName in tooltip
+  // For EMS: show PropertyName as main name, Caption in tooltip
+  const displayName = is2017 && queryProperty.Caption ? queryProperty.Caption : propertyName;
+  const tooltipName = is2017 ? propertyName : queryProperty.Caption;
 
   return (
     <div
@@ -485,14 +494,14 @@ const QueryMappingRow = memo(function QueryMappingRow({
           >
             {displayName}
           </span>
-          {queryProperty.Caption && queryProperty.Caption !== displayName && (
+          {tooltipName && tooltipName !== displayName && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="size-3.5 text-muted-foreground/50" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs">Caption: {queryProperty.Caption}</p>
+                  <p className="text-xs">{is2017 ? "Property" : "Caption"}: {tooltipName}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

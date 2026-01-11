@@ -12,10 +12,13 @@ import {
   DocumentSummaryResultSchema,
   DocumentSummaryCollectionResultSchema,
   QueryDefinitionResultSchema,
+  QueryDefinition2017Schema,
   IqaQueryResponseSchema,
   Iqa2017ResponseSchema,
   DataSourceResponseSchema,
   GetUserRolesResponseSchema,
+  type QueryDefinition,
+  type QueryDefinitionResult,
   type IqaQueryResponse,
   type Iqa2017Response,
   type DataSourceResponse,
@@ -808,50 +811,137 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       /**
        * Get a query definition by path from an IMIS environment.
        * Returns the full IQA query definition including properties.
+       * Uses different parsing for 2017 (top-level) vs EMS (wrapped in Result).
        */
       getQueryDefinition: (envId: string, path: string) =>
-        executeWithAuth(envId, "/api/QueryDefinition/_execute", (baseUrl, token) =>
-          HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`).pipe(
-            HttpClientRequest.bearerToken(token),
-            HttpClientRequest.setHeader("Accept", "application/json"),
-            HttpClientRequest.setHeader("Content-Type", "application/json"),
-            HttpClientRequest.bodyJson({
-              $type: "Asi.Soa.Core.DataContracts.GenericExecuteRequest, Asi.Contracts",
-              OperationName: "FindByPath",
-              EntityTypeName: "QueryDefinition",
-              Parameters: {
-                $type:
-                  "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
-                $values: [
-                  {
-                    $type: "System.String",
-                    $value: path,
+        Effect.gen(function* () {
+          // Get environment to determine version
+          const env = yield* persistence.getEnvironmentById(envId);
+          const is2017 = env.version === "2017";
+
+          // Make the request - always parse as EMS format first
+          const rawResult = yield* executeWithAuth(
+            envId,
+            "/api/QueryDefinition/_execute",
+            (baseUrl, token) =>
+              HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`).pipe(
+                HttpClientRequest.bearerToken(token),
+                HttpClientRequest.setHeader("Accept", "application/json"),
+                HttpClientRequest.setHeader("Content-Type", "application/json"),
+                HttpClientRequest.bodyJson({
+                  $type: "Asi.Soa.Core.DataContracts.GenericExecuteRequest, Asi.Contracts",
+                  OperationName: "FindByPath",
+                  EntityTypeName: "QueryDefinition",
+                  Parameters: {
+                    $type:
+                      "System.Collections.ObjectModel.Collection`1[[System.Object, mscorlib]], mscorlib",
+                    $values: [
+                      {
+                        $type: "System.String",
+                        $value: path,
+                      },
+                    ],
                   },
-                ],
-              },
-              ParameterTypeName: {
-                $type:
-                  "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
-                $values: ["System.String"],
-              },
-              UseJson: false,
-            }),
-            Effect.flatMap((req) => httpClient.execute(req)),
-            Effect.flatMap((res) => {
-              if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(QueryDefinitionResultSchema)(res);
-              }
-              return Effect.fail(
-                new HttpClientError.ResponseError({
-                  request: HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`),
-                  response: res,
-                  reason: "StatusCode",
+                  ParameterTypeName: {
+                    $type:
+                      "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                    $values: ["System.String"],
+                  },
+                  UseJson: false,
                 }),
-              );
-            }),
-            Effect.scoped,
-          ),
-        ).pipe(
+                Effect.flatMap((req) => httpClient.execute(req)),
+                Effect.flatMap((res) => {
+                  if (res.status >= 200 && res.status < 300) {
+                    // Get raw JSON - we'll parse based on version afterwards
+                    return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res);
+                  }
+                  return Effect.fail(
+                    new HttpClientError.ResponseError({
+                      request: HttpClientRequest.post(`${baseUrl}/api/QueryDefinition/_execute`),
+                      response: res,
+                      reason: "StatusCode",
+                    }),
+                  );
+                }),
+                Effect.scoped,
+              ),
+          );
+
+          // Parse and normalize based on version
+          if (is2017) {
+            // 2017 returns QueryDefinition directly at top level (without Document field)
+            const queryDef2017 = yield* Schema.decodeUnknown(QueryDefinition2017Schema)(rawResult);
+
+            // Create a synthetic Document for 2017 to match EMS format
+            // Extract name from path (e.g., "$/Queries/MyQuery" -> "MyQuery")
+            const queryName = queryDef2017.Path.split("/").pop() ?? queryDef2017.Path;
+            const syntheticDocument = {
+              $type: "Asi.Soa.Core.DataContracts.DocumentData, Asi.Contracts" as const,
+              Name: queryName,
+              DocumentId: queryDef2017.QueryDefinitionId,
+              DocumentVersionId: queryDef2017.QueryDefinitionId,
+              DocumentTypeId: "IQD",
+              Path: queryDef2017.Path,
+              FolderPath: queryDef2017.Path.substring(0, queryDef2017.Path.lastIndexOf("/")),
+              Status: "Published" as const,
+              AccessId: "",
+              StatusUpdatedByUserId: "",
+              StatusUpdatedOn: new Date().toISOString(),
+              UpdateInfo: {
+                $type:
+                  "Asi.Soa.Core.DataContracts.EntityUpdateInformationData, Asi.Contracts" as const,
+              },
+            };
+
+            // Normalize Properties: fill in missing fields with defaults
+            const normalizedProperties = {
+              ...queryDef2017.Properties,
+              $values: queryDef2017.Properties.$values.map((prop, index) => ({
+                ...prop,
+                PropertyName: prop.PropertyName ?? prop.Name,
+                Alias: prop.Alias ?? prop.Name,
+                Caption: prop.Caption ?? prop.Name,
+                DisplayFormat: prop.DisplayFormat ?? ("" as const),
+                DisplayOrder: prop.DisplayOrder ?? index,
+                Link: prop.Link ?? "",
+              })),
+            };
+
+            // Normalize Relations: fill in missing RelationType with default
+            const normalizedRelations = {
+              ...queryDef2017.Relations,
+              $values: queryDef2017.Relations.$values.map((rel) => ({
+                ...rel,
+                RelationType: rel.RelationType ?? ("Equal" as const),
+              })),
+            };
+
+            // Normalize Sources: fill in missing BusinessControllerName with default
+            const normalizedSources = {
+              ...queryDef2017.Sources,
+              $values: queryDef2017.Sources.$values.map((src) => ({
+                ...src,
+                BusinessControllerName: src.BusinessControllerName ?? "",
+              })),
+            };
+
+            // Merge with synthetic Document and normalized Properties/Relations/Sources
+            const normalizedQueryDef: QueryDefinition = {
+              ...queryDef2017,
+              Document: syntheticDocument,
+              Properties: normalizedProperties,
+              Relations: normalizedRelations,
+              Sources: normalizedSources,
+            };
+
+            return {
+              $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts" as const,
+              Result: normalizedQueryDef,
+            } as QueryDefinitionResult;
+          }
+          // EMS wraps in { Result: ... }
+          return yield* Schema.decodeUnknown(QueryDefinitionResultSchema)(rawResult);
+        }).pipe(
           Effect.withSpan("imis.getQueryDefinition", {
             attributes: {
               environmentId: envId,

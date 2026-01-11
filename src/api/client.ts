@@ -190,6 +190,7 @@ export const deleteJob = (jobId: string) => withClient((client) => client.jobs.d
 // ---------------------
 
 export type {
+  ImisVersion,
   Environment,
   EnvironmentWithStatus,
   CreateEnvironment,
