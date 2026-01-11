@@ -602,17 +602,15 @@ const WrappedValueSchema = Schema.Struct({
 
 /**
  * Schema for property data in 2017 IQA responses.
- * Values can be primitives OR wrapped objects like { "$type": "System.Int32", "$value": 13280 }
+ * Values can be primitives, wrapped objects like { "$type": "System.Int32", "$value": 13280 },
+ * or missing entirely (some properties may not have a value in 2017 environments).
  */
 export const Iqa2017PropertyDataSchema = Schema.Struct({
   $type: Schema.Literal("Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts"),
   Name: Schema.String,
-  Value: Schema.Union(
-    Schema.String,
-    Schema.Number,
-    Schema.Boolean,
-    Schema.Null,
-    WrappedValueSchema,
+  Value: Schema.optionalWith(
+    Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null, WrappedValueSchema),
+    { exact: true },
   ),
 });
 

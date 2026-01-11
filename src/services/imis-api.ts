@@ -162,13 +162,18 @@ const unwrapValue = (value: unknown): unknown => {
 /**
  * Normalize a 2017 IQA response to match the EMS format.
  * Converts GenericEntityData rows with Properties array to flat Record<string, unknown>.
+ * Skips properties with undefined Value (some 2017 properties may be missing values).
  */
 const normalize2017Response = (response: Iqa2017Response): IqaQueryResponse => ({
   ...response,
   Items: {
     ...response.Items,
     $values: response.Items.$values.map((row) =>
-      Object.fromEntries(row.Properties.$values.map((p) => [p.Name, unwrapValue(p.Value)])),
+      Object.fromEntries(
+        row.Properties.$values
+          .filter((p) => p.Value !== undefined)
+          .map((p) => [p.Name, unwrapValue(p.Value)]),
+      ),
     ),
   },
 });
