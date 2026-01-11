@@ -1,14 +1,7 @@
 import { useMemo } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  ChevronRight,
-  Clock,
-  Database,
-  Loader2,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowRight, ChevronRight, Clock, Database, Loader2, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

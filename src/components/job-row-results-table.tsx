@@ -33,12 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/components/job-status";
@@ -84,11 +79,7 @@ function AttemptsList({ rowId }: { rowId: string }) {
   }
 
   if (!attempts || attempts.length === 0) {
-    return (
-      <div className="py-2 px-4 text-sm text-muted-foreground">
-        No attempts recorded
-      </div>
-    );
+    return <div className="py-2 px-4 text-sm text-muted-foreground">No attempts recorded</div>;
   }
 
   return (
@@ -102,7 +93,7 @@ function AttemptsList({ rowId }: { rowId: string }) {
             key={attempt.id}
             className={cn(
               "flex items-start gap-3 p-2 rounded-md text-sm",
-              attempt.success ? "bg-green-500/10" : "bg-destructive/10"
+              attempt.success ? "bg-green-500/10" : "bg-destructive/10",
             )}
           >
             <div className="flex-shrink-0 mt-0.5">
@@ -125,9 +116,7 @@ function AttemptsList({ rowId }: { rowId: string }) {
                 </span>
               </div>
               {attempt.errorMessage && (
-                <p className="text-xs text-destructive mt-1 truncate">
-                  {attempt.errorMessage}
-                </p>
+                <p className="text-xs text-destructive mt-1 truncate">{attempt.errorMessage}</p>
               )}
               {attempt.identityElements && (
                 <p className="text-xs text-muted-foreground mt-1 font-mono">
@@ -199,10 +188,7 @@ export function JobRowResultsTable({
             onClick={() => row.toggleExpanded()}
           >
             <ChevronDown
-              className={cn(
-                "size-4 transition-transform",
-                row.getIsExpanded() && "rotate-180"
-              )}
+              className={cn("size-4 transition-transform", row.getIsExpanded() && "rotate-180")}
             />
           </Button>
         ),
@@ -235,9 +221,7 @@ export function JobRowResultsTable({
             <ArrowUpDown className="ml-1 size-3" />
           </Button>
         ),
-        cell: ({ row }) => (
-          <span className="font-mono">{row.original.rowIndex + 1}</span>
-        ),
+        cell: ({ row }) => <span className="font-mono">{row.original.rowIndex + 1}</span>,
         size: 80,
       },
       {
@@ -253,9 +237,7 @@ export function JobRowResultsTable({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="font-mono text-xs truncate block max-w-[200px]">
-                    {display}
-                  </span>
+                  <span className="font-mono text-xs truncate block max-w-[200px]">{display}</span>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="font-mono text-xs">{display}</p>
@@ -329,7 +311,7 @@ export function JobRowResultsTable({
         size: 60,
       },
     ],
-    [jobId]
+    [jobId],
   );
 
   const table = useReactTable({
@@ -384,7 +366,7 @@ export function JobRowResultsTable({
               "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
               statusFilter === "all"
                 ? "bg-primary text-primary-foreground"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted",
             )}
           >
             All ({total})
@@ -395,7 +377,7 @@ export function JobRowResultsTable({
               "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
               statusFilter === "success"
                 ? "bg-green-500/20 text-green-600 ring-1 ring-green-500/30"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted",
             )}
           >
             Success ({successCount})
@@ -406,7 +388,7 @@ export function JobRowResultsTable({
               "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
               statusFilter === "failed"
                 ? "bg-destructive/20 text-destructive ring-1 ring-destructive/30"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted",
             )}
           >
             Failed ({failedCount})
@@ -422,16 +404,10 @@ export function JobRowResultsTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    style={{ width: header.column.getSize() }}
-                  >
+                  <TableHead key={header.id} style={{ width: header.column.getSize() }}>
                     {header.isPlaceholder
                       ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                      : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
               </TableRow>
@@ -447,16 +423,13 @@ export function JobRowResultsTable({
                       "cursor-pointer",
                       row.original.status === "success"
                         ? "bg-green-500/5 hover:bg-green-500/10"
-                        : "bg-destructive/5 hover:bg-destructive/10"
+                        : "bg-destructive/5 hover:bg-destructive/10",
                     )}
                     onClick={() => row.toggleExpanded()}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -471,10 +444,7 @@ export function JobRowResultsTable({
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
@@ -486,8 +456,7 @@ export function JobRowResultsTable({
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount()}
+          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
         </div>
         <div className="flex items-center gap-1">
           <Button

@@ -3,12 +3,7 @@ import type { StoredTrace, StoredSpan } from "@/api/schemas";
 /**
  * Attribute keys to strip from span data (case-insensitive matching)
  */
-const SENSITIVE_ATTRIBUTE_PATTERNS = [
-  "environmentid",
-  "url",
-  "endpoint",
-  "baseurl",
-];
+const SENSITIVE_ATTRIBUTE_PATTERNS = ["environmentid", "url", "endpoint", "baseurl"];
 
 /**
  * Check if an attribute key should be stripped
@@ -21,9 +16,7 @@ function isSensitiveKey(key: string): boolean {
 /**
  * Sanitize span attributes by removing sensitive keys
  */
-function sanitizeAttributes(
-  attributes: Record<string, unknown>,
-): Record<string, unknown> {
+function sanitizeAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attributes)) {
     if (!isSensitiveKey(key)) {

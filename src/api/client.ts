@@ -167,10 +167,7 @@ export const retrySingleRow = (rowId: string) =>
   withClient((client) => client.jobs.retrySingleRow({ rowId }));
 
 /** Get rows for a job (with attempt info) */
-export const getJobRows = (
-  jobId: string,
-  options?: { status?: "success" | "failed" },
-) =>
+export const getJobRows = (jobId: string, options?: { status?: "success" | "failed" }) =>
   withClient((client) =>
     client.jobs.rows({
       jobId,
