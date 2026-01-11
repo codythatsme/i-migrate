@@ -530,6 +530,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           // Step 1: Try to authenticate and get token
           const token = yield* authenticateWithPassword(env.baseUrl, env.username, password);
 
+          // 2017 environments don't support role checking via UserSecurity endpoint
+          if (env.version === "2017") {
+            return { success: true };
+          }
+
           // Step 2: Get user roles using the obtained token
           const roles = yield* getUserRolesWithToken(env.baseUrl, env.username, token);
 
@@ -972,11 +977,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                     // Try to extract identity elements from the response
                     // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
                     const identityElements: string[] = [];
-                    if (
-                      data &&
-                      typeof data === "object" &&
-                      "Identity" in data
-                    ) {
+                    if (data && typeof data === "object" && "Identity" in data) {
                       const identity = (data as Record<string, unknown>).Identity;
                       if (
                         identity &&
@@ -989,14 +990,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                           identityElems &&
                           typeof identityElems === "object" &&
                           "$values" in identityElems &&
-                          Array.isArray(
-                            (identityElems as Record<string, unknown>).$values,
-                          )
+                          Array.isArray((identityElems as Record<string, unknown>).$values)
                         ) {
                           identityElements.push(
                             ...(
-                              (identityElems as Record<string, unknown>)
-                                .$values as unknown[]
+                              (identityElems as Record<string, unknown>).$values as unknown[]
                             ).map(String),
                           );
                         }
