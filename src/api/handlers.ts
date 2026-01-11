@@ -431,6 +431,20 @@ export const HandlersLive = ApiGroup.toLayer({
       yield* traceStore.clearTraces();
     }).pipe(Effect.mapError(mapTraceStoreError)),
 
+  "traces.export": () =>
+    Effect.gen(function* () {
+      const traceStore = yield* TraceStoreService;
+      // Get all trace summaries (use high limit to get all)
+      const summaries = yield* traceStore.listTraces(10000, 0);
+      // Fetch full trace data for each
+      const traces = yield* Effect.all(
+        summaries.map((summary) => traceStore.getTrace(summary.id)),
+        { concurrency: 10 },
+      );
+      // Filter out any null results
+      return traces.filter((t): t is NonNullable<typeof t> => t !== null);
+    }).pipe(Effect.mapError(mapTraceStoreError)),
+
   // ---------------------
   // Job Handlers
   // ---------------------
