@@ -330,9 +330,9 @@ export const PropertyRenderingInformationSchema = Schema.Struct({
   $type: Schema.Literal(
     "Asi.Soa.Core.DataContracts.PropertyRenderingInformationData, Asi.Contracts",
   ),
-  HelpText: Schema.String,
-  ToolTip: Schema.String,
-  WatermarkText: Schema.String,
+  HelpText: Schema.optionalWith(Schema.String, { exact: true }),
+  ToolTip: Schema.optionalWith(Schema.String, { exact: true }),
+  WatermarkText: Schema.optionalWith(Schema.String, { exact: true }),
   ControlType: Schema.Literal(1, 3, 4, 7, 8, 12, 14, 18),
 });
 
