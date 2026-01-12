@@ -186,6 +186,31 @@ export const cancelJob = (jobId: string) => withClient((client) => client.jobs.c
 export const deleteJob = (jobId: string) => withClient((client) => client.jobs.delete({ jobId }));
 
 // ---------------------
+// Settings Functions
+// ---------------------
+
+/** Get current settings */
+export const getSettings = () => withClient((client) => client.settings.get());
+
+/** Enable password storage with master password */
+export const enablePasswordStorage = (masterPassword: string) =>
+  withClient((client) => client.settings.enableStorage({ masterPassword }));
+
+/** Disable password storage (clears all stored passwords) */
+export const disablePasswordStorage = () => withClient((client) => client.settings.disableStorage());
+
+/** Verify master password and unlock stored passwords */
+export const verifyMasterPassword = (masterPassword: string) =>
+  withClient((client) => client.settings.verifyMasterPassword({ masterPassword }));
+
+/** Change master password (re-encrypts all stored passwords) */
+export const changeMasterPassword = (currentPassword: string, newPassword: string) =>
+  withClient((client) => client.settings.changeMasterPassword({ currentPassword, newPassword }));
+
+/** Lock stored passwords (clear master password from memory) */
+export const lockPasswords = () => withClient((client) => client.settings.lock());
+
+// ---------------------
 // Re-export types for convenience
 // ---------------------
 
@@ -217,6 +242,7 @@ export type {
   RunJobResponse,
   RetryFailedRowsResponse,
   RetrySingleRowResponse,
+  Settings,
 } from "./schemas";
 
 export type {

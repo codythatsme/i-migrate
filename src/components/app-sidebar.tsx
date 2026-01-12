@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Database, Download, Home, PlayCircle, Server } from "lucide-react";
+import { Database, Download, Home, PlayCircle, Server, Settings } from "lucide-react";
 
 import {
   Sidebar,
@@ -36,6 +36,11 @@ const navItems = [
     title: "Jobs",
     url: "/jobs",
     icon: PlayCircle,
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
   },
 ];
 

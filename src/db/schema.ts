@@ -3,7 +3,7 @@ import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 // iMIS version type - EMS (cloud) or 2017 (on-premise)
 export type ImisVersion = "EMS" | "2017";
 
-// Environment table - no password stored (passwords are kept in memory only)
+// Environment table - passwords can optionally be stored encrypted (controlled by settings)
 export const environments = sqliteTable("environments", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -14,9 +14,27 @@ export const environments = sqliteTable("environments", {
   // Concurrency settings for migration jobs
   queryConcurrency: integer("query_concurrency").notNull().default(5), // Max concurrent 500-row query batches
   insertConcurrency: integer("insert_concurrency").notNull().default(50), // Max concurrent single inserts
+  encryptedPassword: text("encrypted_password"), // AES-256-GCM encrypted password (optional)
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// ---------------------
+// Settings Table
+// ---------------------
+
+// App-wide settings (single row with id="default")
+export const settings = sqliteTable("settings", {
+  id: text("id").primaryKey().default("default"),
+  storePasswords: integer("store_passwords", { mode: "boolean" }).notNull().default(false),
+  masterPasswordHash: text("master_password_hash"), // SHA-256 hash for verification only
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// Type inference helpers for settings
+export type Settings = typeof settings.$inferSelect;
+export type NewSettings = typeof settings.$inferInsert;
 
 // Type inference helpers
 export type Environment = typeof environments.$inferSelect;

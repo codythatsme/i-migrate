@@ -8,6 +8,7 @@ CREATE TABLE `environments` (
 	`icon` text,
 	`query_concurrency` integer NOT NULL DEFAULT 5,
 	`insert_concurrency` integer NOT NULL DEFAULT 50,
+	`encrypted_password` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );
@@ -87,4 +88,13 @@ CREATE TABLE `spans` (
 	`attributes` text,
 	`events` text,
 	`error_cause` text
+);
+--> statement-breakpoint
+-- Settings table
+CREATE TABLE `settings` (
+	`id` text PRIMARY KEY NOT NULL DEFAULT 'default',
+	`store_passwords` integer NOT NULL DEFAULT false,
+	`master_password_hash` text,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL
 );

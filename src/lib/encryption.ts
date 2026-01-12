@@ -126,3 +126,112 @@ export async function decryptJson<T>(encryptedData: string, password: string): P
   const jsonString = await decrypt(encryptedData, password);
   return JSON.parse(jsonString) as T;
 }
+
+// ---------------------
+// Master Password Utilities
+// ---------------------
+
+/**
+ * Hashes a password using SHA-256 for verification purposes.
+ * This is NOT for encryption - only for verifying the master password is correct.
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = new Uint8Array(hashBuffer);
+  // Convert to hex string
+  return Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Verifies a password against a stored hash.
+ */
+export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  const hash = await hashPassword(password);
+  return hash === storedHash;
+}
+
+/**
+ * Derives a stable encryption key from a master password.
+ * Uses PBKDF2 with a fixed app-specific salt for consistent key derivation.
+ * This allows the same password to always produce the same key.
+ */
+export async function deriveMasterKey(masterPassword: string): Promise<CryptoKey> {
+  // Fixed salt for master password key derivation
+  // This ensures the same password always derives the same key
+  const APP_SALT = "i-migrate-master-key-v1";
+  const encoder = new TextEncoder();
+  const salt = encoder.encode(APP_SALT);
+
+  const passwordBuffer = encoder.encode(masterPassword);
+
+  const keyMaterial = await crypto.subtle.importKey("raw", passwordBuffer, "PBKDF2", false, [
+    "deriveBits",
+    "deriveKey",
+  ]);
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: salt,
+      iterations: ITERATIONS,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: ALGORITHM, length: KEY_LENGTH },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+/**
+ * Encrypts data using a pre-derived CryptoKey.
+ * Use this with deriveMasterKey() for master password encryption.
+ */
+export async function encryptWithKey(data: string, key: CryptoKey): Promise<string> {
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+
+  // Generate random IV (no salt needed since key is pre-derived)
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+
+  const ciphertext = await crypto.subtle.encrypt({ name: ALGORITHM, iv }, key, dataBuffer);
+
+  // Combine iv + ciphertext
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+
+  // Encode as base64
+  let binaryString = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < combined.length; i += chunkSize) {
+    const chunk = combined.subarray(i, Math.min(i + chunkSize, combined.length));
+    binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binaryString);
+}
+
+/**
+ * Decrypts data using a pre-derived CryptoKey.
+ * Use this with deriveMasterKey() for master password decryption.
+ */
+export async function decryptWithKey(encryptedData: string, key: CryptoKey): Promise<string> {
+  const decoded = atob(encryptedData);
+  const combined = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) {
+    combined[i] = decoded.charCodeAt(i);
+  }
+
+  // Extract iv and ciphertext (no salt since key is pre-derived)
+  const iv = combined.slice(0, IV_LENGTH);
+  const ciphertext = combined.slice(IV_LENGTH);
+
+  const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, ciphertext);
+
+  const decoder = new TextDecoder();
+  return decoder.decode(decrypted);
+}

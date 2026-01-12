@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect";
 // ---------------------
 
 // In-memory storage for passwords and IMIS tokens
-// Passwords are entered by users per session and never persisted
+// Passwords can optionally be persisted encrypted (controlled by settings)
 // IMIS tokens are obtained from IMIS API and stored for subsequent calls
 type SessionData = {
   password?: string;
@@ -13,10 +13,17 @@ type SessionData = {
   tokenExpiresAt?: number;
 };
 
+// Master password state - stored in memory for the session
+type MasterPasswordState = {
+  password: string;
+  derivedKey: CryptoKey;
+} | null;
+
 // ---------------------
 // Module-level session store (persists across all requests)
 // ---------------------
 const sessions = new Map<string, SessionData>();
+let masterPasswordState: MasterPasswordState = null;
 
 const getOrCreateSession = (envId: string): SessionData => {
   if (!sessions.has(envId)) {
@@ -85,6 +92,26 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
         Effect.sync(() => {
           sessions.clear();
         }),
+
+      // ---------------------
+      // Master Password Methods
+      // ---------------------
+
+      setMasterPassword: (password: string, derivedKey: CryptoKey) =>
+        Effect.sync(() => {
+          masterPasswordState = { password, derivedKey };
+        }),
+
+      getMasterPassword: () =>
+        Effect.sync(() => masterPasswordState),
+
+      clearMasterPassword: () =>
+        Effect.sync(() => {
+          masterPasswordState = null;
+        }),
+
+      isMasterPasswordSet: () =>
+        Effect.sync(() => masterPasswordState !== null),
     };
   },
 }) {
@@ -99,6 +126,11 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
       getImisToken: () => Effect.succeed(undefined),
       clearSession: () => Effect.void,
       clearAllSessions: () => Effect.void,
+      // Master password methods
+      setMasterPassword: () => Effect.void,
+      getMasterPassword: () => Effect.succeed(null),
+      clearMasterPassword: () => Effect.void,
+      isMasterPasswordSet: () => Effect.succeed(false),
     }),
   );
 }

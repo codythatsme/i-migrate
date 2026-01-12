@@ -14,7 +14,15 @@ import {
   TraceStoreErrorSchema,
   JobNotFoundErrorSchema,
   JobAlreadyRunningErrorSchema,
+  InvalidMasterPasswordErrorSchema,
 } from "./schemas";
+import {
+  hashPassword,
+  verifyPassword,
+  deriveMasterKey,
+  encryptWithKey,
+  decryptWithKey,
+} from "../lib/encryption";
 import {
   PersistenceService,
   DatabaseError,
@@ -360,12 +368,25 @@ export const HandlersLive = ApiGroup.toLayer({
 
       // Store password in server-side memory (only after validation succeeds)
       yield* session.setPassword(environmentId, password);
+
+      // If password storage is enabled, also encrypt and store in DB
+      const dbSettings = yield* persistence.getSettings();
+      if (dbSettings?.storePasswords) {
+        const masterPw = yield* session.getMasterPassword();
+        if (masterPw) {
+          const encrypted = yield* Effect.promise(() => encryptWithKey(password, masterPw.derivedKey));
+          yield* persistence.setEncryptedPassword(environmentId, encrypted);
+        }
+      }
     }),
 
   "password.clear": ({ environmentId }) =>
     Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
       const session = yield* SessionService;
       yield* session.clearPassword(environmentId);
+      // Also clear from database if stored
+      yield* persistence.setEncryptedPassword(environmentId, null);
     }),
 
   "password.status": ({ environmentId }) =>
@@ -679,4 +700,194 @@ export const HandlersLive = ApiGroup.toLayer({
         return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }));
       }),
     ),
+
+  // ---------------------
+  // Settings Handlers
+  // ---------------------
+
+  "settings.get": () =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      const session = yield* SessionService;
+
+      const dbSettings = yield* persistence.getSettings();
+      const isUnlocked = yield* session.isMasterPasswordSet();
+
+      return {
+        storePasswords: dbSettings?.storePasswords ?? false,
+        hasMasterPassword: dbSettings?.masterPasswordHash !== null && dbSettings?.masterPasswordHash !== undefined,
+        isUnlocked,
+      };
+    }).pipe(Effect.mapError(mapDatabaseError)),
+
+  "settings.enableStorage": ({ masterPassword }) =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      const session = yield* SessionService;
+
+      // Hash the master password for verification
+      const masterPasswordHash = yield* Effect.promise(() => hashPassword(masterPassword));
+
+      // Derive the encryption key
+      const derivedKey = yield* Effect.promise(() => deriveMasterKey(masterPassword));
+
+      // Store master password in memory
+      yield* session.setMasterPassword(masterPassword, derivedKey);
+
+      // Update settings
+      yield* persistence.updateSettings({
+        storePasswords: true,
+        masterPasswordHash,
+      });
+
+      // Auto-save any currently in-memory passwords
+      const environments = yield* persistence.getEnvironments();
+      for (const env of environments) {
+        const password = yield* session.getPassword(env.id);
+        if (password) {
+          const encrypted = yield* Effect.promise(() => encryptWithKey(password, derivedKey));
+          yield* persistence.setEncryptedPassword(env.id, encrypted);
+        }
+      }
+
+      return {
+        storePasswords: true,
+        hasMasterPassword: true,
+        isUnlocked: true,
+      };
+    }).pipe(Effect.mapError(mapDatabaseError)),
+
+  "settings.disableStorage": () =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      const session = yield* SessionService;
+
+      // Clear all encrypted passwords
+      yield* persistence.clearAllEncryptedPasswords();
+
+      // Clear master password from memory
+      yield* session.clearMasterPassword();
+
+      // Update settings
+      yield* persistence.updateSettings({
+        storePasswords: false,
+        masterPasswordHash: null,
+      });
+
+      return {
+        storePasswords: false,
+        hasMasterPassword: false,
+        isUnlocked: false,
+      };
+    }).pipe(Effect.mapError(mapDatabaseError)),
+
+  "settings.verifyMasterPassword": ({ masterPassword }) =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      const session = yield* SessionService;
+
+      const dbSettings = yield* persistence.getSettings();
+
+      if (!dbSettings?.masterPasswordHash) {
+        return yield* Effect.fail(
+          new InvalidMasterPasswordErrorSchema({ message: "No master password configured" }),
+        );
+      }
+
+      // Verify the password
+      const isValid = yield* Effect.promise(() =>
+        verifyPassword(masterPassword, dbSettings.masterPasswordHash!),
+      );
+
+      if (!isValid) {
+        return yield* Effect.fail(
+          new InvalidMasterPasswordErrorSchema({ message: "Invalid master password" }),
+        );
+      }
+
+      // Derive the encryption key and store in session
+      const derivedKey = yield* Effect.promise(() => deriveMasterKey(masterPassword));
+      yield* session.setMasterPassword(masterPassword, derivedKey);
+
+      // Load all encrypted passwords into memory
+      const encryptedPasswords = yield* persistence.getAllEncryptedPasswords();
+      for (const { id, encryptedPassword } of encryptedPasswords) {
+        const decrypted = yield* Effect.promise(() => decryptWithKey(encryptedPassword, derivedKey))
+          .pipe(Effect.catchAll(() => Effect.succeed(null)));
+
+        if (decrypted) {
+          yield* session.setPassword(id, decrypted);
+        }
+      }
+
+      return true;
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error instanceof InvalidMasterPasswordErrorSchema) return error;
+        if (error._tag === "DatabaseError") return mapDatabaseError(error);
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }));
+      }),
+    ),
+
+  "settings.changeMasterPassword": ({ currentPassword, newPassword }) =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      const session = yield* SessionService;
+
+      const dbSettings = yield* persistence.getSettings();
+
+      if (!dbSettings?.masterPasswordHash) {
+        return yield* Effect.fail(
+          new InvalidMasterPasswordErrorSchema({ message: "No master password configured" }),
+        );
+      }
+
+      // Verify current password
+      const isValid = yield* Effect.promise(() =>
+        verifyPassword(currentPassword, dbSettings.masterPasswordHash!),
+      );
+
+      if (!isValid) {
+        return yield* Effect.fail(
+          new InvalidMasterPasswordErrorSchema({ message: "Current password is incorrect" }),
+        );
+      }
+
+      // Derive old and new keys
+      const oldKey = yield* Effect.promise(() => deriveMasterKey(currentPassword));
+      const newKey = yield* Effect.promise(() => deriveMasterKey(newPassword));
+      const newHash = yield* Effect.promise(() => hashPassword(newPassword));
+
+      // Re-encrypt all stored passwords
+      const encryptedPasswords = yield* persistence.getAllEncryptedPasswords();
+      for (const { id, encryptedPassword } of encryptedPasswords) {
+        // Decrypt with old key
+        const decrypted = yield* Effect.promise(() => decryptWithKey(encryptedPassword, oldKey))
+          .pipe(Effect.catchAll(() => Effect.succeed(null)));
+
+        if (decrypted) {
+          // Re-encrypt with new key
+          const reEncrypted = yield* Effect.promise(() => encryptWithKey(decrypted, newKey));
+          yield* persistence.setEncryptedPassword(id, reEncrypted);
+        }
+      }
+
+      // Update the stored hash
+      yield* persistence.updateSettings({ masterPasswordHash: newHash });
+
+      // Update session with new master password
+      yield* session.setMasterPassword(newPassword, newKey);
+    }).pipe(
+      Effect.mapError((error) => {
+        if (error instanceof InvalidMasterPasswordErrorSchema) return error;
+        if (error._tag === "DatabaseError") return mapDatabaseError(error);
+        return mapDatabaseError(new DatabaseError({ message: "Unknown error", cause: error }));
+      }),
+    ),
+
+  "settings.lock": () =>
+    Effect.gen(function* () {
+      const session = yield* SessionService;
+      yield* session.clearMasterPassword();
+    }),
 });
