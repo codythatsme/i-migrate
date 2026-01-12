@@ -46,7 +46,7 @@ Examples:
 3. Update version in `package.json`
 4. Commit: `chore: release vX.Y.Z`
 5. Tag: `git tag vX.Y.Z`
-6. Push: `git push origin main --tags`
+6. Push: `git push origin main vX.Y.Z`
 
 ## Version Numbering
 
