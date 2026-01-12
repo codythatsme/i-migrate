@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2025-01-13
+
+### Fixed
+
+- Make RenderingInformation text fields optional in iMIS schema (HelpText, ToolTip, WatermarkText)
+
 ## [0.5.3] - 2025-01-11
 
 ### Fixed
