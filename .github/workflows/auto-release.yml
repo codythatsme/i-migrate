@@ -1,0 +1,192 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Check and Release
+    runs-on: ubuntu-latest
+    # Skip if this is a release commit to avoid infinite loop
+    if: "!startsWith(github.event.head_commit.message, 'chore: release')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+
+      - name: Analyze commits and determine version bump
+        id: analyze
+        run: |
+          LATEST_TAG="${{ steps.get_tag.outputs.tag }}"
+
+          # Get commits since last tag
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s|%b---" 2>/dev/null || git log --pretty=format:"%s|%b---")
+
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits since $LATEST_TAG"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Commits since $LATEST_TAG:"
+          echo "$COMMITS"
+
+          # Determine version bump
+          BUMP="none"
+          FEATURES=""
+          FIXES=""
+          BREAKING=""
+
+          # Parse each commit
+          while IFS= read -r line; do
+            SUBJECT=$(echo "$line" | cut -d'|' -f1)
+            BODY=$(echo "$line" | cut -d'|' -f2)
+
+            # Check for breaking changes
+            if echo "$SUBJECT" | grep -qE '^[a-z]+(\(.+\))?!:' || echo "$BODY" | grep -q "BREAKING CHANGE:"; then
+              BUMP="major"
+              MSG=$(echo "$SUBJECT" | sed 's/^[a-z]*(\?[^)]*)\?!: //')
+              BREAKING="${BREAKING}- ${MSG}\n"
+            # Check for features
+            elif echo "$SUBJECT" | grep -qE '^feat(\(.+\))?:'; then
+              if [ "$BUMP" != "major" ]; then
+                BUMP="minor"
+              fi
+              MSG=$(echo "$SUBJECT" | sed 's/^feat(\?[^)]*)\?: //')
+              FEATURES="${FEATURES}- ${MSG}\n"
+            # Check for fixes
+            elif echo "$SUBJECT" | grep -qE '^fix(\(.+\))?:'; then
+              if [ "$BUMP" = "none" ]; then
+                BUMP="patch"
+              fi
+              MSG=$(echo "$SUBJECT" | sed 's/^fix(\?[^)]*)\?: //')
+              FIXES="${FIXES}- ${MSG}\n"
+            fi
+          done <<< "$(echo "$COMMITS" | tr '---' '\n' | grep -v '^$')"
+
+          if [ "$BUMP" = "none" ]; then
+            echo "No releasable commits (feat:/fix:/breaking) found"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "should_release=true" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+
+          # Store changelog entries
+          {
+            echo "features<<EOF"
+            echo -e "$FEATURES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          {
+            echo "fixes<<EOF"
+            echo -e "$FIXES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          {
+            echo "breaking<<EOF"
+            echo -e "$BREAKING"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          echo "Version bump: $BUMP"
+
+      - name: Calculate new version
+        id: version
+        if: steps.analyze.outputs.should_release == 'true'
+        run: |
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          BUMP="${{ steps.analyze.outputs.bump }}"
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          case "$BUMP" in
+            major)
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+              ;;
+          esac
+
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $CURRENT_VERSION -> $NEW_VERSION"
+
+      - name: Update package.json
+        if: steps.analyze.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new }}"
+          jq ".version = \"$NEW_VERSION\"" package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+      - name: Update CHANGELOG.md
+        if: steps.analyze.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new }}"
+          DATE=$(date +%Y-%m-%d)
+          FEATURES="${{ steps.analyze.outputs.features }}"
+          FIXES="${{ steps.analyze.outputs.fixes }}"
+          BREAKING="${{ steps.analyze.outputs.breaking }}"
+
+          # Build the new changelog entry
+          ENTRY="## [$NEW_VERSION] - $DATE\n"
+
+          if [ -n "$(echo -e "$BREAKING" | tr -d '[:space:]')" ]; then
+            ENTRY="${ENTRY}\n### Breaking Changes\n\n${BREAKING}"
+          fi
+
+          if [ -n "$(echo -e "$FEATURES" | tr -d '[:space:]')" ]; then
+            ENTRY="${ENTRY}\n### Added\n\n${FEATURES}"
+          fi
+
+          if [ -n "$(echo -e "$FIXES" | tr -d '[:space:]')" ]; then
+            ENTRY="${ENTRY}\n### Fixed\n\n${FIXES}"
+          fi
+
+          # Insert after ## [Unreleased] line
+          awk -v entry="$ENTRY" '
+            /^## \[Unreleased\]/ {
+              print
+              print ""
+              printf entry
+              next
+            }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.md.tmp
+          mv CHANGELOG.md.tmp CHANGELOG.md
+
+      - name: Commit and tag
+        if: steps.analyze.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package.json CHANGELOG.md
+          git commit -m "chore: release v${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
+
+          git push origin main
+          git push origin "v${NEW_VERSION}"
+
+          echo "Released v${NEW_VERSION}"
