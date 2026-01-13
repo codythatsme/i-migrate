@@ -293,7 +293,7 @@ function DataSourceCard({ source, isSelected, onSelect }: DataSourceCardProps) {
           >
             <Database className="size-4" />
           </div>
-          <div className="flex flex-col gap-0.5 overflow-hidden">
+          <div className="flex flex-col gap-0.5 min-w-0">
             <CardTitle className="text-sm truncate">{source.EntityTypeName}</CardTitle>
             <CardDescription className="text-xs truncate">
               {source.Description || source.ObjectTypeName}
