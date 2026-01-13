@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { parseAsString, parseAsInteger, parseAsStringLiteral, useQueryStates } from "nuqs";
@@ -155,37 +155,11 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     },
   });
 
-  // Fetch source data sources to get the selected entity's structure info (for datasource mode)
-  const { data: sourceDataSources } = useQuery({
-    ...queries.dataSources.byEnvironment(sourceEnvironmentId),
-    enabled: !!sourceEnvironmentId && mode === "datasource",
-  });
-
   // Fetch query definition (for query mode)
   const { data: queryDefinitionData } = useQuery({
     ...queries.queryDefinition.byPath(sourceEnvironmentId, sourceQuery),
     enabled: !!sourceEnvironmentId && !!sourceQuery && mode === "query",
   });
-
-  // Get the selected source entity definition (for datasource mode)
-  const selectedSourceEntity = useMemo(() => {
-    if (mode !== "datasource" || !sourceDataSources || !sourceEntity) return null;
-    return sourceDataSources.Items.$values.find((e) => e.EntityTypeName === sourceEntity) ?? null;
-  }, [mode, sourceDataSources, sourceEntity]);
-
-  // Compatibility filter for destination selection (for datasource mode)
-  // Standard sources can target any Multi/Single destination, so no compatibility filter needed
-  const destinationCompatibilityFilter = useMemo(() => {
-    if (mode !== "datasource" || !selectedSourceEntity) return undefined;
-    // Standard sources can migrate to any Multi/Single destination - skip compatibility filter
-    if (selectedSourceEntity.ObjectTypeName === "Standard") return undefined;
-    // Skip filter if primary parent is undefined (can't filter properly)
-    if (!selectedSourceEntity.PrimaryParentEntityTypeName) return undefined;
-    return {
-      objectTypeName: selectedSourceEntity.ObjectTypeName,
-      primaryParentEntityTypeName: selectedSourceEntity.PrimaryParentEntityTypeName,
-    };
-  }, [mode, selectedSourceEntity]);
 
   // Get source and destination environment info
   const sourceEnvironment = environments?.find((env) => env.id === sourceEnvironmentId);
@@ -427,7 +401,6 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
             onSelect={handleDestEntitySelect}
             title="Select Destination Data Source"
             description="Choose the data source to migrate data into on the destination environment."
-            compatibilityFilter={mode === "datasource" ? destinationCompatibilityFilter : undefined}
             destinationOnly
           />
         )}
