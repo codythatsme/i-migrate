@@ -372,8 +372,8 @@ export const HandlersLive = ApiGroup.toLayer({
       // If password storage is enabled, also encrypt and store in DB
       const dbSettings = yield* persistence.getSettings();
       if (dbSettings?.storePasswords) {
-        const masterPw = yield* session.getMasterPassword();
-        if (masterPw) {
+        const masterPw = (yield* session.getMasterPassword()) as { password: string; derivedKey: CryptoKey } | null;
+        if (masterPw !== null) {
           const encrypted = yield* Effect.promise(() => encryptWithKey(password, masterPw.derivedKey));
           yield* persistence.setEncryptedPassword(environmentId, encrypted);
         }
@@ -382,11 +382,11 @@ export const HandlersLive = ApiGroup.toLayer({
 
   "password.clear": ({ environmentId }) =>
     Effect.gen(function* () {
-      const persistence = yield* PersistenceService;
       const session = yield* SessionService;
+      const persistence = yield* PersistenceService;
       yield* session.clearPassword(environmentId);
-      // Also clear from database if stored
-      yield* persistence.setEncryptedPassword(environmentId, null);
+      // Also clear from database if stored (ignore errors - best effort)
+      yield* persistence.setEncryptedPassword(environmentId, null).pipe(Effect.ignore);
     }),
 
   "password.status": ({ environmentId }) =>
@@ -747,7 +747,8 @@ export const HandlersLive = ApiGroup.toLayer({
         const password = yield* session.getPassword(env.id);
         if (password) {
           const encrypted = yield* Effect.promise(() => encryptWithKey(password, derivedKey));
-          yield* persistence.setEncryptedPassword(env.id, encrypted);
+          // Ignore EnvironmentNotFoundError since we just fetched these environments
+          yield* persistence.setEncryptedPassword(env.id, encrypted).pipe(Effect.ignore);
         }
       }
 

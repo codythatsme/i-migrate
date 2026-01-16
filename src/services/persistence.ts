@@ -311,7 +311,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
           updatedAt: new Date().toISOString(),
         }),
       // Encrypted password methods
-      setEncryptedPassword: () => Effect.void,
+      setEncryptedPassword: () => Effect.succeed(undefined),
       getEncryptedPassword: () => Effect.succeed(null),
       clearAllEncryptedPasswords: () => Effect.void,
       getAllEncryptedPasswords: () => Effect.succeed([]),
