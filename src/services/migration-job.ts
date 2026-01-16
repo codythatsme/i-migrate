@@ -21,10 +21,7 @@ import { SessionService } from "./session";
 import { PersistenceService, DatabaseError, EnvironmentNotFoundError } from "./persistence";
 import { encryptJson, decryptJson } from "../lib/encryption";
 import type { PropertyMapping } from "../components/export/PropertyMapper";
-import {
-  CUSTOM_ENDPOINT_DEFINITIONS,
-  CUSTOM_ENDPOINT_BUILDERS,
-} from "../api/destinations";
+import { CUSTOM_ENDPOINT_DEFINITIONS, CUSTOM_ENDPOINT_BUILDERS } from "../api/destinations";
 
 // ---------------------
 // Domain Errors
@@ -464,7 +461,9 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
 
           if (destType === "custom_endpoint") {
             // Custom endpoint insertion
-            const def = CUSTOM_ENDPOINT_DEFINITIONS.find((d) => d.entityTypeName === destEntityType);
+            const def = CUSTOM_ENDPOINT_DEFINITIONS.find(
+              (d) => d.entityTypeName === destEntityType,
+            );
             if (!def?.endpointPath || !def?.requestBodyBuilder) {
               return yield* Effect.fail(
                 new MigrationError({

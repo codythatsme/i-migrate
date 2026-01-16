@@ -1311,7 +1311,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
                     if (data && typeof data === "object") {
                       const response = data as Record<string, unknown>;
                       if (response.PartyId) identityElements.push(String(response.PartyId));
-                      if (response.PartyImageId) identityElements.push(String(response.PartyImageId));
+                      if (response.PartyImageId)
+                        identityElements.push(String(response.PartyImageId));
                     }
                     return { identityElements };
                   }),
