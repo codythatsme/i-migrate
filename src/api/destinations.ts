@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import type { BoEntityDefinition, BoProperty } from "./imis-schemas";
+import type { BinaryBlob } from "../services/migration-job";
 
 // ---------------------
 // Destination Type Schemas
@@ -104,6 +105,21 @@ export function boPropertyToDestinationProperty(prop: BoProperty): DestinationPr
 }
 
 /**
+ * Converts a DestinationProperty to a BoProperty-compatible shape.
+ * Used by property mappers that expect PascalCase BoProperty interface.
+ */
+export function destinationPropertyToBoProperty(prop: DestinationProperty): BoProperty {
+  const result: Record<string, unknown> = {
+    Name: prop.name,
+    PropertyTypeName: prop.propertyTypeName,
+  };
+  if (prop.maxLength !== undefined) result.MaxLength = prop.maxLength;
+  if (prop.isIdentity !== undefined) result.IsIdentity = prop.isIdentity;
+  if (prop.required !== undefined) result.Required = prop.required;
+  return result as BoProperty;
+}
+
+/**
  * Converts a BoEntityDefinition to a DestinationDefinition.
  * Used to normalize BO entities for the unified destination interface.
  */
@@ -127,4 +143,66 @@ export function boEntitiesToDestinations(
   entities: readonly BoEntityDefinition[],
 ): DestinationDefinition[] {
   return entities.map(boEntityToDestination);
+}
+
+// ---------------------
+// Custom Endpoint Support
+// ---------------------
+
+/**
+ * Row data type used by custom endpoint builders.
+ */
+type RowData = Record<string, string | number | boolean | null | BinaryBlob>;
+
+/**
+ * Builder function type for custom endpoint request bodies.
+ * Takes transformed row data and returns the request body.
+ */
+export type CustomEndpointBuilder = (row: RowData) => unknown;
+
+/**
+ * PartyImage request body builder.
+ * NOTE: Image field comes pre-formatted with $type/$value wrapper from source.
+ */
+function buildPartyImageBody(row: RowData): unknown {
+  return {
+    $type: "Asi.Soa.Membership.DataContracts.PartyImageData, Asi.Contracts",
+    PartyId: String(row.PartyId ?? ""),
+    IsPreferred: row.IsPreferred ?? false,
+    Image: row.Image,
+  };
+}
+
+/**
+ * Registry of custom endpoint body builders by endpoint name.
+ */
+export const CUSTOM_ENDPOINT_BUILDERS: Record<string, CustomEndpointBuilder> = {
+  PartyImage: buildPartyImageBody,
+};
+
+/**
+ * Hardcoded custom endpoint destination definitions.
+ */
+export const CUSTOM_ENDPOINT_DEFINITIONS: DestinationDefinition[] = [
+  {
+    destinationType: "custom_endpoint",
+    entityTypeName: "PartyImage",
+    description: "Member profile images",
+    endpointPath: "api/PartyImage",
+    requestBodyBuilder: "PartyImage",
+    properties: [
+      { name: "PartyId", propertyTypeName: "String", isIdentity: true, required: true },
+      { name: "IsPreferred", propertyTypeName: "Boolean" },
+      { name: "Image", propertyTypeName: "Binary", required: true },
+    ],
+  },
+];
+
+/**
+ * Get all available destinations (BO entities + custom endpoints).
+ */
+export function getAllDestinations(
+  boEntities: readonly BoEntityDefinition[],
+): DestinationDefinition[] {
+  return [...boEntitiesToDestinations(boEntities), ...CUSTOM_ENDPOINT_DEFINITIONS];
 }

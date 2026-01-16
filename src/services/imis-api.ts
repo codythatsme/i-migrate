@@ -42,6 +42,7 @@ export class ImisRequestError extends Data.TaggedError("ImisRequestError")<{
 export class ImisResponseError extends Data.TaggedError("ImisResponseError")<{
   readonly message: string;
   readonly status: number;
+  readonly body?: string;
   readonly cause?: unknown;
 }> {}
 
@@ -359,48 +360,69 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             // Re-raise other errors
             return Effect.fail(error);
           }),
-          Effect.mapError((error) => {
+          Effect.catchAll((error) => {
             // Pass through known error types
-            if (error instanceof ImisAuthError) return error;
-            if (error instanceof ImisRequestError) return error;
-            if (error instanceof ImisResponseError) return error;
-            if (error instanceof ImisSchemaError) return error;
-            if (error instanceof MissingCredentialsError) return error;
-            if (error instanceof EnvironmentNotFoundError) return error;
-            if (error instanceof DatabaseError) return error;
+            if (error instanceof ImisAuthError) return Effect.fail(error);
+            if (error instanceof ImisRequestError) return Effect.fail(error);
+            if (error instanceof ImisResponseError) return Effect.fail(error);
+            if (error instanceof ImisSchemaError) return Effect.fail(error);
+            if (error instanceof MissingCredentialsError) return Effect.fail(error);
+            if (error instanceof EnvironmentNotFoundError) return Effect.fail(error);
+            if (error instanceof DatabaseError) return Effect.fail(error);
 
             // Handle HTTP client errors
             if (HttpClientError.isHttpClientError(error)) {
               if (error._tag === "ResponseError") {
-                return new ImisResponseError({
-                  message: `IMIS request failed with status ${error.response.status}`,
-                  status: error.response.status,
-                  cause: error,
-                });
+                // Read response body for error details
+                return error.response.text.pipe(
+                  Effect.catchAll(() => Effect.succeed("")),
+                  Effect.tap((body) =>
+                    Effect.annotateCurrentSpan({
+                      "error.response.body": body || "",
+                      "error.response.status": error.response.status,
+                    }),
+                  ),
+                  Effect.flatMap((body) =>
+                    Effect.fail(
+                      new ImisResponseError({
+                        message: `IMIS request failed with status ${error.response.status}`,
+                        status: error.response.status,
+                        body: body || undefined,
+                        cause: error,
+                      }),
+                    ),
+                  ),
+                );
               }
-              return new ImisRequestError({
-                message: "Failed to connect to IMIS",
-                cause: error,
-              });
+              return Effect.fail(
+                new ImisRequestError({
+                  message: "Failed to connect to IMIS",
+                  cause: error,
+                }),
+              );
             }
 
             // Handle schema parse errors with detailed formatting
             if (isParseError(error)) {
               const formattedError = formatParseError(error);
-              return new ImisSchemaError({
-                message: `Response from ${endpoint} did not match expected schema`,
-                endpoint,
-                parseError: formattedError,
-                cause: error,
-              });
+              return Effect.fail(
+                new ImisSchemaError({
+                  message: `Response from ${endpoint} did not match expected schema`,
+                  endpoint,
+                  parseError: formattedError,
+                  cause: error,
+                }),
+              );
             }
 
             // Unknown error - log and wrap
             console.error("[ImisApi] Unknown error:", error);
-            return new ImisRequestError({
-              message: `Unknown error during IMIS request to ${endpoint}`,
-              cause: error,
-            });
+            return Effect.fail(
+              new ImisRequestError({
+                message: `Unknown error during IMIS request to ${endpoint}`,
+                cause: error,
+              }),
+            );
           }),
         );
       });
@@ -1251,6 +1273,60 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             },
           }),
         ),
+
+      /**
+       * Insert data via a custom API endpoint (non-GenericEntityData format).
+       * Used for endpoints like PartyImage that have their own data contract.
+       * @param envId - Environment ID
+       * @param endpointPath - API endpoint path (e.g., "api/PartyImage")
+       * @param body - Pre-built request body with $type field
+       * @returns Identity elements extracted from response
+       */
+      insertCustomEndpoint: (envId: string, endpointPath: string, body: unknown) =>
+        executeWithAuth(envId, `/${endpointPath}`, (baseUrl, token) =>
+          HttpClientRequest.post(`${baseUrl}/${endpointPath}`).pipe(
+            HttpClientRequest.bearerToken(token),
+            HttpClientRequest.setHeader("Accept", "application/json"),
+            HttpClientRequest.setHeader("Content-Type", "application/json"),
+            HttpClientRequest.bodyJson(body),
+            Effect.flatMap((req) => httpClient.execute(req)),
+            Effect.flatMap((res) => {
+              if (res.status >= 200 && res.status < 300) {
+                return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
+                  Effect.map((data): InsertEntityResult => {
+                    // Extract identity from response
+                    // PartyImage returns PartyId + PartyImageId directly in response
+                    const identityElements: string[] = [];
+                    if (data && typeof data === "object") {
+                      const response = data as Record<string, unknown>;
+                      if (response.PartyId) identityElements.push(String(response.PartyId));
+                      if (response.PartyImageId) identityElements.push(String(response.PartyImageId));
+                    }
+                    return { identityElements };
+                  }),
+                  Effect.catchAll(() =>
+                    Effect.succeed({ identityElements: [] } as InsertEntityResult),
+                  ),
+                );
+              }
+              return Effect.fail(
+                new HttpClientError.ResponseError({
+                  request: HttpClientRequest.post(`${baseUrl}/${endpointPath}`),
+                  response: res,
+                  reason: "StatusCode",
+                }),
+              );
+            }),
+            Effect.scoped,
+          ),
+        ).pipe(
+          Effect.withSpan("imis.insertCustomEndpoint", {
+            attributes: {
+              environmentId: envId,
+              endpoint: `/${endpointPath}`,
+            },
+          }),
+        ),
     };
   }),
 
@@ -1335,6 +1411,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         }),
       insertEntity: () => Effect.succeed({ identityElements: ["12345"] }),
       getIdentityFieldNames: () => Effect.succeed(["ID"]),
+      insertCustomEndpoint: () => Effect.succeed({ identityElements: ["12345", "1"] }),
     }),
   );
 }

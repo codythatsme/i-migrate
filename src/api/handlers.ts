@@ -81,14 +81,12 @@ const mapImisRequestError = (error: ImisRequestError) => {
   });
 };
 
-const mapImisResponseError = (error: ImisResponseError) => {
-  const cause = error.cause as { body?: string } | undefined;
-  return new ImisResponseErrorSchema({
+const mapImisResponseError = (error: ImisResponseError) =>
+  new ImisResponseErrorSchema({
     message: error.message,
     status: error.status,
-    responseBody: cause?.body,
+    responseBody: error.body,
   });
-};
 
 const mapImisSchemaError = (error: ImisSchemaError) =>
   new ImisSchemaErrorSchema({

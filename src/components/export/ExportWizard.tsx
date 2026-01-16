@@ -432,6 +432,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               mappings={mappings}
               onMappingsChange={setMappings}
               onValidationChange={handleValidationChange}
+              destinationDefinition={selectedDestination ?? undefined}
             />
           )}
 
@@ -450,6 +451,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               onMappingsChange={setMappings}
               onValidationChange={handleValidationChange}
               sourceEnvironmentVersion={sourceEnvironment?.version}
+              destinationDefinition={selectedDestination ?? undefined}
             />
           )}
 
