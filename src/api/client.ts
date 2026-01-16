@@ -198,7 +198,8 @@ export const enablePasswordStorage = (masterPassword: string) =>
   withClient((client) => client.settings.enableStorage({ masterPassword }));
 
 /** Disable password storage (clears all stored passwords) */
-export const disablePasswordStorage = () => withClient((client) => client.settings.disableStorage());
+export const disablePasswordStorage = () =>
+  withClient((client) => client.settings.disableStorage());
 
 /** Verify master password and unlock stored passwords */
 export const verifyMasterPassword = (masterPassword: string) =>

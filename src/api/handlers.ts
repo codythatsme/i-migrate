@@ -372,9 +372,14 @@ export const HandlersLive = ApiGroup.toLayer({
       // If password storage is enabled, also encrypt and store in DB
       const dbSettings = yield* persistence.getSettings();
       if (dbSettings?.storePasswords) {
-        const masterPw = (yield* session.getMasterPassword()) as { password: string; derivedKey: CryptoKey } | null;
+        const masterPw = (yield* session.getMasterPassword()) as {
+          password: string;
+          derivedKey: CryptoKey;
+        } | null;
         if (masterPw !== null) {
-          const encrypted = yield* Effect.promise(() => encryptWithKey(password, masterPw.derivedKey));
+          const encrypted = yield* Effect.promise(() =>
+            encryptWithKey(password, masterPw.derivedKey),
+          );
           yield* persistence.setEncryptedPassword(environmentId, encrypted);
         }
       }
@@ -716,7 +721,8 @@ export const HandlersLive = ApiGroup.toLayer({
 
       return {
         storePasswords: dbSettings?.storePasswords ?? false,
-        hasMasterPassword: dbSettings?.masterPasswordHash !== null && dbSettings?.masterPasswordHash !== undefined,
+        hasMasterPassword:
+          dbSettings?.masterPasswordHash !== null && dbSettings?.masterPasswordHash !== undefined,
         isUnlocked,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
@@ -814,8 +820,9 @@ export const HandlersLive = ApiGroup.toLayer({
       // Load all encrypted passwords into memory
       const encryptedPasswords = yield* persistence.getAllEncryptedPasswords();
       for (const { id, encryptedPassword } of encryptedPasswords) {
-        const decrypted = yield* Effect.promise(() => decryptWithKey(encryptedPassword, derivedKey))
-          .pipe(Effect.catchAll(() => Effect.succeed(null)));
+        const decrypted = yield* Effect.promise(() =>
+          decryptWithKey(encryptedPassword, derivedKey),
+        ).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
         if (decrypted) {
           yield* session.setPassword(id, decrypted);
@@ -864,8 +871,9 @@ export const HandlersLive = ApiGroup.toLayer({
       const encryptedPasswords = yield* persistence.getAllEncryptedPasswords();
       for (const { id, encryptedPassword } of encryptedPasswords) {
         // Decrypt with old key
-        const decrypted = yield* Effect.promise(() => decryptWithKey(encryptedPassword, oldKey))
-          .pipe(Effect.catchAll(() => Effect.succeed(null)));
+        const decrypted = yield* Effect.promise(() =>
+          decryptWithKey(encryptedPassword, oldKey),
+        ).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
         if (decrypted) {
           // Re-encrypt with new key

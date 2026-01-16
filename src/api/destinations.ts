@@ -47,7 +47,12 @@ export type DestinationProperty = typeof DestinationPropertySchema.Type;
 /**
  * Object type names for destinations (BO entities only).
  */
-export const DestinationObjectTypeNameSchema = Schema.Literal("Multi", "SINGLE", "Single", "Standard");
+export const DestinationObjectTypeNameSchema = Schema.Literal(
+  "Multi",
+  "SINGLE",
+  "Single",
+  "Standard",
+);
 
 export type DestinationObjectTypeName = typeof DestinationObjectTypeNameSchema.Type;
 
@@ -118,6 +123,8 @@ export function boEntityToDestination(bo: BoEntityDefinition): DestinationDefini
 /**
  * Converts an array of BoEntityDefinitions to DestinationDefinitions.
  */
-export function boEntitiesToDestinations(entities: readonly BoEntityDefinition[]): DestinationDefinition[] {
+export function boEntitiesToDestinations(
+  entities: readonly BoEntityDefinition[],
+): DestinationDefinition[] {
   return entities.map(boEntityToDestination);
 }

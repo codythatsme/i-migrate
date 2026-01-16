@@ -176,11 +176,7 @@ function SettingsPage() {
       </Card>
 
       {/* Enable storage dialog */}
-      <MasterPasswordDialog
-        mode="set"
-        open={showEnableDialog}
-        onOpenChange={setShowEnableDialog}
-      />
+      <MasterPasswordDialog mode="set" open={showEnableDialog} onOpenChange={setShowEnableDialog} />
 
       {/* Disable confirmation dialog */}
       <Dialog open={showDisableConfirm} onOpenChange={setShowDisableConfirm}>

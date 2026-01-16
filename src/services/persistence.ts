@@ -169,7 +169,10 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
             catch: (cause) => new DatabaseError({ message: "Failed to fetch settings", cause }),
           }),
 
-        updateSettings: (updates: { storePasswords?: boolean; masterPasswordHash?: string | null }) =>
+        updateSettings: (updates: {
+          storePasswords?: boolean;
+          masterPasswordHash?: string | null;
+        }) =>
           Effect.gen(function* () {
             const now = new Date().toISOString();
 

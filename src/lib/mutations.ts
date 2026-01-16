@@ -177,8 +177,13 @@ export const useChangeMasterPassword = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
-      changeMasterPassword(currentPassword, newPassword),
+    mutationFn: ({
+      currentPassword,
+      newPassword,
+    }: {
+      currentPassword: string;
+      newPassword: string;
+    }) => changeMasterPassword(currentPassword, newPassword),
     onSuccess: () => {
       queryClient.invalidateQueries(queries.settings.current());
     },

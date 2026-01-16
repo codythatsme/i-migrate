@@ -99,7 +99,8 @@ export function MasterPasswordDialog({
     onSkip?.();
   };
 
-  const isValid = mode === "set" ? password.length >= 4 && password === confirmPassword : password.length > 0;
+  const isValid =
+    mode === "set" ? password.length >= 4 && password === confirmPassword : password.length > 0;
   const isPending = enableStorage.isPending || verifyPassword.isPending;
 
   return (

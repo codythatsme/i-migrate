@@ -93,7 +93,9 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   const [mappings, setMappings] = useState<PropertyMapping[]>([]);
 
   // Local state for full destination definition (needed for destType and properties)
-  const [selectedDestination, setSelectedDestination] = useState<DestinationDefinition | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<DestinationDefinition | null>(
+    null,
+  );
 
   // State for mapper validation (e.g., IsPrimary required for Party destinations)
   const [mapperValidation, setMapperValidation] = useState<{

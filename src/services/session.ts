@@ -102,16 +102,14 @@ export class SessionService extends Effect.Service<SessionService>()("app/Sessio
           masterPasswordState = { password, derivedKey };
         }),
 
-      getMasterPassword: () =>
-        Effect.sync(() => masterPasswordState),
+      getMasterPassword: () => Effect.sync(() => masterPasswordState),
 
       clearMasterPassword: () =>
         Effect.sync(() => {
           masterPasswordState = null;
         }),
 
-      isMasterPasswordSet: () =>
-        Effect.sync(() => masterPasswordState !== null),
+      isMasterPasswordSet: () => Effect.sync(() => masterPasswordState !== null),
     };
   },
 }) {
