@@ -722,6 +722,7 @@ export const HandlersLive = ApiGroup.toLayer({
         hasMasterPassword:
           dbSettings?.masterPasswordHash !== null && dbSettings?.masterPasswordHash !== undefined,
         isUnlocked,
+        verboseLogging: dbSettings?.verboseLogging ?? false,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
 
@@ -760,6 +761,7 @@ export const HandlersLive = ApiGroup.toLayer({
         storePasswords: true,
         hasMasterPassword: true,
         isUnlocked: true,
+        verboseLogging: false,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
 
@@ -784,6 +786,7 @@ export const HandlersLive = ApiGroup.toLayer({
         storePasswords: false,
         hasMasterPassword: false,
         isUnlocked: false,
+        verboseLogging: false,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
 
@@ -898,4 +901,10 @@ export const HandlersLive = ApiGroup.toLayer({
       const session = yield* SessionService;
       yield* session.clearMasterPassword();
     }),
+
+  "settings.setVerboseLogging": ({ verboseLogging }) =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      yield* persistence.updateSettings({ verboseLogging });
+    }).pipe(Effect.mapError(mapDatabaseError)),
 });

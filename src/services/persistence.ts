@@ -172,6 +172,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
         updateSettings: (updates: {
           storePasswords?: boolean;
           masterPasswordHash?: string | null;
+          verboseLogging?: boolean;
         }) =>
           Effect.gen(function* () {
             const now = new Date().toISOString();
@@ -192,6 +193,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
                       id: "default",
                       storePasswords: updates.storePasswords ?? false,
                       masterPasswordHash: updates.masterPasswordHash ?? null,
+                      verboseLogging: updates.verboseLogging ?? false,
                       createdAt: now,
                       updatedAt: now,
                     })
@@ -310,6 +312,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
           id: "default",
           storePasswords: false,
           masterPasswordHash: null,
+          verboseLogging: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }),

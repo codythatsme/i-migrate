@@ -537,6 +537,7 @@ export const SettingsSchema = Schema.Struct({
   storePasswords: Schema.Boolean,
   hasMasterPassword: Schema.Boolean,
   isUnlocked: Schema.Boolean,
+  verboseLogging: Schema.Boolean,
 });
 
 export type Settings = typeof SettingsSchema.Type;

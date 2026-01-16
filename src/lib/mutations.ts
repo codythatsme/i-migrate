@@ -13,6 +13,7 @@ import {
   verifyMasterPassword,
   changeMasterPassword,
   lockPasswords,
+  setVerboseLogging,
   type Environment,
   type CreateEnvironment,
 } from "@/api/client";
@@ -201,6 +202,18 @@ export const useLockPasswords = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(queries.settings.current());
       queryClient.invalidateQueries(queries.environments.all());
+    },
+  });
+};
+
+// Set verbose logging
+export const useSetVerboseLogging = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (verboseLogging: boolean) => setVerboseLogging(verboseLogging),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
     },
   });
 };

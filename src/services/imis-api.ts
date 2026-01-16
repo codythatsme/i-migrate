@@ -243,6 +243,27 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     // Internal Helpers
     // ---------------------
 
+    // Verbose logging helper - logs requests/responses when enabled
+    const logVerbose = (type: "REQ" | "RES", method: string, url: string, body?: unknown) =>
+      Effect.gen(function* () {
+        const settings = yield* persistence.getSettings();
+        if (settings?.verboseLogging) {
+          const ts = new Date().toISOString();
+          console.log(`[IMIS ${ts}] ${type} ${method} ${url}`);
+          if (body !== undefined) {
+            // Redact password in token requests
+            const sanitized =
+              typeof body === "string" && body.includes("password=")
+                ? body.replace(/password=[^&]+/, "password=****")
+                : body;
+            console.log(
+              `[IMIS ${ts}] BODY:`,
+              typeof sanitized === "string" ? sanitized : JSON.stringify(sanitized),
+            );
+          }
+        }
+      }).pipe(Effect.ignore);
+
     // Fetch a new token from IMIS /token endpoint
     const fetchToken = (envId: string) =>
       Effect.gen(function* () {
@@ -262,6 +283,9 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           username: env.username,
           password: password,
         });
+
+        // Log request
+        yield* logVerbose("REQ", "POST", tokenUrl, body.toString());
 
         // Make token request with retry for transient errors
         const response = yield* HttpClientRequest.post(tokenUrl).pipe(
@@ -296,6 +320,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           }),
           Effect.scoped,
         );
+
+        // Log response
+        yield* logVerbose("RES", "POST", tokenUrl, {
+          access_token: response.access_token.substring(0, 20) + "...",
+          token_type: response.token_type,
+          expires_in: response.expires_in,
+        });
 
         // Store token in session (no expiry tracking - we handle 401 instead)
         yield* session.setImisToken(
@@ -338,10 +369,16 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       envId: string,
       endpoint: string,
       makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, E>,
+      options?: { method?: string; body?: unknown },
     ) =>
       Effect.gen(function* () {
         const env = yield* persistence.getEnvironmentById(envId);
         const token = yield* ensureToken(envId);
+        const fullUrl = `${env.baseUrl}${endpoint}`;
+        const method = options?.method ?? "GET";
+
+        // Log request
+        yield* logVerbose("REQ", method, fullUrl, options?.body);
 
         return yield* makeRequest(env.baseUrl, token).pipe(
           // Retry transient errors (network issues, 5xx, 429) with exponential backoff
@@ -435,6 +472,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               }),
             );
           }),
+          // Log response (success or error)
+          Effect.tap(() => logVerbose("RES", method, `${fullUrl} (success)`)),
+          Effect.tapError((error) =>
+            logVerbose("RES", method, `${fullUrl} (error: ${error._tag})`),
+          ),
         );
       });
 
@@ -1131,47 +1173,50 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         parentEntityTypeName: string,
         parentId: string | null,
         properties: Record<string, string | number | boolean | null | BinaryBlob>,
-      ) =>
-        executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) => {
-          // Build properties array
-          const propertyData = Object.entries(properties).map(([name, value]) => ({
-            $type: "Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts",
-            Name: name,
-            Value: value,
-          }));
+      ) => {
+        // Build properties array
+        const propertyData = Object.entries(properties).map(([name, value]) => ({
+          $type: "Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts",
+          Name: name,
+          Value: value,
+        }));
 
-          // Build identity structure based on parent type
-          const parentIdentity = parentId
-            ? {
-                $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-                EntityTypeName: parentEntityTypeName,
-                IdentityElements: {
-                  $type:
-                    "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
-                  $values: [parentId],
-                },
-              }
-            : {
-                $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-                EntityTypeName: parentEntityTypeName,
-              };
-
-          const body = {
-            $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
-            EntityTypeName: entityTypeName,
-            PrimaryParentEntityTypeName: parentEntityTypeName,
-            Identity: {
+        // Build identity structure based on parent type
+        const parentIdentity = parentId
+          ? {
               $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-              EntityTypeName: entityTypeName,
-            },
-            PrimaryParentIdentity: parentIdentity,
-            Properties: {
-              $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts",
-              $values: propertyData,
-            },
-          };
+              EntityTypeName: parentEntityTypeName,
+              IdentityElements: {
+                $type:
+                  "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                $values: [parentId],
+              },
+            }
+          : {
+              $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+              EntityTypeName: parentEntityTypeName,
+            };
 
-          return HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
+        const body = {
+          $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
+          EntityTypeName: entityTypeName,
+          PrimaryParentEntityTypeName: parentEntityTypeName,
+          Identity: {
+            $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+            EntityTypeName: entityTypeName,
+          },
+          PrimaryParentIdentity: parentIdentity,
+          Properties: {
+            $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts",
+            $values: propertyData,
+          },
+        };
+
+        return executeWithAuth(
+          envId,
+          `/api/${entityTypeName}`,
+          (baseUrl, token) =>
+            HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
             HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeader("Accept", "application/json"),
             HttpClientRequest.setHeader("Content-Type", "application/json"),
@@ -1225,8 +1270,9 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               );
             }),
             Effect.scoped,
-          );
-        }).pipe(
+          ),
+          { method: "POST", body },
+        ).pipe(
           Effect.withSpan("imis.insertEntity", {
             attributes: {
               environmentId: envId,
@@ -1236,7 +1282,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               hasParentId: parentId !== null,
             },
           }),
-        ),
+        );
+      },
 
       /**
        * Get the names of identity fields for an entity type.
@@ -1294,8 +1341,11 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * @returns Identity elements extracted from response
        */
       insertCustomEndpoint: (envId: string, endpointPath: string, body: unknown) =>
-        executeWithAuth(envId, `/${endpointPath}`, (baseUrl, token) =>
-          HttpClientRequest.post(`${baseUrl}/${endpointPath}`).pipe(
+        executeWithAuth(
+          envId,
+          `/${endpointPath}`,
+          (baseUrl, token) =>
+            HttpClientRequest.post(`${baseUrl}/${endpointPath}`).pipe(
             HttpClientRequest.bearerToken(token),
             HttpClientRequest.setHeader("Accept", "application/json"),
             HttpClientRequest.setHeader("Content-Type", "application/json"),
@@ -1331,6 +1381,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             }),
             Effect.scoped,
           ),
+          { method: "POST", body },
         ).pipe(
           Effect.withSpan("imis.insertCustomEndpoint", {
             attributes: {

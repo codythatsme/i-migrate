@@ -28,6 +28,7 @@ export const settings = sqliteTable("settings", {
   id: text("id").primaryKey().default("default"),
   storePasswords: integer("store_passwords", { mode: "boolean" }).notNull().default(false),
   masterPasswordHash: text("master_password_hash"), // SHA-256 hash for verification only
+  verboseLogging: integer("verbose_logging", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

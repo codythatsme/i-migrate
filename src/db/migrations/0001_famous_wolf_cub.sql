@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `verbose_logging` integer DEFAULT false NOT NULL;
