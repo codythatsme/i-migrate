@@ -26,85 +26,57 @@ jobs:
           echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
           echo "Latest tag: $LATEST_TAG"
 
-      - name: Analyze commits and determine version bump
+      - name: Analyze commit and determine version bump
         id: analyze
         run: |
           LATEST_TAG="${{ steps.get_tag.outputs.tag }}"
 
-          # Get commits since last tag
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s|%b---" 2>/dev/null || git log --pretty=format:"%s|%b---")
+          # Check if there are new commits since last tag
+          COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
 
-          if [ -z "$COMMITS" ]; then
+          if [ "$COMMIT_COUNT" = "0" ]; then
             echo "No new commits since $LATEST_TAG"
             echo "should_release=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "Commits since $LATEST_TAG:"
-          echo "$COMMITS"
+          # Get the subject of the most recent commit (PR merge commit)
+          SUBJECT=$(git log -1 --format=%s)
+          echo "Commit subject: $SUBJECT"
 
-          # Determine version bump
+          # Determine version bump from commit subject prefix
           BUMP="none"
-          FEATURES=""
-          FIXES=""
-          BREAKING=""
+          MSG=""
 
-          # Parse each commit
-          while IFS= read -r line; do
-            SUBJECT=$(echo "$line" | cut -d'|' -f1)
-            BODY=$(echo "$line" | cut -d'|' -f2)
-
-            # Check for breaking changes
-            if echo "$SUBJECT" | grep -qE '^[a-z]+(\(.+\))?!:' || echo "$BODY" | grep -q "BREAKING CHANGE:"; then
-              BUMP="major"
-              MSG=$(echo "$SUBJECT" | sed 's/^[a-z]*(\?[^)]*)\?!: //')
-              BREAKING="${BREAKING}- ${MSG}\n"
-            # Check for features
-            elif echo "$SUBJECT" | grep -qE '^feat(\(.+\))?:'; then
-              if [ "$BUMP" != "major" ]; then
-                BUMP="minor"
-              fi
-              MSG=$(echo "$SUBJECT" | sed 's/^feat(\?[^)]*)\?: //')
-              FEATURES="${FEATURES}- ${MSG}\n"
-            # Check for fixes
-            elif echo "$SUBJECT" | grep -qE '^fix(\(.+\))?:'; then
-              if [ "$BUMP" = "none" ]; then
-                BUMP="patch"
-              fi
-              MSG=$(echo "$SUBJECT" | sed 's/^fix(\?[^)]*)\?: //')
-              FIXES="${FIXES}- ${MSG}\n"
-            fi
-          done <<< "$(echo "$COMMITS" | tr '---' '\n' | grep -v '^$')"
+          # Check for major version bump (major: prefix or !: suffix pattern)
+          if echo "$SUBJECT" | grep -qE '^major:'; then
+            BUMP="major"
+            MSG=$(echo "$SUBJECT" | sed -E 's/^major:\s*//')
+          elif echo "$SUBJECT" | grep -qE '^[a-z]+!:'; then
+            BUMP="major"
+            MSG=$(echo "$SUBJECT" | sed -E 's/^[a-z]+!:\s*//')
+          # Check for minor version bump (feat: or minor: prefix)
+          elif echo "$SUBJECT" | grep -qE '^(feat|minor):'; then
+            BUMP="minor"
+            MSG=$(echo "$SUBJECT" | sed -E 's/^(feat|minor):\s*//')
+          # Check for patch version bump (fix: or patch: prefix)
+          elif echo "$SUBJECT" | grep -qE '^(fix|patch):'; then
+            BUMP="patch"
+            MSG=$(echo "$SUBJECT" | sed -E 's/^(fix|patch):\s*//')
+          fi
 
           if [ "$BUMP" = "none" ]; then
-            echo "No releasable commits (feat:/fix:/breaking) found"
+            echo "No releasable prefix found (feat:, fix:, minor:, patch:, major:, or !:)"
             echo "should_release=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
           echo "should_release=true" >> $GITHUB_OUTPUT
           echo "bump=$BUMP" >> $GITHUB_OUTPUT
-
-          # Store changelog entries
-          {
-            echo "features<<EOF"
-            echo -e "$FEATURES"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-          {
-            echo "fixes<<EOF"
-            echo -e "$FIXES"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-          {
-            echo "breaking<<EOF"
-            echo -e "$BREAKING"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          echo "message=$MSG" >> $GITHUB_OUTPUT
 
           echo "Version bump: $BUMP"
+          echo "Release message: $MSG"
 
       - name: Calculate new version
         id: version
@@ -143,24 +115,24 @@ jobs:
         run: |
           NEW_VERSION="${{ steps.version.outputs.new }}"
           DATE=$(date +%Y-%m-%d)
-          FEATURES="${{ steps.analyze.outputs.features }}"
-          FIXES="${{ steps.analyze.outputs.fixes }}"
-          BREAKING="${{ steps.analyze.outputs.breaking }}"
+          BUMP="${{ steps.analyze.outputs.bump }}"
+          MSG="${{ steps.analyze.outputs.message }}"
+
+          # Determine section header based on bump type
+          case "$BUMP" in
+            major)
+              SECTION="### Breaking Changes"
+              ;;
+            minor)
+              SECTION="### Added"
+              ;;
+            patch)
+              SECTION="### Fixed"
+              ;;
+          esac
 
           # Build the new changelog entry
-          ENTRY="## [$NEW_VERSION] - $DATE\n"
-
-          if [ -n "$(echo -e "$BREAKING" | tr -d '[:space:]')" ]; then
-            ENTRY="${ENTRY}\n### Breaking Changes\n\n${BREAKING}"
-          fi
-
-          if [ -n "$(echo -e "$FEATURES" | tr -d '[:space:]')" ]; then
-            ENTRY="${ENTRY}\n### Added\n\n${FEATURES}"
-          fi
-
-          if [ -n "$(echo -e "$FIXES" | tr -d '[:space:]')" ]; then
-            ENTRY="${ENTRY}\n### Fixed\n\n${FIXES}"
-          fi
+          ENTRY="## [$NEW_VERSION] - $DATE\n\n${SECTION}\n\n- ${MSG}\n"
 
           # Insert after ## [Unreleased] line
           awk -v entry="$ENTRY" '
