@@ -1338,9 +1338,15 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
        * @param envId - Environment ID
        * @param endpointPath - API endpoint path (e.g., "api/PartyImage")
        * @param body - Pre-built request body with $type field
+       * @param identityExtractor - Function to extract identity elements from response
        * @returns Identity elements extracted from response
        */
-      insertCustomEndpoint: (envId: string, endpointPath: string, body: unknown) =>
+      insertCustomEndpoint: (
+        envId: string,
+        endpointPath: string,
+        body: unknown,
+        identityExtractor: (response: unknown) => string[],
+      ) =>
         executeWithAuth(
           envId,
           `/${endpointPath}`,
@@ -1354,18 +1360,9 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             Effect.flatMap((res) => {
               if (res.status >= 200 && res.status < 300) {
                 return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
-                  Effect.map((data): InsertEntityResult => {
-                    // Extract identity from response
-                    // PartyImage returns PartyId + PartyImageId directly in response
-                    const identityElements: string[] = [];
-                    if (data && typeof data === "object") {
-                      const response = data as Record<string, unknown>;
-                      if (response.PartyId) identityElements.push(String(response.PartyId));
-                      if (response.PartyImageId)
-                        identityElements.push(String(response.PartyImageId));
-                    }
-                    return { identityElements };
-                  }),
+                  Effect.map((data): InsertEntityResult => ({
+                    identityElements: identityExtractor(data),
+                  })),
                   Effect.catchAll(() =>
                     Effect.succeed({ identityElements: [] } as InsertEntityResult),
                   ),
@@ -1474,7 +1471,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         }),
       insertEntity: () => Effect.succeed({ identityElements: ["12345"] }),
       getIdentityFieldNames: () => Effect.succeed(["ID"]),
-      insertCustomEndpoint: () => Effect.succeed({ identityElements: ["12345", "1"] }),
+      insertCustomEndpoint: (_envId, _path, _body, extractor) =>
+        Effect.succeed({ identityElements: extractor({}) }),
     }),
   );
 }

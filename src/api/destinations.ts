@@ -69,10 +69,8 @@ export const DestinationDefinitionSchema = Schema.Struct({
   primaryParentEntityTypeName: Schema.optionalWith(Schema.String, { exact: true }),
   properties: Schema.Array(DestinationPropertySchema),
 
-  // Custom endpoint fields (for Phase 2 implementation)
+  // Custom endpoint fields
   endpointPath: Schema.optionalWith(Schema.String, { exact: true }),
-  requestBodyBuilder: Schema.optionalWith(Schema.String, { exact: true }),
-  identityExtractor: Schema.optionalWith(Schema.String, { exact: true }),
 });
 
 export type DestinationDefinition = typeof DestinationDefinitionSchema.Type;
@@ -155,48 +153,74 @@ export function boEntitiesToDestinations(
 type RowData = Record<string, string | number | boolean | null | BinaryBlob>;
 
 /**
- * Builder function type for custom endpoint request bodies.
- * Takes transformed row data and returns the request body.
+ * Identity extractor function type for custom endpoint responses.
+ * Takes the raw API response and extracts identity element strings.
  */
-export type CustomEndpointBuilder = (row: RowData) => unknown;
+export type IdentityExtractor = (response: unknown) => string[];
 
 /**
- * PartyImage request body builder.
- * NOTE: Image field comes pre-formatted with $type/$value wrapper from source.
+ * Full configuration for a custom API endpoint.
+ * Contains all data needed to build requests and extract identity from responses.
  */
-function buildPartyImageBody(row: RowData): unknown {
-  return {
-    $type: "Asi.Soa.Membership.DataContracts.PartyImageData, Asi.Contracts",
-    PartyId: String(row.PartyId ?? ""),
-    IsPreferred: row.IsPreferred ?? false,
-    Image: row.Image,
-  };
+export interface CustomEndpointConfig {
+  entityTypeName: string;
+  description?: string;
+  endpointPath: string;
+  properties: DestinationProperty[];
+  requestBodyBuilder: (row: RowData) => unknown;
+  identityExtractor: IdentityExtractor;
 }
 
 /**
- * Registry of custom endpoint body builders by endpoint name.
+ * Single source of truth for all custom endpoint configurations.
+ * Each entry defines the full endpoint behavior including request building and identity extraction.
  */
-export const CUSTOM_ENDPOINT_BUILDERS: Record<string, CustomEndpointBuilder> = {
-  PartyImage: buildPartyImageBody,
-};
-
-/**
- * Hardcoded custom endpoint destination definitions.
- */
-export const CUSTOM_ENDPOINT_DEFINITIONS: DestinationDefinition[] = [
+export const CUSTOM_ENDPOINTS: CustomEndpointConfig[] = [
   {
-    destinationType: "custom_endpoint",
     entityTypeName: "PartyImage",
     description: "Member profile images",
     endpointPath: "api/PartyImage",
-    requestBodyBuilder: "PartyImage",
     properties: [
       { name: "PartyId", propertyTypeName: "String", isIdentity: true, required: true },
       { name: "IsPreferred", propertyTypeName: "Boolean" },
       { name: "Image", propertyTypeName: "Binary", required: true },
     ],
+    requestBodyBuilder: (row: RowData) => ({
+      $type: "Asi.Soa.Membership.DataContracts.PartyImageData, Asi.Contracts",
+      PartyId: String(row.PartyId ?? ""),
+      IsPreferred: row.IsPreferred ?? false,
+      Image: row.Image,
+    }),
+    identityExtractor: (response: unknown): string[] => {
+      const identityElements: string[] = [];
+      if (response && typeof response === "object") {
+        const data = response as Record<string, unknown>;
+        if (data.PartyId) identityElements.push(String(data.PartyId));
+        if (data.PartyImageId) identityElements.push(String(data.PartyImageId));
+      }
+      return identityElements;
+    },
   },
 ];
+
+/**
+ * Convert a CustomEndpointConfig to a DestinationDefinition for schema compatibility.
+ */
+function customEndpointToDestination(config: CustomEndpointConfig): DestinationDefinition {
+  return {
+    destinationType: "custom_endpoint",
+    entityTypeName: config.entityTypeName,
+    description: config.description,
+    endpointPath: config.endpointPath,
+    properties: config.properties,
+  };
+}
+
+/**
+ * Destination definitions derived from CUSTOM_ENDPOINTS for UI/schema use.
+ */
+export const CUSTOM_ENDPOINT_DEFINITIONS: DestinationDefinition[] =
+  CUSTOM_ENDPOINTS.map(customEndpointToDestination);
 
 /**
  * Get all available destinations (BO entities + custom endpoints).

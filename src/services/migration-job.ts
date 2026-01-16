@@ -21,7 +21,7 @@ import { SessionService } from "./session";
 import { PersistenceService, DatabaseError, EnvironmentNotFoundError } from "./persistence";
 import { encryptJson, decryptJson } from "../lib/encryption";
 import type { PropertyMapping } from "../components/export/PropertyMapper";
-import { CUSTOM_ENDPOINT_DEFINITIONS, CUSTOM_ENDPOINT_BUILDERS } from "../api/destinations";
+import { CUSTOM_ENDPOINTS } from "../api/destinations";
 
 // ---------------------
 // Domain Errors
@@ -390,42 +390,35 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         rowIndex: number,
       ) => {
         if (destType === "custom_endpoint") {
-          const def = CUSTOM_ENDPOINT_DEFINITIONS.find((d) => d.entityTypeName === entityTypeName);
-          if (!def?.endpointPath || !def?.requestBodyBuilder) {
+          const config = CUSTOM_ENDPOINTS.find((c) => c.entityTypeName === entityTypeName);
+          if (!config) {
             return Effect.fail(
               new InsertFailedError({
                 rowIndex,
-                message: `No endpoint definition found for custom endpoint: ${entityTypeName}`,
+                message: `No endpoint config found for custom endpoint: ${entityTypeName}`,
               }),
             );
           }
-          const builder = CUSTOM_ENDPOINT_BUILDERS[def.requestBodyBuilder];
-          if (!builder) {
-            return Effect.fail(
-              new InsertFailedError({
+          const body = config.requestBodyBuilder(rowData);
+          return imisApi
+            .insertCustomEndpoint(envId, config.endpointPath, body, config.identityExtractor)
+            .pipe(
+              Effect.map((result) => ({
                 rowIndex,
-                message: `No builder found for custom endpoint: ${def.requestBodyBuilder}`,
+                identityElements: result.identityElements,
+              })),
+              Effect.mapError(
+                (error) =>
+                  new InsertFailedError({
+                    rowIndex,
+                    message: error.message,
+                    cause: error,
+                  }),
+              ),
+              Effect.withSpan("migration.executeCustomEndpointInsert", {
+                attributes: { entityTypeName, rowIndex },
               }),
             );
-          }
-          const body = builder(rowData);
-          return imisApi.insertCustomEndpoint(envId, def.endpointPath, body).pipe(
-            Effect.map((result) => ({
-              rowIndex,
-              identityElements: result.identityElements,
-            })),
-            Effect.mapError(
-              (error) =>
-                new InsertFailedError({
-                  rowIndex,
-                  message: error.message,
-                  cause: error,
-                }),
-            ),
-            Effect.withSpan("migration.executeCustomEndpointInsert", {
-              attributes: { entityTypeName, rowIndex },
-            }),
-          );
         }
         return executeInsert(envId, entityTypeName, "Standalone", null, rowData, rowIndex);
       };
@@ -461,22 +454,11 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
 
           if (destType === "custom_endpoint") {
             // Custom endpoint insertion
-            const def = CUSTOM_ENDPOINT_DEFINITIONS.find(
-              (d) => d.entityTypeName === destEntityType,
-            );
-            if (!def?.endpointPath || !def?.requestBodyBuilder) {
+            const config = CUSTOM_ENDPOINTS.find((c) => c.entityTypeName === destEntityType);
+            if (!config) {
               return yield* Effect.fail(
                 new MigrationError({
-                  message: `No endpoint definition found for custom endpoint: ${destEntityType}`,
-                }),
-              );
-            }
-
-            const builder = CUSTOM_ENDPOINT_BUILDERS[def.requestBodyBuilder];
-            if (!builder) {
-              return yield* Effect.fail(
-                new MigrationError({
-                  message: `No builder found for custom endpoint: ${def.requestBodyBuilder}`,
+                  message: `No endpoint config found for custom endpoint: ${destEntityType}`,
                 }),
               );
             }
@@ -484,21 +466,28 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             [failures, successes] = yield* Effect.partition(
               transformedRows,
               ({ transformed, index }) => {
-                const body = builder(transformed);
-                return imisApi.insertCustomEndpoint(destEnvId, def.endpointPath!, body).pipe(
-                  Effect.map((result) => ({
-                    rowIndex: index,
-                    identityElements: result.identityElements,
-                  })),
-                  Effect.mapError(
-                    (error) =>
-                      new InsertFailedError({
-                        rowIndex: index,
-                        message: error.message,
-                        cause: error,
-                      }),
-                  ),
-                );
+                const body = config.requestBodyBuilder(transformed);
+                return imisApi
+                  .insertCustomEndpoint(
+                    destEnvId,
+                    config.endpointPath,
+                    body,
+                    config.identityExtractor,
+                  )
+                  .pipe(
+                    Effect.map((result) => ({
+                      rowIndex: index,
+                      identityElements: result.identityElements,
+                    })),
+                    Effect.mapError(
+                      (error) =>
+                        new InsertFailedError({
+                          rowIndex: index,
+                          message: error.message,
+                          cause: error,
+                        }),
+                    ),
+                  );
               },
               { concurrency: insertConcurrency },
             );
