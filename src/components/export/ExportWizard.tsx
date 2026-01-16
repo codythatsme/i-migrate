@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { parseAsString, parseAsInteger, parseAsStringLiteral, useQueryStates } from "nuqs";
@@ -25,6 +25,7 @@ import { EnvironmentSelector } from "./EnvironmentSelector";
 import { PropertyMapper, type PropertyMapping } from "./PropertyMapper";
 import { QueryFileBrowser } from "./QueryFileBrowser";
 import { QueryPropertyMapper } from "./QueryPropertyMapper";
+import type { DestinationDefinition } from "@/api/destinations";
 
 // ---------------------
 // Types
@@ -91,6 +92,11 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   // Local state for property mappings (not persisted to URL due to complexity)
   const [mappings, setMappings] = useState<PropertyMapping[]>([]);
 
+  // Local state for full destination definition (needed for destType and properties)
+  const [selectedDestination, setSelectedDestination] = useState<DestinationDefinition | null>(
+    null,
+  );
+
   // State for mapper validation (e.g., IsPrimary required for Party destinations)
   const [mapperValidation, setMapperValidation] = useState<{
     isValid: boolean;
@@ -126,6 +132,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
         sourceEnvironmentId,
         destEnvironmentId: destEnv,
         destEntityType: destEntity,
+        destType: selectedDestination?.destinationType ?? "bo_entity",
         mappings,
       };
 
@@ -155,37 +162,11 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     },
   });
 
-  // Fetch source data sources to get the selected entity's structure info (for datasource mode)
-  const { data: sourceDataSources } = useQuery({
-    ...queries.dataSources.byEnvironment(sourceEnvironmentId),
-    enabled: !!sourceEnvironmentId && mode === "datasource",
-  });
-
   // Fetch query definition (for query mode)
   const { data: queryDefinitionData } = useQuery({
     ...queries.queryDefinition.byPath(sourceEnvironmentId, sourceQuery),
     enabled: !!sourceEnvironmentId && !!sourceQuery && mode === "query",
   });
-
-  // Get the selected source entity definition (for datasource mode)
-  const selectedSourceEntity = useMemo(() => {
-    if (mode !== "datasource" || !sourceDataSources || !sourceEntity) return null;
-    return sourceDataSources.Items.$values.find((e) => e.EntityTypeName === sourceEntity) ?? null;
-  }, [mode, sourceDataSources, sourceEntity]);
-
-  // Compatibility filter for destination selection (for datasource mode)
-  // Standard sources can target any Multi/Single destination, so no compatibility filter needed
-  const destinationCompatibilityFilter = useMemo(() => {
-    if (mode !== "datasource" || !selectedSourceEntity) return undefined;
-    // Standard sources can migrate to any Multi/Single destination - skip compatibility filter
-    if (selectedSourceEntity.ObjectTypeName === "Standard") return undefined;
-    // Skip filter if primary parent is undefined (can't filter properly)
-    if (!selectedSourceEntity.PrimaryParentEntityTypeName) return undefined;
-    return {
-      objectTypeName: selectedSourceEntity.ObjectTypeName,
-      primaryParentEntityTypeName: selectedSourceEntity.PrimaryParentEntityTypeName,
-    };
-  }, [mode, selectedSourceEntity]);
 
   // Get source and destination environment info
   const sourceEnvironment = environments?.find((env) => env.id === sourceEnvironmentId);
@@ -238,6 +219,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
       destEnv: null,
       destEntity: null,
     });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
@@ -245,25 +227,29 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   // Selection Handlers
   // ---------------------
 
-  const handleSourceSelect = (entityType: string) => {
+  const handleSourceSelect = (source: DestinationDefinition) => {
     // Clear destination entity when source changes (compatibility may differ)
-    setQueryState({ sourceEntity: entityType, destEntity: null });
+    setQueryState({ sourceEntity: source.entityTypeName, destEntity: null });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
   const handleQuerySelect = (path: string, name: string) => {
     setQueryState({ sourceQuery: path, sourceQueryName: name, destEntity: null });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
   const handleDestEnvSelect = (envId: string) => {
     // Clear destination entity when changing environment
     setQueryState({ destEnv: envId, destEntity: null });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
-  const handleDestEntitySelect = (entityType: string) => {
-    setQueryState({ destEntity: entityType });
+  const handleDestEntitySelect = (destination: DestinationDefinition) => {
+    setQueryState({ destEntity: destination.entityTypeName });
+    setSelectedDestination(destination);
     setMappings([]);
   };
 
@@ -427,7 +413,6 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
             onSelect={handleDestEntitySelect}
             title="Select Destination Data Source"
             description="Choose the data source to migrate data into on the destination environment."
-            compatibilityFilter={mode === "datasource" ? destinationCompatibilityFilter : undefined}
             destinationOnly
           />
         )}

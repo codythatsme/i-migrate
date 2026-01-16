@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Server, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Server, AlertCircle, CheckCircle2, Plus } from "lucide-react";
 import { queries } from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { AddEnvironmentDialog } from "@/components/add-environment-dialog";
 
 type EnvironmentSelectorProps = {
   selectedId: string | null;
@@ -21,6 +23,7 @@ export function EnvironmentSelector({
   description = "Choose the destination environment",
 }: EnvironmentSelectorProps) {
   const { data: environments, isLoading, error } = useQuery(queries.environments.all());
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   const filteredEnvironments = useMemo(() => {
     if (!environments) return [];
@@ -57,17 +60,28 @@ export function EnvironmentSelector({
 
   if (filteredEnvironments.length === 0) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="text-sm text-muted-foreground">{description}</p>
+      <>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </div>
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Server className="size-8 mb-3" />
+            <p>No other environments available</p>
+            <p className="text-sm mt-1">Add another environment to use as a destination.</p>
+            <Button variant="outline" className="mt-4" onClick={() => setShowAddDialog(true)}>
+              <Plus className="size-4 mr-2" />
+              Add Environment
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-          <Server className="size-8 mb-3" />
-          <p>No other environments available</p>
-          <p className="text-sm mt-1">Add another environment to use as a destination.</p>
-        </div>
-      </div>
+        <AddEnvironmentDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onSuccess={onSelect}
+        />
+      </>
     );
   }
 

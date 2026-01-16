@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate migrations index
+        run: bun run db:gen-index && bun run format src/db/migrations/index.ts
+
       - name: Type check
         run: bun run check-types
 

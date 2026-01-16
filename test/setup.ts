@@ -121,6 +121,7 @@ export function createJob(overrides?: {
   sourceEnvironmentId?: string
   destEnvironmentId?: string
   destEntityType?: string
+  destType?: "bo_entity" | "custom_endpoint"
   mappings?: PropertyMapping[]
 }) {
   return {
@@ -133,12 +134,11 @@ export function createJob(overrides?: {
     sourceEntityType: null,
     destEnvironmentId: overrides?.destEnvironmentId ?? crypto.randomUUID(),
     destEntityType: overrides?.destEntityType ?? "TestEntity",
+    destType: overrides?.destType ?? "bo_entity",
     mappings: JSON.stringify(overrides?.mappings ?? []),
     totalRows: null,
-    processedRows: 0,
-    successfulRows: 0,
-    failedRowCount: 0,
     failedQueryOffsets: null,
+    identityFieldNames: null,
     startedAt: null,
     completedAt: null,
     createdAt: new Date().toISOString(),

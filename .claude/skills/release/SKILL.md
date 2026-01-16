@@ -1,82 +1,87 @@
 ---
 name: release
-description: Guide for releases and changelog. Use when updating changelog or preparing releases. Triggers on: changelog, release, version bump.
+description: Guide for releases and changelog. Triggers on: changelog, release, version.
 ---
 
 # Release Guide
 
-## Changelog Management
+## How Releases Work
 
-When making changes that should be documented, update `CHANGELOG.md`:
+Releases happen **automatically** when PRs merge to main:
 
-1. Add entry to `## [Unreleased]` section
-2. Use appropriate category:
-   - **Added** - new features
-   - **Changed** - changes to existing functionality
-   - **Deprecated** - soon-to-be removed features
-   - **Removed** - removed features
-   - **Fixed** - bug fixes
-   - **Security** - vulnerability fixes
+1. PR merges to main
+2. Workflow analyzes commits since last tag
+3. If releasable commits found (feat:/fix:/breaking), bumps version
+4. Updates CHANGELOG.md automatically
+5. Creates git tag → triggers build + GitHub release
 
-3. Format: Start with lowercase verb, be concise
-   - Good: `- Add dark mode toggle to settings`
-   - Bad: `- Added a new dark mode toggle feature to the settings page`
+**No manual version bumps or changelog updates needed.**
 
-## Commit Messages
+## Conventional Commits (Required)
 
-Format: `type: description`
+Format: `type(scope): description`
 
-Types:
-- `feat:` - new feature
-- `fix:` - bug fix
-- `docs:` - documentation only
-- `refactor:` - code change that neither fixes nor adds
-- `test:` - adding or updating tests
-- `chore:` - maintenance tasks
+Types that trigger releases:
+- `feat:` → minor bump (0.X.0)
+- `fix:` → patch bump (0.0.X)
+- `feat!:` or `fix!:` → major bump (X.0.0)
+- `BREAKING CHANGE:` in commit body → major bump
+
+Non-release types (no version bump):
+- `docs:` - documentation
+- `refactor:` - code restructure
+- `test:` - test changes
+- `chore:` - maintenance
+- `ci:` - CI changes
 
 Examples:
-- `feat: add batch retry for failed rows`
-- `fix: correct token refresh timing`
-- `docs: update API documentation`
+```
+feat: add batch retry for failed rows
+fix: correct token refresh timing
+feat(api): add new endpoint for exports
+fix!: change auth flow (breaking change)
+```
 
-## Preparing a Release
+## What Gets Released
 
-1. Move `[Unreleased]` entries to new version section in `CHANGELOG.md`
-2. Add release date: `## [X.Y.Z] - YYYY-MM-DD`
-3. Update version in `package.json`
-4. Commit: `chore: release vX.Y.Z`
-5. Tag: `git tag vX.Y.Z`
-6. Push: `git push origin main --tags`
+A release happens when ANY commit since the last tag has:
+- `feat:` prefix (new feature)
+- `fix:` prefix (bug fix)
+- `!` suffix or `BREAKING CHANGE:` (breaking change)
+
+Multiple features/fixes in one PR = one release with all changes.
+
+## Skipping Releases
+
+If you need to merge without releasing:
+- Use non-release commit types: `docs:`, `refactor:`, `test:`, `chore:`, `ci:`
+- Only commits with `feat:` or `fix:` trigger releases
 
 ## Version Numbering
 
-Follow semver:
-- **MAJOR** (X.0.0): breaking changes
-- **MINOR** (0.X.0): new features (backwards compatible)
-- **PATCH** (0.0.X): bug fixes (backwards compatible)
+Semver automatically determined:
+- **MAJOR** (X.0.0): breaking changes (`!` or `BREAKING CHANGE:`)
+- **MINOR** (0.X.0): new features (`feat:`)
+- **PATCH** (0.0.X): bug fixes (`fix:`)
 
-## When to Update Changelog
+Highest bump wins: if PR has both `feat:` and `fix:`, minor bump is used.
 
-Update the changelog for:
-- New features or capabilities
-- Bug fixes
-- Breaking changes
-- Security fixes
-- Deprecations
+## Changelog Format
 
-Skip changelog for:
-- Internal refactoring with no user impact
-- Test-only changes
-- Documentation updates (unless significant)
-- Build/CI configuration changes
+Auto-generated in CHANGELOG.md with sections:
+- **Breaking Changes** - from `!` or `BREAKING CHANGE:`
+- **Added** - from `feat:` commits
+- **Fixed** - from `fix:` commits
 
-## When to Update README
+## Manual Override (Emergency)
 
-Update `README.md` when adding significant new features that users should know about:
-- New major capabilities or functionality
-- Changes to installation or setup process
-- New configuration options or environment variables
-- New CLI commands or flags
-- Breaking changes to existing behavior
+If you need to manually release:
+```bash
+# Bump version in package.json
+# Update CHANGELOG.md
+git commit -m "chore: release vX.Y.Z"
+git tag vX.Y.Z
+git push origin main vX.Y.Z
+```
 
-Keep the README focused on what users need to get started. Detailed feature documentation can go elsewhere.
+The `chore: release` prefix prevents double-release.

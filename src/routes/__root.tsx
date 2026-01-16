@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
@@ -7,6 +8,7 @@ import { useEnvironmentStore } from "@/stores/environment-store";
 import { queries } from "@/lib/queries";
 import { EnvironmentSelectScreen } from "@/components/environment-select-screen";
 import { RunningJobIndicator } from "@/components/running-job-indicator";
+import { MasterPasswordDialog } from "@/components/master-password-dialog";
 import "../index.css";
 
 export const Route = createRootRoute({
@@ -16,6 +18,22 @@ export const Route = createRootRoute({
 function RootLayout() {
   const selectedId = useEnvironmentStore((s) => s.selectedId);
   const { data: environments } = useQuery(queries.environments.all());
+  const { data: settings } = useQuery(queries.settings.current());
+
+  // Track if we should show unlock dialog on startup
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [hasCheckedUnlock, setHasCheckedUnlock] = useState(false);
+
+  // Check if we need to show unlock dialog on initial load
+  useEffect(() => {
+    if (settings && !hasCheckedUnlock) {
+      setHasCheckedUnlock(true);
+      // Show unlock dialog if storage is enabled but not unlocked
+      if (settings.storePasswords && settings.hasMasterPassword && !settings.isUnlocked) {
+        setShowUnlockDialog(true);
+      }
+    }
+  }, [settings, hasCheckedUnlock]);
 
   // Find current environment and check if it has a password
   const currentEnvironment = environments?.find((env) => env.id === selectedId);
@@ -26,6 +44,13 @@ function RootLayout() {
     return (
       <NuqsAdapter>
         <EnvironmentSelectScreen />
+        {/* Unlock dialog can appear over environment select screen */}
+        <MasterPasswordDialog
+          mode="unlock"
+          open={showUnlockDialog}
+          onOpenChange={setShowUnlockDialog}
+          onSkip={() => setShowUnlockDialog(false)}
+        />
       </NuqsAdapter>
     );
   }

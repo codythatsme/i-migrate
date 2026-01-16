@@ -36,7 +36,7 @@ When you first launch the app, you'll need to configure at least one iMIS enviro
 2. Enter a name, base URL (your iMIS API endpoint), username, and iMIS version
 3. Enter your password when prompted to authenticate
 
-Passwords are stored in memory only and never persisted to disk.
+By default, passwords are stored in memory only and cleared when the app closes. You can optionally enable encrypted password storage in Settings.
 
 ### 2. Set Your Source Environment
 
@@ -89,7 +89,7 @@ If a job completes with failures:
 
 i-migrate is designed with your data security in mind. Here's how we protect sensitive information:
 
-### Your Password is Never Stored
+### Your Password is Never Stored (by default)
 
 When you enter your iMIS environment password:
 - It's held only in your computer's memory while the app is running
@@ -97,6 +97,19 @@ When you enter your iMIS environment password:
 - When you close the app, the password is gone—you'll need to re-enter it next time
 
 This means even if someone accesses your computer's files, they can't find your password.
+
+### Optional: Store Passwords with a Master Password
+
+For convenience, you can opt-in to storing environment passwords locally:
+
+1. Go to **Settings** and enable "Store Passwords"
+2. Create a master password—this encrypts all stored environment passwords
+3. Your master password is **never stored**; you'll need to enter it each time you launch the app
+
+When enabled:
+- Environment passwords are encrypted with **AES-256-GCM** using a key derived from your master password
+- Without the master password, stored passwords are unreadable
+- You can disable this feature at any time, which deletes all stored passwords
 
 ### Customer Data Stays in Flight
 

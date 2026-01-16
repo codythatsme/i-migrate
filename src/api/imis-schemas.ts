@@ -15,6 +15,7 @@ export const BoPropertyTypeNameSchema = Schema.Literal(
 );
 
 export const DbDataTypeSchema = Schema.Literal(
+  "BigInt",
   "Bit",
   "DateTime",
   "Decimal",
