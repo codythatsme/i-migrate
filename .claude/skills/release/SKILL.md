@@ -10,68 +10,51 @@ description: Guide for releases and changelog. Triggers on: changelog, release, 
 Releases happen **automatically** when PRs merge to main:
 
 1. PR merges to main
-2. Workflow analyzes commits since last tag
-3. If releasable commits found (feat:/fix:/breaking), bumps version
+2. Workflow checks PR merge commit subject for release prefix
+3. If releasable prefix found, bumps version accordingly
 4. Updates CHANGELOG.md automatically
 5. Creates git tag → triggers build + GitHub release
 
 **No manual version bumps or changelog updates needed.**
 
-## Conventional Commits (Required)
+## PR Title Format (Required)
 
-Format: `type(scope): description`
+The **PR title** determines if a release happens and what type:
 
-Types that trigger releases:
-- `feat:` → minor bump (0.X.0)
-- `fix:` → patch bump (0.0.X)
-- `feat!:` or `fix!:` → major bump (X.0.0)
-- `BREAKING CHANGE:` in commit body → major bump
+| PR Title Prefix | Version Bump |
+|-----------------|--------------|
+| `feat:` or `minor:` | Minor (0.X.0) |
+| `fix:` or `patch:` | Patch (0.0.X) |
+| `major:` or `type!:` | Major (X.0.0) |
+| Other prefixes | No release |
 
-Non-release types (no version bump):
+Examples:
+```
+feat: add batch retry for failed rows     → v0.6.0
+fix: correct token refresh timing         → v0.5.5
+minor: add new export formats             → v0.6.0
+patch: handle edge case in parser         → v0.5.5
+major: redesign API endpoints             → v1.0.0
+feat!: change auth flow (breaking)        → v1.0.0
+```
+
+## Skipping Releases
+
+PRs with non-release prefixes won't trigger releases:
 - `docs:` - documentation
 - `refactor:` - code restructure
 - `test:` - test changes
 - `chore:` - maintenance
 - `ci:` - CI changes
 
-Examples:
-```
-feat: add batch retry for failed rows
-fix: correct token refresh timing
-feat(api): add new endpoint for exports
-fix!: change auth flow (breaking change)
-```
-
-## What Gets Released
-
-A release happens when ANY commit since the last tag has:
-- `feat:` prefix (new feature)
-- `fix:` prefix (bug fix)
-- `!` suffix or `BREAKING CHANGE:` (breaking change)
-
-Multiple features/fixes in one PR = one release with all changes.
-
-## Skipping Releases
-
-If you need to merge without releasing:
-- Use non-release commit types: `docs:`, `refactor:`, `test:`, `chore:`, `ci:`
-- Only commits with `feat:` or `fix:` trigger releases
-
-## Version Numbering
-
-Semver automatically determined:
-- **MAJOR** (X.0.0): breaking changes (`!` or `BREAKING CHANGE:`)
-- **MINOR** (0.X.0): new features (`feat:`)
-- **PATCH** (0.0.X): bug fixes (`fix:`)
-
-Highest bump wins: if PR has both `feat:` and `fix:`, minor bump is used.
-
 ## Changelog Format
 
-Auto-generated in CHANGELOG.md with sections:
-- **Breaking Changes** - from `!` or `BREAKING CHANGE:`
-- **Added** - from `feat:` commits
-- **Fixed** - from `fix:` commits
+Auto-generated in CHANGELOG.md based on bump type:
+- **Breaking Changes** - from `major:` or `!:` suffix
+- **Added** - from `feat:` or `minor:`
+- **Fixed** - from `fix:` or `patch:`
+
+Entry uses the PR title description (after the prefix).
 
 ## Manual Override (Emergency)
 
