@@ -528,3 +528,48 @@ export class MigrationErrorSchema extends Schema.TaggedError<MigrationErrorSchem
     message: Schema.String,
   },
 ) {}
+
+// ---------------------
+// Settings Schemas
+// ---------------------
+
+export const SettingsSchema = Schema.Struct({
+  storePasswords: Schema.Boolean,
+  hasMasterPassword: Schema.Boolean,
+  isUnlocked: Schema.Boolean,
+});
+
+export type Settings = typeof SettingsSchema.Type;
+
+export const EnablePasswordStorageSchema = Schema.Struct({
+  masterPassword: Schema.String,
+});
+
+export type EnablePasswordStorage = typeof EnablePasswordStorageSchema.Type;
+
+export const VerifyMasterPasswordSchema = Schema.Struct({
+  masterPassword: Schema.String,
+});
+
+export type VerifyMasterPassword = typeof VerifyMasterPasswordSchema.Type;
+
+export const ChangeMasterPasswordSchema = Schema.Struct({
+  currentPassword: Schema.String,
+  newPassword: Schema.String,
+});
+
+export type ChangeMasterPassword = typeof ChangeMasterPasswordSchema.Type;
+
+export class InvalidMasterPasswordErrorSchema extends Schema.TaggedError<InvalidMasterPasswordErrorSchema>()(
+  "InvalidMasterPasswordError",
+  {
+    message: Schema.String,
+  },
+) {}
+
+export class MasterPasswordRequiredErrorSchema extends Schema.TaggedError<MasterPasswordRequiredErrorSchema>()(
+  "MasterPasswordRequiredError",
+  {
+    message: Schema.String,
+  },
+) {}

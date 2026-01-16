@@ -8,6 +8,11 @@ import {
   clearPassword,
   testConnection,
   retrySingleRow,
+  enablePasswordStorage,
+  disablePasswordStorage,
+  verifyMasterPassword,
+  changeMasterPassword,
+  lockPasswords,
   type Environment,
   type CreateEnvironment,
 } from "@/api/client";
@@ -120,6 +125,75 @@ export const useRetrySingleRow = (jobId: string) => {
       // Also invalidate the job itself to update counts
       queryClient.invalidateQueries(queries.jobs.byId(jobId));
       queryClient.invalidateQueries(queries.jobs.all());
+    },
+  });
+};
+
+// ============================================
+// Settings Mutations
+// ============================================
+
+// Enable password storage with master password
+export const useEnablePasswordStorage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (masterPassword: string) => enablePasswordStorage(masterPassword),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
+      queryClient.invalidateQueries(queries.environments.all());
+    },
+  });
+};
+
+// Disable password storage (clears all stored passwords)
+export const useDisablePasswordStorage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => disablePasswordStorage(),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
+      queryClient.invalidateQueries(queries.environments.all());
+    },
+  });
+};
+
+// Verify master password and unlock stored passwords
+export const useVerifyMasterPassword = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (masterPassword: string) => verifyMasterPassword(masterPassword),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
+      queryClient.invalidateQueries(queries.environments.all());
+    },
+  });
+};
+
+// Change master password (re-encrypts all stored passwords)
+export const useChangeMasterPassword = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      changeMasterPassword(currentPassword, newPassword),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
+    },
+  });
+};
+
+// Lock stored passwords
+export const useLockPasswords = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => lockPasswords(),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
+      queryClient.invalidateQueries(queries.environments.all());
     },
   });
 };

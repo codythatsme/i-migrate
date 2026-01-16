@@ -45,6 +45,13 @@ import {
   GetJobRowsResponseSchema,
   GetRowAttemptsRequestSchema,
   AttemptSchema,
+  // Settings schemas
+  SettingsSchema,
+  EnablePasswordStorageSchema,
+  VerifyMasterPasswordSchema,
+  ChangeMasterPasswordSchema,
+  InvalidMasterPasswordErrorSchema,
+  MasterPasswordRequiredErrorSchema,
 } from "./schemas";
 import {
   BoEntityDefinitionQueryResponseSchema,
@@ -330,6 +337,49 @@ const RetrySingleRow = Rpc.make("jobs.retrySingleRow", {
 });
 
 // ---------------------
+// Settings Procedures
+// ---------------------
+
+/** Get current settings */
+const GetSettings = Rpc.make("settings.get", {
+  success: SettingsSchema,
+  error: DatabaseErrorSchema,
+});
+
+/** Enable password storage with master password */
+const EnablePasswordStorage = Rpc.make("settings.enableStorage", {
+  payload: EnablePasswordStorageSchema,
+  success: SettingsSchema,
+  error: DatabaseErrorSchema,
+});
+
+/** Disable password storage (clears all stored passwords) */
+const DisablePasswordStorage = Rpc.make("settings.disableStorage", {
+  success: SettingsSchema,
+  error: DatabaseErrorSchema,
+});
+
+/** Verify master password and unlock stored passwords */
+const VerifyMasterPassword = Rpc.make("settings.verifyMasterPassword", {
+  payload: VerifyMasterPasswordSchema,
+  success: Schema.Boolean,
+  error: Schema.Union(DatabaseErrorSchema, InvalidMasterPasswordErrorSchema),
+});
+
+/** Change master password (re-encrypts all stored passwords) */
+const ChangeMasterPassword = Rpc.make("settings.changeMasterPassword", {
+  payload: ChangeMasterPasswordSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    InvalidMasterPasswordErrorSchema,
+    MasterPasswordRequiredErrorSchema,
+  ),
+});
+
+/** Lock stored passwords (clear master password from memory) */
+const LockPasswords = Rpc.make("settings.lock", {});
+
+// ---------------------
 // API Group
 // ---------------------
 
@@ -370,6 +420,13 @@ export const ApiGroup = RpcGroup.make(
   GetRowAttempts,
   CancelJob,
   DeleteJob,
+  // Settings
+  GetSettings,
+  EnablePasswordStorage,
+  DisablePasswordStorage,
+  VerifyMasterPassword,
+  ChangeMasterPassword,
+  LockPasswords,
 );
 
 // Export type for the API group

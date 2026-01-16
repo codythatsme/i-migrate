@@ -38,6 +38,9 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 
+# Generated migrations index (built from .sql files)
+src/db/migrations/index.ts
+
 *.secret.*
 
 # Code signing certificates

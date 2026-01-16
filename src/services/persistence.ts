@@ -1,7 +1,13 @@
 import { Effect, Layer, Data } from "effect";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { environments, type Environment, type NewEnvironment } from "../db/schema";
+import {
+  environments,
+  settings,
+  type Environment,
+  type NewEnvironment,
+  type Settings,
+} from "../db/schema";
 
 // ---------------------
 // Domain Errors
@@ -149,6 +155,133 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
                 new DatabaseError({ message: "Failed to delete environment", cause }),
             });
           }),
+
+        // ---------------------
+        // Settings Methods
+        // ---------------------
+
+        getSettings: () =>
+          Effect.try({
+            try: () => {
+              const result = db.select().from(settings).where(eq(settings.id, "default")).all();
+              return result[0] ?? null;
+            },
+            catch: (cause) => new DatabaseError({ message: "Failed to fetch settings", cause }),
+          }),
+
+        updateSettings: (updates: { storePasswords?: boolean; masterPasswordHash?: string | null }) =>
+          Effect.gen(function* () {
+            const now = new Date().toISOString();
+
+            // Check if settings row exists
+            const existing = yield* Effect.try({
+              try: () => db.select().from(settings).where(eq(settings.id, "default")).all(),
+              catch: (cause) => new DatabaseError({ message: "Failed to fetch settings", cause }),
+            });
+
+            if (existing.length === 0) {
+              // Create default settings row
+              yield* Effect.try({
+                try: () =>
+                  db
+                    .insert(settings)
+                    .values({
+                      id: "default",
+                      storePasswords: updates.storePasswords ?? false,
+                      masterPasswordHash: updates.masterPasswordHash ?? null,
+                      createdAt: now,
+                      updatedAt: now,
+                    })
+                    .run(),
+                catch: (cause) =>
+                  new DatabaseError({ message: "Failed to create settings", cause }),
+              });
+            } else {
+              // Update existing settings
+              yield* Effect.try({
+                try: () =>
+                  db
+                    .update(settings)
+                    .set({ ...updates, updatedAt: now })
+                    .where(eq(settings.id, "default"))
+                    .run(),
+                catch: (cause) =>
+                  new DatabaseError({ message: "Failed to update settings", cause }),
+              });
+            }
+
+            // Return updated settings
+            const result = yield* Effect.try({
+              try: () => db.select().from(settings).where(eq(settings.id, "default")).all(),
+              catch: (cause) => new DatabaseError({ message: "Failed to fetch settings", cause }),
+            });
+
+            return result[0] as Settings;
+          }),
+
+        // ---------------------
+        // Encrypted Password Methods
+        // ---------------------
+
+        setEncryptedPassword: (envId: string, encryptedPassword: string | null) =>
+          Effect.gen(function* () {
+            // Check if environment exists
+            const existing = yield* queryEnvironmentById(envId);
+            if (existing.length === 0) {
+              return yield* Effect.fail(new EnvironmentNotFoundError({ id: envId }));
+            }
+
+            yield* Effect.try({
+              try: () =>
+                db
+                  .update(environments)
+                  .set({ encryptedPassword, updatedAt: new Date().toISOString() })
+                  .where(eq(environments.id, envId))
+                  .run(),
+              catch: (cause) =>
+                new DatabaseError({ message: "Failed to set encrypted password", cause }),
+            });
+          }),
+
+        getEncryptedPassword: (envId: string) =>
+          Effect.try({
+            try: () => {
+              const result = db
+                .select({ encryptedPassword: environments.encryptedPassword })
+                .from(environments)
+                .where(eq(environments.id, envId))
+                .all();
+              return result[0]?.encryptedPassword ?? null;
+            },
+            catch: (cause) =>
+              new DatabaseError({ message: "Failed to get encrypted password", cause }),
+          }),
+
+        clearAllEncryptedPasswords: () =>
+          Effect.try({
+            try: () =>
+              db
+                .update(environments)
+                .set({ encryptedPassword: null, updatedAt: new Date().toISOString() })
+                .run(),
+            catch: (cause) =>
+              new DatabaseError({ message: "Failed to clear encrypted passwords", cause }),
+          }),
+
+        getAllEncryptedPasswords: () =>
+          Effect.try({
+            try: () =>
+              db
+                .select({ id: environments.id, encryptedPassword: environments.encryptedPassword })
+                .from(environments)
+                .all()
+                .filter((e) => e.encryptedPassword !== null) as {
+                id: string;
+                encryptedPassword: string;
+              }[],
+            catch: (cause) =>
+              new DatabaseError({ message: "Failed to get encrypted passwords", cause }),
+          }),
       };
     },
   },
@@ -167,6 +300,21 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
         } as Environment),
       updateEnvironment: (id) => Effect.fail(new EnvironmentNotFoundError({ id })),
       deleteEnvironment: (id) => Effect.fail(new EnvironmentNotFoundError({ id })),
+      // Settings methods
+      getSettings: () => Effect.succeed(null),
+      updateSettings: () =>
+        Effect.succeed({
+          id: "default",
+          storePasswords: false,
+          masterPasswordHash: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      // Encrypted password methods
+      setEncryptedPassword: () => Effect.void,
+      getEncryptedPassword: () => Effect.succeed(null),
+      clearAllEncryptedPasswords: () => Effect.void,
+      getAllEncryptedPasswords: () => Effect.succeed([]),
     }),
   );
 }

@@ -12,6 +12,7 @@ import {
   getJob,
   getJobRows,
   getRowAttempts,
+  getSettings,
 } from "@/api/client";
 import type { RowStatus } from "@/api/client";
 
@@ -126,6 +127,15 @@ export const queries = {
         queryKey: ["rows", rowId, "attempts"],
         queryFn: () => getRowAttempts(rowId!),
         enabled: !!rowId,
+      }),
+  },
+
+  settings: {
+    // Get current app settings
+    current: () =>
+      queryOptions({
+        queryKey: ["settings"],
+        queryFn: () => getSettings(),
       }),
   },
 };
