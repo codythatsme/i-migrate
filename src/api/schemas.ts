@@ -1,4 +1,9 @@
 import { Schema } from "effect";
+import { DestinationTypeSchema } from "./destinations";
+
+// Re-export destination types for convenience
+export { DestinationTypeSchema };
+export type { DestinationType } from "./destinations";
 
 // ---------------------
 // Environment Schemas
@@ -351,6 +356,7 @@ export const JobSchema = Schema.Struct({
   sourceEntityType: Schema.NullOr(Schema.String),
   destEnvironmentId: Schema.String,
   destEntityType: Schema.String,
+  destType: DestinationTypeSchema, // "bo_entity" | "custom_endpoint"
   mappings: Schema.String, // JSON stringified PropertyMapping[]
   totalRows: Schema.NullOr(Schema.Number),
   failedQueryOffsets: Schema.NullOr(Schema.String), // JSON stringified number[]
@@ -469,6 +475,7 @@ export const CreateJobRequestSchema = Schema.Struct({
   sourceEntityType: Schema.optionalWith(Schema.String, { exact: true }),
   destEnvironmentId: Schema.String,
   destEntityType: Schema.String,
+  destType: Schema.optionalWith(DestinationTypeSchema, { exact: true }), // defaults to "bo_entity"
   mappings: Schema.Array(PropertyMappingSchema),
 });
 

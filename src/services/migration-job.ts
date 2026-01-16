@@ -14,6 +14,7 @@ import {
   type JobMode,
   type RowStatus,
   type AttemptReason,
+  type DestinationType,
 } from "../db/schema";
 import { ImisApiService, MissingCredentialsError } from "./imis-api";
 import { SessionService } from "./session";
@@ -64,6 +65,7 @@ export type CreateJobConfig = {
   sourceEntityType?: string;
   destEnvironmentId: string;
   destEntityType: string;
+  destType?: DestinationType;
   mappings: PropertyMapping[];
 };
 
@@ -527,6 +529,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
               sourceEntityType: config.sourceEntityType ?? null,
               destEnvironmentId: config.destEnvironmentId,
               destEntityType: config.destEntityType,
+              destType: config.destType ?? "bo_entity",
               mappings: JSON.stringify(config.mappings),
               totalRows: null,
               failedQueryOffsets: null,

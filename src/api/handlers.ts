@@ -497,6 +497,7 @@ export const HandlersLive = ApiGroup.toLayer({
         sourceEntityType: payload.sourceEntityType,
         destEnvironmentId: payload.destEnvironmentId,
         destEntityType: payload.destEntityType,
+        destType: payload.destType ?? "bo_entity",
         mappings: [...payload.mappings],
       });
 

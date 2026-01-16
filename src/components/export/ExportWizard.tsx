@@ -25,6 +25,7 @@ import { EnvironmentSelector } from "./EnvironmentSelector";
 import { PropertyMapper, type PropertyMapping } from "./PropertyMapper";
 import { QueryFileBrowser } from "./QueryFileBrowser";
 import { QueryPropertyMapper } from "./QueryPropertyMapper";
+import type { DestinationDefinition } from "@/api/destinations";
 
 // ---------------------
 // Types
@@ -91,6 +92,9 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   // Local state for property mappings (not persisted to URL due to complexity)
   const [mappings, setMappings] = useState<PropertyMapping[]>([]);
 
+  // Local state for full destination definition (needed for destType and properties)
+  const [selectedDestination, setSelectedDestination] = useState<DestinationDefinition | null>(null);
+
   // State for mapper validation (e.g., IsPrimary required for Party destinations)
   const [mapperValidation, setMapperValidation] = useState<{
     isValid: boolean;
@@ -126,6 +130,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
         sourceEnvironmentId,
         destEnvironmentId: destEnv,
         destEntityType: destEntity,
+        destType: selectedDestination?.destinationType ?? "bo_entity",
         mappings,
       };
 
@@ -212,6 +217,7 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
       destEnv: null,
       destEntity: null,
     });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
@@ -219,25 +225,29 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
   // Selection Handlers
   // ---------------------
 
-  const handleSourceSelect = (entityType: string) => {
+  const handleSourceSelect = (source: DestinationDefinition) => {
     // Clear destination entity when source changes (compatibility may differ)
-    setQueryState({ sourceEntity: entityType, destEntity: null });
+    setQueryState({ sourceEntity: source.entityTypeName, destEntity: null });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
   const handleQuerySelect = (path: string, name: string) => {
     setQueryState({ sourceQuery: path, sourceQueryName: name, destEntity: null });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
   const handleDestEnvSelect = (envId: string) => {
     // Clear destination entity when changing environment
     setQueryState({ destEnv: envId, destEntity: null });
+    setSelectedDestination(null);
     setMappings([]);
   };
 
-  const handleDestEntitySelect = (entityType: string) => {
-    setQueryState({ destEntity: entityType });
+  const handleDestEntitySelect = (destination: DestinationDefinition) => {
+    setQueryState({ destEntity: destination.entityTypeName });
+    setSelectedDestination(destination);
     setMappings([]);
   };
 

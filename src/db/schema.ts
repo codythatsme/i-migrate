@@ -29,6 +29,7 @@ export type NewEnvironment = typeof environments.$inferInsert;
 // Job status type
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "partial" | "cancelled";
 export type JobMode = "query" | "datasource";
+export type DestinationType = "bo_entity" | "custom_endpoint";
 
 // Jobs table - tracks migration jobs
 export const jobs = sqliteTable("jobs", {
@@ -45,6 +46,7 @@ export const jobs = sqliteTable("jobs", {
   // Destination config
   destEnvironmentId: text("dest_environment_id").notNull(),
   destEntityType: text("dest_entity_type").notNull(),
+  destType: text("dest_type").$type<DestinationType>().notNull().default("bo_entity"),
 
   // Mapping (JSON stringified PropertyMapping[])
   mappings: text("mappings").notNull(),

@@ -73,6 +73,7 @@ function initializeSchema() {
         source_entity_type TEXT,
         dest_environment_id TEXT NOT NULL,
         dest_entity_type TEXT NOT NULL,
+        dest_type TEXT NOT NULL DEFAULT 'bo_entity',
         mappings TEXT NOT NULL,
         total_rows INTEGER,
         failed_query_offsets TEXT,
@@ -82,13 +83,6 @@ function initializeSchema() {
         created_at TEXT NOT NULL
       )
     `);
-  } else {
-    // Migration: add identity_field_names column if it doesn't exist
-    const jobColumns = sqlite.query("PRAGMA table_info(jobs)").all() as { name: string }[];
-    const jobColumnNames = new Set(jobColumns.map((c) => c.name));
-    if (!jobColumnNames.has("identity_field_names")) {
-      sqlite.run("ALTER TABLE jobs ADD COLUMN identity_field_names TEXT");
-    }
   }
 
   // Create rows table (unified success/failed rows)

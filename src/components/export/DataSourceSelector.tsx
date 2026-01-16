@@ -5,12 +5,12 @@ import { queries } from "@/lib/queries";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { BoEntityDefinition } from "@/api/client";
+import { boEntitiesToDestinations, type DestinationDefinition } from "@/api/destinations";
 
 type DataSourceSelectorProps = {
   environmentId: string | null;
   selectedEntityType: string | null;
-  onSelect: (entityType: string) => void;
+  onSelect: (destination: DestinationDefinition) => void;
   title?: string;
   description?: string;
   /** When true, only shows Multi/Single sources (hides Standard types) */
@@ -32,15 +32,15 @@ export function DataSourceSelector({
     enabled: !!environmentId,
   });
 
-  // Filter to only Multi/Single sources when used as destination selector
+  // Convert to DestinationDefinition and filter to only Multi/Single sources when used as destination selector
   const dataSources = useMemo(() => {
-    const allSources = data?.Items.$values ?? [];
+    const allSources = boEntitiesToDestinations(data?.Items.$values ?? []);
     if (!destinationOnly) return allSources;
     return allSources.filter(
       (source) =>
-        source.ObjectTypeName === "Multi" ||
-        source.ObjectTypeName === "Single" ||
-        source.ObjectTypeName === "SINGLE",
+        source.objectTypeName === "Multi" ||
+        source.objectTypeName === "Single" ||
+        source.objectTypeName === "SINGLE",
     );
   }, [data, destinationOnly]);
 
@@ -50,8 +50,8 @@ export function DataSourceSelector({
     const searchLower = search.toLowerCase();
     return dataSources.filter(
       (source) =>
-        source.EntityTypeName.toLowerCase().includes(searchLower) ||
-        (source.Description ?? "").toLowerCase().includes(searchLower),
+        source.entityTypeName.toLowerCase().includes(searchLower) ||
+        (source.description ?? "").toLowerCase().includes(searchLower),
     );
   }, [dataSources, search]);
 
@@ -122,10 +122,10 @@ export function DataSourceSelector({
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 max-h-[400px] overflow-y-auto pr-2">
           {filteredSources.map((source) => (
             <DataSourceCard
-              key={source.EntityTypeName}
+              key={source.entityTypeName}
               source={source}
-              isSelected={selectedEntityType === source.EntityTypeName}
-              onSelect={() => onSelect(source.EntityTypeName)}
+              isSelected={selectedEntityType === source.entityTypeName}
+              onSelect={() => onSelect(source)}
             />
           ))}
         </div>
@@ -139,13 +139,13 @@ export function DataSourceSelector({
 }
 
 type DataSourceCardProps = {
-  source: BoEntityDefinition;
+  source: DestinationDefinition;
   isSelected: boolean;
   onSelect: () => void;
 };
 
 function DataSourceCard({ source, isSelected, onSelect }: DataSourceCardProps) {
-  const propertyCount = source.Properties?.$values.length ?? 0;
+  const propertyCount = source.properties.length;
 
   return (
     <Card
@@ -164,9 +164,9 @@ function DataSourceCard({ source, isSelected, onSelect }: DataSourceCardProps) {
             <Database className="size-4" />
           </div>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <CardTitle className="text-sm truncate">{source.EntityTypeName}</CardTitle>
+            <CardTitle className="text-sm truncate">{source.entityTypeName}</CardTitle>
             <CardDescription className="text-xs truncate">
-              {source.Description || source.ObjectTypeName}
+              {source.description || source.objectTypeName}
             </CardDescription>
           </div>
         </div>
@@ -174,10 +174,10 @@ function DataSourceCard({ source, isSelected, onSelect }: DataSourceCardProps) {
       <CardContent className="p-4 pt-0">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{propertyCount} properties</span>
-          {source.PrimaryParentEntityTypeName && (
+          {source.primaryParentEntityTypeName && (
             <>
               <span>•</span>
-              <span className="truncate">Parent: {source.PrimaryParentEntityTypeName}</span>
+              <span className="truncate">Parent: {source.primaryParentEntityTypeName}</span>
             </>
           )}
         </div>

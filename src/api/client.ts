@@ -146,6 +146,7 @@ export const createJob = (data: {
   sourceEntityType?: string;
   destEnvironmentId: string;
   destEntityType: string;
+  destType?: "bo_entity" | "custom_endpoint";
   mappings: Array<{ sourceProperty: string; destinationProperty: string | null }>;
 }) => withClient((client) => client.jobs.create(data));
 
