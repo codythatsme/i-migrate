@@ -42,6 +42,7 @@ export class ImisRequestError extends Data.TaggedError("ImisRequestError")<{
 export class ImisResponseError extends Data.TaggedError("ImisResponseError")<{
   readonly message: string;
   readonly status: number;
+  readonly body?: string;
   readonly cause?: unknown;
 }> {}
 
@@ -64,6 +65,16 @@ export class MissingCredentialsError extends Data.TaggedError("MissingCredential
     return `Password not set for environment: ${this.environmentId}`;
   }
 }
+
+// Type alias for all API errors returned by executeWithAuth
+export type ImisApiError =
+  | ImisAuthError
+  | ImisRequestError
+  | ImisResponseError
+  | ImisSchemaError
+  | MissingCredentialsError
+  | EnvironmentNotFoundError
+  | DatabaseError;
 
 export class InvalidCredentialsError extends Data.TaggedError("InvalidCredentialsError")<{
   readonly message: string;
@@ -232,6 +243,27 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
     // Internal Helpers
     // ---------------------
 
+    // Verbose logging helper - logs requests/responses when enabled
+    const logVerbose = (type: "REQ" | "RES", method: string, url: string, body?: unknown) =>
+      Effect.gen(function* () {
+        const settings = yield* persistence.getSettings();
+        if (settings?.verboseLogging) {
+          const ts = new Date().toISOString();
+          console.log(`[IMIS ${ts}] ${type} ${method} ${url}`);
+          if (body !== undefined) {
+            // Redact password in token requests
+            const sanitized =
+              typeof body === "string" && body.includes("password=")
+                ? body.replace(/password=[^&]+/, "password=****")
+                : body;
+            console.log(
+              `[IMIS ${ts}] BODY:`,
+              typeof sanitized === "string" ? sanitized : JSON.stringify(sanitized),
+            );
+          }
+        }
+      }).pipe(Effect.ignore);
+
     // Fetch a new token from IMIS /token endpoint
     const fetchToken = (envId: string) =>
       Effect.gen(function* () {
@@ -251,6 +283,9 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           username: env.username,
           password: password,
         });
+
+        // Log request
+        yield* logVerbose("REQ", "POST", tokenUrl, body.toString());
 
         // Make token request with retry for transient errors
         const response = yield* HttpClientRequest.post(tokenUrl).pipe(
@@ -285,6 +320,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           }),
           Effect.scoped,
         );
+
+        // Log response
+        yield* logVerbose("RES", "POST", tokenUrl, {
+          access_token: response.access_token.substring(0, 20) + "...",
+          token_type: response.token_type,
+          expires_in: response.expires_in,
+        });
 
         // Store token in session (no expiry tracking - we handle 401 instead)
         yield* session.setImisToken(
@@ -327,10 +369,16 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
       envId: string,
       endpoint: string,
       makeRequest: (baseUrl: string, token: string) => Effect.Effect<A, E>,
+      options?: { method?: string; body?: unknown },
     ) =>
       Effect.gen(function* () {
         const env = yield* persistence.getEnvironmentById(envId);
         const token = yield* ensureToken(envId);
+        const fullUrl = `${env.baseUrl}${endpoint}`;
+        const method = options?.method ?? "GET";
+
+        // Log request
+        yield* logVerbose("REQ", method, fullUrl, options?.body);
 
         return yield* makeRequest(env.baseUrl, token).pipe(
           // Retry transient errors (network issues, 5xx, 429) with exponential backoff
@@ -359,49 +407,76 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             // Re-raise other errors
             return Effect.fail(error);
           }),
-          Effect.mapError((error) => {
+          Effect.catchAll((error): Effect.Effect<never, ImisApiError> => {
             // Pass through known error types
-            if (error instanceof ImisAuthError) return error;
-            if (error instanceof ImisRequestError) return error;
-            if (error instanceof ImisResponseError) return error;
-            if (error instanceof ImisSchemaError) return error;
-            if (error instanceof MissingCredentialsError) return error;
-            if (error instanceof EnvironmentNotFoundError) return error;
-            if (error instanceof DatabaseError) return error;
+            if (error instanceof ImisAuthError) return Effect.fail(error);
+            if (error instanceof ImisRequestError) return Effect.fail(error);
+            if (error instanceof ImisResponseError) return Effect.fail(error);
+            if (error instanceof ImisSchemaError) return Effect.fail(error);
+            if (error instanceof MissingCredentialsError) return Effect.fail(error);
+            if (error instanceof EnvironmentNotFoundError) return Effect.fail(error);
+            if (error instanceof DatabaseError) return Effect.fail(error);
 
             // Handle HTTP client errors
             if (HttpClientError.isHttpClientError(error)) {
               if (error._tag === "ResponseError") {
-                return new ImisResponseError({
-                  message: `IMIS request failed with status ${error.response.status}`,
-                  status: error.response.status,
-                  cause: error,
-                });
+                // Read response body for error details
+                return error.response.text.pipe(
+                  Effect.scoped,
+                  Effect.catchAll(() => Effect.succeed("")),
+                  Effect.tap((body) =>
+                    Effect.annotateCurrentSpan({
+                      "error.response.body": body || "",
+                      "error.response.status": error.response.status,
+                    }),
+                  ),
+                  Effect.flatMap((body) =>
+                    Effect.fail(
+                      new ImisResponseError({
+                        message: `IMIS request failed with status ${error.response.status}`,
+                        status: error.response.status,
+                        body: body || undefined,
+                        cause: error,
+                      }),
+                    ),
+                  ),
+                );
               }
-              return new ImisRequestError({
-                message: "Failed to connect to IMIS",
-                cause: error,
-              });
+              return Effect.fail(
+                new ImisRequestError({
+                  message: "Failed to connect to IMIS",
+                  cause: error,
+                }),
+              );
             }
 
             // Handle schema parse errors with detailed formatting
             if (isParseError(error)) {
               const formattedError = formatParseError(error);
-              return new ImisSchemaError({
-                message: `Response from ${endpoint} did not match expected schema`,
-                endpoint,
-                parseError: formattedError,
-                cause: error,
-              });
+              return Effect.fail(
+                new ImisSchemaError({
+                  message: `Response from ${endpoint} did not match expected schema`,
+                  endpoint,
+                  parseError: formattedError,
+                  cause: error,
+                }),
+              );
             }
 
             // Unknown error - log and wrap
             console.error("[ImisApi] Unknown error:", error);
-            return new ImisRequestError({
-              message: `Unknown error during IMIS request to ${endpoint}`,
-              cause: error,
-            });
+            return Effect.fail(
+              new ImisRequestError({
+                message: `Unknown error during IMIS request to ${endpoint}`,
+                cause: error,
+              }),
+            );
           }),
+          // Log response (success or error)
+          Effect.tap(() => logVerbose("RES", method, `${fullUrl} (success)`)),
+          Effect.tapError((error) =>
+            logVerbose("RES", method, `${fullUrl} (error: ${error._tag})`),
+          ),
         );
       });
 
@@ -1098,102 +1173,106 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         parentEntityTypeName: string,
         parentId: string | null,
         properties: Record<string, string | number | boolean | null | BinaryBlob>,
-      ) =>
-        executeWithAuth(envId, `/api/${entityTypeName}`, (baseUrl, token) => {
-          // Build properties array
-          const propertyData = Object.entries(properties).map(([name, value]) => ({
-            $type: "Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts",
-            Name: name,
-            Value: value,
-          }));
+      ) => {
+        // Build properties array
+        const propertyData = Object.entries(properties).map(([name, value]) => ({
+          $type: "Asi.Soa.Core.DataContracts.GenericPropertyData, Asi.Contracts",
+          Name: name,
+          Value: value,
+        }));
 
-          // Build identity structure based on parent type
-          const parentIdentity = parentId
-            ? {
-                $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-                EntityTypeName: parentEntityTypeName,
-                IdentityElements: {
-                  $type:
-                    "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
-                  $values: [parentId],
-                },
-              }
-            : {
-                $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-                EntityTypeName: parentEntityTypeName,
-              };
-
-          const body = {
-            $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
-            EntityTypeName: entityTypeName,
-            PrimaryParentEntityTypeName: parentEntityTypeName,
-            Identity: {
+        // Build identity structure based on parent type
+        const parentIdentity = parentId
+          ? {
               $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
-              EntityTypeName: entityTypeName,
-            },
-            PrimaryParentIdentity: parentIdentity,
-            Properties: {
-              $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts",
-              $values: propertyData,
-            },
-          };
+              EntityTypeName: parentEntityTypeName,
+              IdentityElements: {
+                $type:
+                  "System.Collections.ObjectModel.Collection`1[[System.String, mscorlib]], mscorlib",
+                $values: [parentId],
+              },
+            }
+          : {
+              $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+              EntityTypeName: parentEntityTypeName,
+            };
 
-          return HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
-            HttpClientRequest.bearerToken(token),
-            HttpClientRequest.setHeader("Accept", "application/json"),
-            HttpClientRequest.setHeader("Content-Type", "application/json"),
-            HttpClientRequest.bodyJson(body),
-            Effect.flatMap((req) => httpClient.execute(req)),
-            Effect.flatMap((res) => {
-              if (res.status >= 200 && res.status < 300) {
-                // Parse response body as JSON to extract identity elements
-                return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
-                  Effect.map((data): InsertEntityResult => {
-                    // Try to extract identity elements from the response
-                    // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
-                    const identityElements: string[] = [];
-                    if (data && typeof data === "object" && "Identity" in data) {
-                      const identity = (data as Record<string, unknown>).Identity;
-                      if (
-                        identity &&
-                        typeof identity === "object" &&
-                        "IdentityElements" in identity
-                      ) {
-                        const identityElems = (identity as Record<string, unknown>)
-                          .IdentityElements;
+        const body = {
+          $type: "Asi.Soa.Core.DataContracts.GenericEntityData, Asi.Contracts",
+          EntityTypeName: entityTypeName,
+          PrimaryParentEntityTypeName: parentEntityTypeName,
+          Identity: {
+            $type: "Asi.Soa.Core.DataContracts.IdentityData, Asi.Contracts",
+            EntityTypeName: entityTypeName,
+          },
+          PrimaryParentIdentity: parentIdentity,
+          Properties: {
+            $type: "Asi.Soa.Core.DataContracts.GenericPropertyDataCollection, Asi.Contracts",
+            $values: propertyData,
+          },
+        };
+
+        return executeWithAuth(
+          envId,
+          `/api/${entityTypeName}`,
+          (baseUrl, token) =>
+            HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
+              HttpClientRequest.bearerToken(token),
+              HttpClientRequest.setHeader("Accept", "application/json"),
+              HttpClientRequest.setHeader("Content-Type", "application/json"),
+              HttpClientRequest.bodyJson(body),
+              Effect.flatMap((req) => httpClient.execute(req)),
+              Effect.flatMap((res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  // Parse response body as JSON to extract identity elements
+                  return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
+                    Effect.map((data): InsertEntityResult => {
+                      // Try to extract identity elements from the response
+                      // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
+                      const identityElements: string[] = [];
+                      if (data && typeof data === "object" && "Identity" in data) {
+                        const identity = (data as Record<string, unknown>).Identity;
                         if (
-                          identityElems &&
-                          typeof identityElems === "object" &&
-                          "$values" in identityElems &&
-                          Array.isArray((identityElems as Record<string, unknown>).$values)
+                          identity &&
+                          typeof identity === "object" &&
+                          "IdentityElements" in identity
                         ) {
-                          identityElements.push(
-                            ...(
-                              (identityElems as Record<string, unknown>).$values as unknown[]
-                            ).map(String),
-                          );
+                          const identityElems = (identity as Record<string, unknown>)
+                            .IdentityElements;
+                          if (
+                            identityElems &&
+                            typeof identityElems === "object" &&
+                            "$values" in identityElems &&
+                            Array.isArray((identityElems as Record<string, unknown>).$values)
+                          ) {
+                            identityElements.push(
+                              ...(
+                                (identityElems as Record<string, unknown>).$values as unknown[]
+                              ).map(String),
+                            );
+                          }
                         }
                       }
-                    }
-                    return { identityElements };
+                      return { identityElements };
+                    }),
+                    // Fallback for edge cases where response body is empty or malformed
+                    Effect.catchAll(() =>
+                      Effect.succeed({ identityElements: [] } as InsertEntityResult),
+                    ),
+                  );
+                }
+                return Effect.fail(
+                  new HttpClientError.ResponseError({
+                    request: HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`),
+                    response: res,
+                    reason: "StatusCode",
                   }),
-                  // Fallback for edge cases where response body is empty or malformed
-                  Effect.catchAll(() =>
-                    Effect.succeed({ identityElements: [] } as InsertEntityResult),
-                  ),
                 );
-              }
-              return Effect.fail(
-                new HttpClientError.ResponseError({
-                  request: HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`),
-                  response: res,
-                  reason: "StatusCode",
-                }),
-              );
-            }),
-            Effect.scoped,
-          );
-        }).pipe(
+              }),
+              Effect.scoped,
+            ),
+          { method: "POST", body },
+        ).pipe(
           Effect.withSpan("imis.insertEntity", {
             attributes: {
               environmentId: envId,
@@ -1203,7 +1282,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               hasParentId: parentId !== null,
             },
           }),
-        ),
+        );
+      },
 
       /**
        * Get the names of identity fields for an entity type.
@@ -1248,6 +1328,64 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             attributes: {
               environmentId: envId,
               entityTypeName,
+            },
+          }),
+        ),
+
+      /**
+       * Insert data via a custom API endpoint (non-GenericEntityData format).
+       * Used for endpoints like PartyImage that have their own data contract.
+       * @param envId - Environment ID
+       * @param endpointPath - API endpoint path (e.g., "api/PartyImage")
+       * @param body - Pre-built request body with $type field
+       * @param identityExtractor - Function to extract identity elements from response
+       * @returns Identity elements extracted from response
+       */
+      insertCustomEndpoint: (
+        envId: string,
+        endpointPath: string,
+        body: unknown,
+        identityExtractor: (response: unknown) => string[],
+      ) =>
+        executeWithAuth(
+          envId,
+          `/${endpointPath}`,
+          (baseUrl, token) =>
+            HttpClientRequest.post(`${baseUrl}/${endpointPath}`).pipe(
+              HttpClientRequest.bearerToken(token),
+              HttpClientRequest.setHeader("Accept", "application/json"),
+              HttpClientRequest.setHeader("Content-Type", "application/json"),
+              HttpClientRequest.bodyJson(body),
+              Effect.flatMap((req) => httpClient.execute(req)),
+              Effect.flatMap((res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
+                    Effect.map(
+                      (data): InsertEntityResult => ({
+                        identityElements: identityExtractor(data),
+                      }),
+                    ),
+                    Effect.catchAll(() =>
+                      Effect.succeed({ identityElements: [] } as InsertEntityResult),
+                    ),
+                  );
+                }
+                return Effect.fail(
+                  new HttpClientError.ResponseError({
+                    request: HttpClientRequest.post(`${baseUrl}/${endpointPath}`),
+                    response: res,
+                    reason: "StatusCode",
+                  }),
+                );
+              }),
+              Effect.scoped,
+            ),
+          { method: "POST", body },
+        ).pipe(
+          Effect.withSpan("imis.insertCustomEndpoint", {
+            attributes: {
+              environmentId: envId,
+              endpoint: `/${endpointPath}`,
             },
           }),
         ),
@@ -1335,6 +1473,8 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
         }),
       insertEntity: () => Effect.succeed({ identityElements: ["12345"] }),
       getIdentityFieldNames: () => Effect.succeed(["ID"]),
+      insertCustomEndpoint: (_envId, _path, _body, extractor) =>
+        Effect.succeed({ identityElements: extractor({}) }),
     }),
   );
 }

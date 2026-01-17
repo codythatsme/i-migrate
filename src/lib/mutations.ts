@@ -13,6 +13,7 @@ import {
   verifyMasterPassword,
   changeMasterPassword,
   lockPasswords,
+  setVerboseLogging,
   type Environment,
   type CreateEnvironment,
 } from "@/api/client";
@@ -119,9 +120,11 @@ export const useRetrySingleRow = (jobId: string) => {
 
   return useMutation({
     mutationFn: (rowId: string) => retrySingleRow(rowId),
-    onSuccess: () => {
+    onSuccess: (_, rowId) => {
       // Invalidate rows query to refresh the list
       queryClient.invalidateQueries(queries.jobs.rows(jobId));
+      // Invalidate attempt history for this specific row
+      queryClient.invalidateQueries(queries.jobs.rowAttempts(rowId));
       // Also invalidate the job itself to update counts
       queryClient.invalidateQueries(queries.jobs.byId(jobId));
       queryClient.invalidateQueries(queries.jobs.all());
@@ -199,6 +202,18 @@ export const useLockPasswords = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(queries.settings.current());
       queryClient.invalidateQueries(queries.environments.all());
+    },
+  });
+};
+
+// Set verbose logging
+export const useSetVerboseLogging = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (verboseLogging: boolean) => setVerboseLogging(verboseLogging),
+    onSuccess: () => {
+      queryClient.invalidateQueries(queries.settings.current());
     },
   });
 };

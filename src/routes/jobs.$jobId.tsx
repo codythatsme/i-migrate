@@ -209,6 +209,17 @@ function JobDetailsPage() {
           <h1 className="text-xl font-semibold">{job.name}</h1>
         </div>
 
+        {/* Error Message Banner */}
+        {job.status === "failed" && job.errorMessage && (
+          <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-destructive">Validation Failed</p>
+              <p className="text-muted-foreground mt-1">{job.errorMessage}</p>
+            </div>
+          </div>
+        )}
+
         {/* Environment Flow */}
         <div className="flex items-center gap-4 text-sm">
           <span className="px-2 py-1 bg-muted rounded font-medium">

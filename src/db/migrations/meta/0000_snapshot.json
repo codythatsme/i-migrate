@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "30641bb2-b4c4-446a-a2e5-51fa66bd8692",
+  "id": "8a5a07db-3082-470a-8120-cb7639892b57",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attempts": {
@@ -261,6 +261,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "started_at": {
           "name": "started_at",
           "type": "text",
@@ -391,6 +398,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "verbose_logging": {
+          "name": "verbose_logging",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

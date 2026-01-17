@@ -25,6 +25,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { BoProperty, ImisVersion, QueryDefinition, QueryPropertyData } from "@/api/client";
 import { type PropertyMapping, checkIsPrimaryRequired } from "./PropertyMapper";
+import type { DestinationDefinition } from "@/api/destinations";
+import { destinationPropertyToBoProperty } from "@/api/destinations";
 
 // ---------------------
 // Types
@@ -51,6 +53,8 @@ type QueryPropertyMapperProps = {
   onMappingsChange: (mappings: PropertyMapping[]) => void;
   onValidationChange?: (isValid: boolean, errors: string[]) => void;
   sourceEnvironmentVersion?: ImisVersion;
+  /** Optional pre-loaded destination definition. When provided, skips API fetch. */
+  destinationDefinition?: DestinationDefinition;
 };
 
 // ---------------------
@@ -132,18 +136,32 @@ export function QueryPropertyMapper({
   onMappingsChange,
   onValidationChange,
   sourceEnvironmentVersion,
+  destinationDefinition,
 }: QueryPropertyMapperProps) {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
 
-  const { data: destData, isLoading: destLoading } = useQuery(
-    queries.dataSources.byEnvironment(destinationEnvironmentId),
-  );
+  // Skip API fetch when definition is provided (e.g., custom endpoints)
+  const { data: destData, isLoading: destLoading } = useQuery({
+    ...queries.dataSources.byEnvironment(destinationEnvironmentId),
+    enabled: !destinationDefinition,
+  });
 
+  // Use provided definition or find from API response
   const destEntity = useMemo(() => {
+    if (destinationDefinition) {
+      // Convert DestinationDefinition to BoEntityDefinition-compatible shape
+      return {
+        EntityTypeName: destinationDefinition.entityTypeName,
+        PrimaryParentEntityTypeName: destinationDefinition.primaryParentEntityTypeName,
+        Properties: {
+          $values: destinationDefinition.properties.map(destinationPropertyToBoProperty),
+        },
+      };
+    }
     return destData?.Items.$values.find((e) => e.EntityTypeName === destinationEntityType);
-  }, [destData, destinationEntityType]);
+  }, [destData, destinationEntityType, destinationDefinition]);
 
   const queryProperties = useMemo(() => {
     return queryDefinition.Properties.$values ?? [];
@@ -259,7 +277,7 @@ export function QueryPropertyMapper({
     }, 0);
   }, [mappings, queryByName, destByName]);
 
-  if (destLoading) {
+  if (destLoading && !destinationDefinition) {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">

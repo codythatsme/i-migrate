@@ -81,14 +81,12 @@ const mapImisRequestError = (error: ImisRequestError) => {
   });
 };
 
-const mapImisResponseError = (error: ImisResponseError) => {
-  const cause = error.cause as { body?: string } | undefined;
-  return new ImisResponseErrorSchema({
+const mapImisResponseError = (error: ImisResponseError) =>
+  new ImisResponseErrorSchema({
     message: error.message,
     status: error.status,
-    responseBody: cause?.body,
+    responseBody: error.body,
   });
-};
 
 const mapImisSchemaError = (error: ImisSchemaError) =>
   new ImisSchemaErrorSchema({
@@ -527,17 +525,7 @@ export const HandlersLive = ApiGroup.toLayer({
         mappings: [...payload.mappings],
       });
 
-      // Fork job to run in the background (completely independent of HTTP request)
-      // Using forkDaemon ensures the job continues even after the request completes
-      yield* Effect.forkDaemon(
-        jobService.runJob(result.jobId).pipe(
-          Effect.catchAllCause((cause) => {
-            console.error(`[MigrationJob] Background job ${result.jobId} failed:`, cause);
-            return Effect.void;
-          }),
-        ),
-      );
-
+      // Job stays in "queued" status - user must manually run from job details page
       return result;
     }).pipe(
       Effect.mapError((error) => {
@@ -724,6 +712,7 @@ export const HandlersLive = ApiGroup.toLayer({
         hasMasterPassword:
           dbSettings?.masterPasswordHash !== null && dbSettings?.masterPasswordHash !== undefined,
         isUnlocked,
+        verboseLogging: dbSettings?.verboseLogging ?? false,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
 
@@ -762,6 +751,7 @@ export const HandlersLive = ApiGroup.toLayer({
         storePasswords: true,
         hasMasterPassword: true,
         isUnlocked: true,
+        verboseLogging: false,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
 
@@ -786,6 +776,7 @@ export const HandlersLive = ApiGroup.toLayer({
         storePasswords: false,
         hasMasterPassword: false,
         isUnlocked: false,
+        verboseLogging: false,
       };
     }).pipe(Effect.mapError(mapDatabaseError)),
 
@@ -900,4 +891,10 @@ export const HandlersLive = ApiGroup.toLayer({
       const session = yield* SessionService;
       yield* session.clearMasterPassword();
     }),
+
+  "settings.setVerboseLogging": ({ verboseLogging }) =>
+    Effect.gen(function* () {
+      const persistence = yield* PersistenceService;
+      yield* persistence.updateSettings({ verboseLogging });
+    }).pipe(Effect.mapError(mapDatabaseError)),
 });

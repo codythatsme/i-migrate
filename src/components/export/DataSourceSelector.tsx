@@ -5,7 +5,11 @@ import { queries } from "@/lib/queries";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { boEntitiesToDestinations, type DestinationDefinition } from "@/api/destinations";
+import {
+  boEntitiesToDestinations,
+  CUSTOM_ENDPOINT_DEFINITIONS,
+  type DestinationDefinition,
+} from "@/api/destinations";
 
 type DataSourceSelectorProps = {
   environmentId: string | null;
@@ -36,12 +40,17 @@ export function DataSourceSelector({
   const dataSources = useMemo(() => {
     const allSources = boEntitiesToDestinations(data?.Items.$values ?? []);
     if (!destinationOnly) return allSources;
-    return allSources.filter(
+
+    // Filter BO entities to only Multi/Single types
+    const boDestinations = allSources.filter(
       (source) =>
         source.objectTypeName === "Multi" ||
         source.objectTypeName === "Single" ||
         source.objectTypeName === "SINGLE",
     );
+
+    // Include custom endpoint definitions for destination selection
+    return [...boDestinations, ...CUSTOM_ENDPOINT_DEFINITIONS];
   }, [data, destinationOnly]);
 
   // Apply search filter

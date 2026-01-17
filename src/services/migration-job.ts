@@ -16,11 +16,12 @@ import {
   type AttemptReason,
   type DestinationType,
 } from "../db/schema";
-import { ImisApiService, MissingCredentialsError } from "./imis-api";
+import { ImisApiService, MissingCredentialsError, type ImisApiError } from "./imis-api";
 import { SessionService } from "./session";
 import { PersistenceService, DatabaseError, EnvironmentNotFoundError } from "./persistence";
 import { encryptJson, decryptJson } from "../lib/encryption";
 import type { PropertyMapping } from "../components/export/PropertyMapper";
+import { CUSTOM_ENDPOINTS } from "../api/destinations";
 
 // ---------------------
 // Domain Errors
@@ -153,6 +154,21 @@ export const generateOffsets = (totalCount: number, batchSize: number = 500): nu
   return Array.from({ length: batches }, (_, i) => i * batchSize);
 };
 
+/**
+ * Validate that all mapped source properties exist in the source row.
+ * Returns { valid: true } if all properties exist, or { valid: false, missing: [...] } otherwise.
+ */
+export const validateSourceProperties = (
+  row: Record<string, unknown>,
+  mappings: PropertyMapping[],
+): { valid: true } | { valid: false; missing: string[] } => {
+  const activeMappings = mappings.filter((m) => m.destinationProperty !== null);
+  const missing = activeMappings
+    .filter((m) => !(m.sourceProperty in row))
+    .map((m) => m.sourceProperty);
+  return missing.length === 0 ? { valid: true } : { valid: false, missing };
+};
+
 // ---------------------
 // Service Definition
 // ---------------------
@@ -193,6 +209,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           completedAt: string;
           failedQueryOffsets: string;
           identityFieldNames: string;
+          errorMessage: string | null;
         }>,
       ) =>
         Effect.try({
@@ -325,7 +342,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         imisApi.executeQuery(envId, queryPath, 500, offset).pipe(
           Effect.retry({
             schedule: queryRetrySchedule,
-            while: (error) => {
+            while: (error: ImisApiError) => {
               // Retry on transient errors (5xx, network issues)
               if (error._tag === "ImisRequestError") return true;
               if (error._tag === "ImisResponseError" && error.status >= 500) return true;
@@ -341,7 +358,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         imisApi.fetchDataSource(envId, entityTypeName, 500, offset).pipe(
           Effect.retry({
             schedule: queryRetrySchedule,
-            while: (error) => {
+            while: (error: ImisApiError) => {
               // Retry on transient errors (5xx, network issues)
               if (error._tag === "ImisRequestError") return true;
               if (error._tag === "ImisResponseError" && error.status >= 500) return true;
@@ -380,12 +397,55 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           }),
         );
 
+      // Execute insert with destType branching - handles both BO entity and custom endpoint
+      const executeRowInsert = (
+        envId: string,
+        entityTypeName: string,
+        destType: DestinationType,
+        rowData: RowData,
+        rowIndex: number,
+      ) => {
+        if (destType === "custom_endpoint") {
+          const config = CUSTOM_ENDPOINTS.find((c) => c.entityTypeName === entityTypeName);
+          if (!config) {
+            return Effect.fail(
+              new InsertFailedError({
+                rowIndex,
+                message: `No endpoint config found for custom endpoint: ${entityTypeName}`,
+              }),
+            );
+          }
+          const body = config.requestBodyBuilder(rowData);
+          return imisApi
+            .insertCustomEndpoint(envId, config.endpointPath, body, config.identityExtractor)
+            .pipe(
+              Effect.map((result) => ({
+                rowIndex,
+                identityElements: result.identityElements,
+              })),
+              Effect.mapError(
+                (error) =>
+                  new InsertFailedError({
+                    rowIndex,
+                    message: error.message,
+                    cause: error,
+                  }),
+              ),
+              Effect.withSpan("migration.executeCustomEndpointInsert", {
+                attributes: { entityTypeName, rowIndex },
+              }),
+            );
+        }
+        return executeInsert(envId, entityTypeName, "Standalone", null, rowData, rowIndex);
+      };
+
       const processBatchRows = (
         jobId: string,
         sourceRows: readonly Record<string, unknown>[],
         mappings: PropertyMapping[],
         destEnvId: string,
         destEntityType: string,
+        destType: DestinationType,
         sourceEnvId: string,
         insertConcurrency: number,
         batchStartIndex: number,
@@ -404,21 +464,66 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             index: batchStartIndex + index,
           }));
 
-          // Process with partition to collect successes and failures
-          // Note: Automatic retries (4 attempts) are handled inside imisApi.insertEntity via executeWithAuth
-          const [failures, successes] = yield* Effect.partition(
-            transformedRows,
-            ({ transformed, index }) =>
-              executeInsert(
-                destEnvId,
-                destEntityType,
-                "Standalone", // Default to Standalone for now
-                null,
-                transformed,
-                index,
-              ),
-            { concurrency: insertConcurrency },
-          );
+          // Branch on destination type
+          let failures: InsertFailedError[];
+          let successes: { rowIndex: number; identityElements: string[] }[];
+
+          if (destType === "custom_endpoint") {
+            // Custom endpoint insertion
+            const config = CUSTOM_ENDPOINTS.find((c) => c.entityTypeName === destEntityType);
+            if (!config) {
+              return yield* Effect.fail(
+                new MigrationError({
+                  message: `No endpoint config found for custom endpoint: ${destEntityType}`,
+                }),
+              );
+            }
+
+            [failures, successes] = yield* Effect.partition(
+              transformedRows,
+              ({ transformed, index }) => {
+                const body = config.requestBodyBuilder(transformed);
+                return imisApi
+                  .insertCustomEndpoint(
+                    destEnvId,
+                    config.endpointPath,
+                    body,
+                    config.identityExtractor,
+                  )
+                  .pipe(
+                    Effect.map((result) => ({
+                      rowIndex: index,
+                      identityElements: result.identityElements,
+                    })),
+                    Effect.mapError(
+                      (error) =>
+                        new InsertFailedError({
+                          rowIndex: index,
+                          message: error.message,
+                          cause: error,
+                        }),
+                    ),
+                  );
+              },
+              { concurrency: insertConcurrency },
+            );
+          } else {
+            // Standard BO entity insertion
+            // Note: Automatic retries (4 attempts) are handled inside imisApi.insertEntity via executeWithAuth
+            [failures, successes] = yield* Effect.partition(
+              transformedRows,
+              ({ transformed, index }) =>
+                executeInsert(
+                  destEnvId,
+                  destEntityType,
+                  "Standalone", // Default to Standalone for now
+                  null,
+                  transformed,
+                  index,
+                ),
+              { concurrency: insertConcurrency },
+            );
+          }
 
           const now = new Date().toISOString();
 
@@ -581,6 +686,46 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
               identityFieldNames: JSON.stringify(identityFieldNames),
             });
 
+            // Pre-insert validation: fetch 1 row to validate source properties
+            const validationResult = yield* Effect.gen(function* () {
+              let sampleRow: Record<string, unknown> | undefined;
+
+              if (job.mode === "query" && job.sourceQueryPath) {
+                const batch = yield* imisApi.executeQuery(
+                  job.sourceEnvironmentId,
+                  job.sourceQueryPath,
+                  1,
+                  0,
+                );
+                sampleRow = batch.Items.$values[0];
+              } else if (job.mode === "datasource" && job.sourceEntityType) {
+                const batch = yield* imisApi.fetchDataSource(
+                  job.sourceEnvironmentId,
+                  job.sourceEntityType,
+                  1,
+                  0,
+                );
+                sampleRow = batch.Items.$values[0];
+              }
+
+              // If no rows, validation passes (nothing to validate against)
+              if (!sampleRow) {
+                return { valid: true as const };
+              }
+
+              return validateSourceProperties(sampleRow, mappings);
+            });
+
+            if (!validationResult.valid) {
+              const missingProps = validationResult.missing.join(", ");
+              yield* updateJobStatus(jobId, {
+                status: "failed",
+                errorMessage: `Source properties not found: ${missingProps}. The source schema may have changed since mappings were defined.`,
+                completedAt: new Date().toISOString(),
+              });
+              return { failedOffsets: [], totalRows: 0 };
+            }
+
             // Track failed query offsets
             const failedOffsetsRef = yield* Ref.make<number[]>([]);
 
@@ -612,6 +757,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                     mappings,
                     job.destEnvironmentId,
                     job.destEntityType,
+                    job.destType,
                     job.sourceEnvironmentId,
                     insertConcurrency,
                     0, // First batch starts at index 0
@@ -659,6 +805,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                           mappings,
                           job.destEnvironmentId,
                           job.destEntityType,
+                          job.destType,
                           job.sourceEnvironmentId,
                           insertConcurrency,
                           offset,
@@ -692,6 +839,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                     mappings,
                     job.destEnvironmentId,
                     job.destEntityType,
+                    job.destType,
                     job.sourceEnvironmentId,
                     insertConcurrency,
                     0,
@@ -739,6 +887,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                           mappings,
                           job.destEnvironmentId,
                           job.destEntityType,
+                          job.destType,
                           job.sourceEnvironmentId,
                           insertConcurrency,
                           offset,
@@ -834,11 +983,10 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                   // Transform and insert
                   const transformed = transformRow(originalRow, mappings);
 
-                  yield* executeInsert(
+                  yield* executeRowInsert(
                     job.destEnvironmentId,
                     job.destEntityType,
-                    "Standalone",
-                    null,
+                    job.destType,
                     transformed,
                     row.rowIndex,
                   ).pipe(
@@ -947,11 +1095,10 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             const transformed = transformRow(originalRow, mappings);
             const now = new Date().toISOString();
 
-            const result = yield* executeInsert(
+            const result = yield* executeRowInsert(
               job.destEnvironmentId,
               job.destEntityType,
-              "Standalone",
-              null,
+              job.destType,
               transformed,
               row.rowIndex,
             ).pipe(

@@ -212,6 +212,10 @@ export const changeMasterPassword = (currentPassword: string, newPassword: strin
 /** Lock stored passwords (clear master password from memory) */
 export const lockPasswords = () => withClient((client) => client.settings.lock());
 
+/** Set verbose logging */
+export const setVerboseLogging = (verboseLogging: boolean) =>
+  withClient((client) => client.settings.setVerboseLogging({ verboseLogging }));
+
 // ---------------------
 // Re-export types for convenience
 // ---------------------

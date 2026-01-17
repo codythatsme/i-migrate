@@ -28,6 +28,7 @@ export const settings = sqliteTable("settings", {
   id: text("id").primaryKey().default("default"),
   storePasswords: integer("store_passwords", { mode: "boolean" }).notNull().default(false),
   masterPasswordHash: text("master_password_hash"), // SHA-256 hash for verification only
+  verboseLogging: integer("verbose_logging", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -77,6 +78,9 @@ export const jobs = sqliteTable("jobs", {
 
   // Identity field names for the destination entity (JSON array of field names like ["ID", "Ordinal"])
   identityFieldNames: text("identity_field_names"),
+
+  // Error message for failed jobs (pre-validation failures, etc.)
+  errorMessage: text("error_message"),
 
   // Timing
   startedAt: text("started_at"),

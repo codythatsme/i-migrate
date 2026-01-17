@@ -379,6 +379,12 @@ const ChangeMasterPassword = Rpc.make("settings.changeMasterPassword", {
 /** Lock stored passwords (clear master password from memory) */
 const LockPasswords = Rpc.make("settings.lock", {});
 
+/** Set verbose logging */
+const SetVerboseLogging = Rpc.make("settings.setVerboseLogging", {
+  payload: Schema.Struct({ verboseLogging: Schema.Boolean }),
+  error: DatabaseErrorSchema,
+});
+
 // ---------------------
 // API Group
 // ---------------------
@@ -427,6 +433,7 @@ export const ApiGroup = RpcGroup.make(
   VerifyMasterPassword,
   ChangeMasterPassword,
   LockPasswords,
+  SetVerboseLogging,
 );
 
 // Export type for the API group

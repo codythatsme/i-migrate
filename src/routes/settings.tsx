@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ShieldCheck, ShieldOff, KeyRound, AlertTriangle } from "lucide-react";
+import { ShieldCheck, ShieldOff, KeyRound, AlertTriangle, Terminal } from "lucide-react";
 import { queries } from "@/lib/queries";
-import { useDisablePasswordStorage, useChangeMasterPassword } from "@/lib/mutations";
+import {
+  useDisablePasswordStorage,
+  useChangeMasterPassword,
+  useSetVerboseLogging,
+} from "@/lib/mutations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -28,6 +32,7 @@ function SettingsPage() {
   const { data: settings, isLoading } = useQuery(queries.settings.current());
   const disableStorage = useDisablePasswordStorage();
   const changeMasterPassword = useChangeMasterPassword();
+  const setVerboseLogging = useSetVerboseLogging();
 
   const [showEnableDialog, setShowEnableDialog] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
@@ -172,6 +177,32 @@ function SettingsPage() {
               </AlertDescription>
             </Alert>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Terminal className="size-5" />
+            Verbose Logging
+          </CardTitle>
+          <CardDescription>Log all iMIS API requests to the terminal.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start justify-between gap-4">
+            <Label htmlFor="verbose-logging" className="flex flex-col items-start gap-1 pt-0.5">
+              <span className="leading-none">Enable verbose logging</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Logs requests and responses to stdout
+              </span>
+            </Label>
+            <Switch
+              id="verbose-logging"
+              checked={settings?.verboseLogging ?? false}
+              onCheckedChange={(checked) => setVerboseLogging.mutate(checked)}
+              disabled={setVerboseLogging.isPending}
+            />
+          </div>
         </CardContent>
       </Card>
 

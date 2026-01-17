@@ -361,6 +361,7 @@ export const JobSchema = Schema.Struct({
   totalRows: Schema.NullOr(Schema.Number),
   failedQueryOffsets: Schema.NullOr(Schema.String), // JSON stringified number[]
   identityFieldNames: Schema.NullOr(Schema.String), // JSON stringified string[] (e.g., ["ID", "Ordinal"])
+  errorMessage: Schema.NullOr(Schema.String), // Error message for pre-validation failures
   startedAt: Schema.NullOr(Schema.String),
   completedAt: Schema.NullOr(Schema.String),
   createdAt: Schema.String,
@@ -537,6 +538,7 @@ export const SettingsSchema = Schema.Struct({
   storePasswords: Schema.Boolean,
   hasMasterPassword: Schema.Boolean,
   isUnlocked: Schema.Boolean,
+  verboseLogging: Schema.Boolean,
 });
 
 export type Settings = typeof SettingsSchema.Type;
