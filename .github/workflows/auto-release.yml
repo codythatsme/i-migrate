@@ -9,156 +9,64 @@ permissions:
 
 jobs:
   release:
-    name: Check and Release
+    name: Check and Tag Release
     runs-on: ubuntu-latest
-    # Skip if this is a release commit to avoid infinite loop
-    if: "!startsWith(github.event.head_commit.message, 'chore: release')"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest tag
-        id: get_tag
-        run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          echo "Latest tag: $LATEST_TAG"
-
-      - name: Analyze commit and determine version bump
+      - name: Analyze commit for release prefix
         id: analyze
         run: |
-          LATEST_TAG="${{ steps.get_tag.outputs.tag }}"
-
-          # Check if there are new commits since last tag
-          COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
-
-          if [ "$COMMIT_COUNT" = "0" ]; then
-            echo "No new commits since $LATEST_TAG"
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
           # Get the subject of the most recent commit (PR merge commit)
           SUBJECT=$(git log -1 --format=%s)
           echo "Commit subject: $SUBJECT"
 
-          # Determine version bump from commit subject prefix
-          BUMP="none"
-          MSG=""
+          # Determine if this is a releasable commit from prefix
+          SHOULD_RELEASE="false"
 
           # Check for major version bump (major: prefix or !: suffix pattern)
           if echo "$SUBJECT" | grep -qE '^major:'; then
-            BUMP="major"
-            MSG=$(echo "$SUBJECT" | sed -E 's/^major:\s*//')
+            SHOULD_RELEASE="true"
           elif echo "$SUBJECT" | grep -qE '^[a-z]+!:'; then
-            BUMP="major"
-            MSG=$(echo "$SUBJECT" | sed -E 's/^[a-z]+!:\s*//')
+            SHOULD_RELEASE="true"
           # Check for minor version bump (feat: or minor: prefix)
           elif echo "$SUBJECT" | grep -qE '^(feat|minor):'; then
-            BUMP="minor"
-            MSG=$(echo "$SUBJECT" | sed -E 's/^(feat|minor):\s*//')
+            SHOULD_RELEASE="true"
           # Check for patch version bump (fix: or patch: prefix)
           elif echo "$SUBJECT" | grep -qE '^(fix|patch):'; then
-            BUMP="patch"
-            MSG=$(echo "$SUBJECT" | sed -E 's/^(fix|patch):\s*//')
+            SHOULD_RELEASE="true"
           fi
 
-          if [ "$BUMP" = "none" ]; then
+          if [ "$SHOULD_RELEASE" = "false" ]; then
             echo "No releasable prefix found (feat:, fix:, minor:, patch:, major:, or !:)"
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            exit 0
           fi
 
-          echo "should_release=true" >> $GITHUB_OUTPUT
-          echo "bump=$BUMP" >> $GITHUB_OUTPUT
-          echo "message=$MSG" >> $GITHUB_OUTPUT
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
-          echo "Version bump: $BUMP"
-          echo "Release message: $MSG"
-
-      - name: Calculate new version
+      - name: Get version and check tag
         id: version
         if: steps.analyze.outputs.should_release == 'true'
         run: |
-          CURRENT_VERSION=$(jq -r '.version' package.json)
-          BUMP="${{ steps.analyze.outputs.bump }}"
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version from package.json: $VERSION"
 
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists. Did you forget to bump the version in package.json?"
+            exit 1
+          fi
 
-          case "$BUMP" in
-            major)
-              NEW_VERSION="$((MAJOR + 1)).0.0"
-              ;;
-            minor)
-              NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
-              ;;
-            patch)
-              NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
-              ;;
-          esac
-
-          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $CURRENT_VERSION -> $NEW_VERSION"
-
-      - name: Update package.json
+      - name: Create and push tag
         if: steps.analyze.outputs.should_release == 'true'
         run: |
-          NEW_VERSION="${{ steps.version.outputs.new }}"
-          jq ".version = \"$NEW_VERSION\"" package.json > package.json.tmp
-          mv package.json.tmp package.json
-
-      - name: Update CHANGELOG.md
-        if: steps.analyze.outputs.should_release == 'true'
-        run: |
-          NEW_VERSION="${{ steps.version.outputs.new }}"
-          DATE=$(date +%Y-%m-%d)
-          BUMP="${{ steps.analyze.outputs.bump }}"
-          MSG="${{ steps.analyze.outputs.message }}"
-
-          # Determine section header based on bump type
-          case "$BUMP" in
-            major)
-              SECTION="### Breaking Changes"
-              ;;
-            minor)
-              SECTION="### Added"
-              ;;
-            patch)
-              SECTION="### Fixed"
-              ;;
-          esac
-
-          # Build the new changelog entry
-          ENTRY="## [$NEW_VERSION] - $DATE\n\n${SECTION}\n\n- ${MSG}\n"
-
-          # Insert after ## [Unreleased] line
-          awk -v entry="$ENTRY" '
-            /^## \[Unreleased\]/ {
-              print
-              print ""
-              printf entry
-              next
-            }
-            { print }
-          ' CHANGELOG.md > CHANGELOG.md.tmp
-          mv CHANGELOG.md.tmp CHANGELOG.md
-
-      - name: Commit and tag
-        if: steps.analyze.outputs.should_release == 'true'
-        run: |
-          NEW_VERSION="${{ steps.version.outputs.new }}"
+          VERSION="${{ steps.version.outputs.version }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add package.json CHANGELOG.md
-          git commit -m "chore: release v${NEW_VERSION}"
-          git tag "v${NEW_VERSION}"
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
 
-          git push origin main
-          git push origin "v${NEW_VERSION}"
-
-          echo "Released v${NEW_VERSION}"
+          echo "Created and pushed tag v${VERSION}"

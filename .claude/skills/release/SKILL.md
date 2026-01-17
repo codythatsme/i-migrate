@@ -5,66 +5,72 @@ description: Guide for releases and changelog. Triggers on: changelog, release, 
 
 # Release Guide
 
-## How Releases Work
+## Before Merging a Release PR
 
-Releases happen **automatically** when PRs merge to main:
-
-1. PR merges to main
-2. Workflow checks PR merge commit subject for release prefix
-3. If releasable prefix found, bumps version accordingly
-4. Updates CHANGELOG.md automatically
-5. Creates git tag → triggers build + GitHub release
-
-**No manual version bumps or changelog updates needed.**
-
-## PR Title Format (Required)
-
-The **PR title** determines if a release happens and what type:
+### 1. Bump Version in `package.json`
 
 | PR Title Prefix | Version Bump |
 |-----------------|--------------|
 | `feat:` or `minor:` | Minor (0.X.0) |
 | `fix:` or `patch:` | Patch (0.0.X) |
 | `major:` or `type!:` | Major (X.0.0) |
-| Other prefixes | No release |
+
+### 2. Update `CHANGELOG.md`
+
+Add entry under `## [Unreleased]`:
+
+```markdown
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added/Fixed/Breaking Changes
+
+- Description from PR title
+```
+
+Section headers by bump type:
+- `major:` or `!:` → `### Breaking Changes`
+- `feat:` or `minor:` → `### Added`
+- `fix:` or `patch:` → `### Fixed`
+
+### 3. PR Title Must Have Release Prefix
 
 Examples:
 ```
-feat: add batch retry for failed rows     → v0.6.0
-fix: correct token refresh timing         → v0.5.5
-minor: add new export formats             → v0.6.0
-patch: handle edge case in parser         → v0.5.5
-major: redesign API endpoints             → v1.0.0
-feat!: change auth flow (breaking)        → v1.0.0
+feat: add batch retry for failed rows     → creates tag from package.json version
+fix: correct token refresh timing         → creates tag from package.json version
+major: redesign API endpoints             → creates tag from package.json version
+feat!: change auth flow (breaking)        → creates tag from package.json version
 ```
+
+## After Merge
+
+Workflow automatically:
+1. Detects release prefix in commit message
+2. Reads version from `package.json`
+3. Fails if tag already exists (forgot to bump version)
+4. Creates and pushes tag
+5. Tag triggers `release.yml` → build + GitHub release
 
 ## Skipping Releases
 
-PRs with non-release prefixes won't trigger releases:
+PRs with non-release prefixes won't trigger tag creation:
 - `docs:` - documentation
 - `refactor:` - code restructure
 - `test:` - test changes
 - `chore:` - maintenance
 - `ci:` - CI changes
 
-## Changelog Format
+## Errors
 
-Auto-generated in CHANGELOG.md based on bump type:
-- **Breaking Changes** - from `major:` or `!:` suffix
-- **Added** - from `feat:` or `minor:`
-- **Fixed** - from `fix:` or `patch:`
+**"Tag vX.Y.Z already exists"** → You forgot to bump the version in `package.json`. Update the version in your PR and re-merge (or create a follow-up PR).
 
-Entry uses the PR title description (after the prefix).
+## Manual Release (Emergency)
 
-## Manual Override (Emergency)
-
-If you need to manually release:
 ```bash
 # Bump version in package.json
 # Update CHANGELOG.md
+git add package.json CHANGELOG.md
 git commit -m "chore: release vX.Y.Z"
 git tag vX.Y.Z
-git push origin main vX.Y.Z
+git push origin HEAD vX.Y.Z
 ```
-
-The `chore: release` prefix prevents double-release.
