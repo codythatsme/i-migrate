@@ -66,6 +66,16 @@ export class MissingCredentialsError extends Data.TaggedError("MissingCredential
   }
 }
 
+// Type alias for all API errors returned by executeWithAuth
+export type ImisApiError =
+  | ImisAuthError
+  | ImisRequestError
+  | ImisResponseError
+  | ImisSchemaError
+  | MissingCredentialsError
+  | EnvironmentNotFoundError
+  | DatabaseError;
+
 export class InvalidCredentialsError extends Data.TaggedError("InvalidCredentialsError")<{
   readonly message: string;
   readonly cause?: unknown;
@@ -360,7 +370,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             // Re-raise other errors
             return Effect.fail(error);
           }),
-          Effect.catchAll((error) => {
+          Effect.catchAll((error): Effect.Effect<never, ImisApiError> => {
             // Pass through known error types
             if (error instanceof ImisAuthError) return Effect.fail(error);
             if (error instanceof ImisRequestError) return Effect.fail(error);
@@ -375,6 +385,7 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
               if (error._tag === "ResponseError") {
                 // Read response body for error details
                 return error.response.text.pipe(
+                  Effect.scoped,
                   Effect.catchAll(() => Effect.succeed("")),
                   Effect.tap((body) =>
                     Effect.annotateCurrentSpan({

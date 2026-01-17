@@ -16,7 +16,7 @@ import {
   type AttemptReason,
   type DestinationType,
 } from "../db/schema";
-import { ImisApiService, MissingCredentialsError } from "./imis-api";
+import { ImisApiService, MissingCredentialsError, type ImisApiError } from "./imis-api";
 import { SessionService } from "./session";
 import { PersistenceService, DatabaseError, EnvironmentNotFoundError } from "./persistence";
 import { encryptJson, decryptJson } from "../lib/encryption";
@@ -329,7 +329,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         imisApi.executeQuery(envId, queryPath, 500, offset).pipe(
           Effect.retry({
             schedule: queryRetrySchedule,
-            while: (error) => {
+            while: (error: ImisApiError) => {
               // Retry on transient errors (5xx, network issues)
               if (error._tag === "ImisRequestError") return true;
               if (error._tag === "ImisResponseError" && error.status >= 500) return true;
@@ -345,7 +345,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         imisApi.fetchDataSource(envId, entityTypeName, 500, offset).pipe(
           Effect.retry({
             schedule: queryRetrySchedule,
-            while: (error) => {
+            while: (error: ImisApiError) => {
               // Retry on transient errors (5xx, network issues)
               if (error._tag === "ImisRequestError") return true;
               if (error._tag === "ImisResponseError" && error.status >= 500) return true;
