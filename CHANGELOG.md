@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-01-17
+
+### Added
+
+- Pre-insert validation for migration jobs
+- Verbose logging setting for iMIS API requests
+- Custom endpoint support for non-BO destinations
+- Pre-commit hooks for format, lint, and type checks
+
+### Fixed
+
+- Refresh attempt history after manual row retry
+- Auto-release workflow now uses tag-only approach (fixes branch protection issue)
+
+### Changed
+
+- Job creation now saves without auto-running
+- Consolidate custom endpoint config into single CUSTOM_ENDPOINTS array
+- Release process now requires manual version bump before merge
+
 ## [0.5.4] - 2025-01-13
 
 ### Fixed
