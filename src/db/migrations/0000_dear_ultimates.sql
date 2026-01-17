@@ -38,6 +38,7 @@ CREATE TABLE `jobs` (
 	`total_rows` integer,
 	`failed_query_offsets` text,
 	`identity_field_names` text,
+	`error_message` text,
 	`started_at` text,
 	`completed_at` text,
 	`created_at` text NOT NULL
@@ -60,6 +61,7 @@ CREATE TABLE `settings` (
 	`id` text PRIMARY KEY DEFAULT 'default' NOT NULL,
 	`store_passwords` integer DEFAULT false NOT NULL,
 	`master_password_hash` text,
+	`verbose_logging` integer DEFAULT false NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );

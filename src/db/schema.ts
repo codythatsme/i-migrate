@@ -79,6 +79,9 @@ export const jobs = sqliteTable("jobs", {
   // Identity field names for the destination entity (JSON array of field names like ["ID", "Ordinal"])
   identityFieldNames: text("identity_field_names"),
 
+  // Error message for failed jobs (pre-validation failures, etc.)
+  errorMessage: text("error_message"),
+
   // Timing
   startedAt: text("started_at"),
   completedAt: text("completed_at"),

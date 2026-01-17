@@ -154,6 +154,21 @@ export const generateOffsets = (totalCount: number, batchSize: number = 500): nu
   return Array.from({ length: batches }, (_, i) => i * batchSize);
 };
 
+/**
+ * Validate that all mapped source properties exist in the source row.
+ * Returns { valid: true } if all properties exist, or { valid: false, missing: [...] } otherwise.
+ */
+export const validateSourceProperties = (
+  row: Record<string, unknown>,
+  mappings: PropertyMapping[],
+): { valid: true } | { valid: false; missing: string[] } => {
+  const activeMappings = mappings.filter((m) => m.destinationProperty !== null);
+  const missing = activeMappings
+    .filter((m) => !(m.sourceProperty in row))
+    .map((m) => m.sourceProperty);
+  return missing.length === 0 ? { valid: true } : { valid: false, missing };
+};
+
 // ---------------------
 // Service Definition
 // ---------------------
@@ -194,6 +209,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           completedAt: string;
           failedQueryOffsets: string;
           identityFieldNames: string;
+          errorMessage: string | null;
         }>,
       ) =>
         Effect.try({
@@ -669,6 +685,46 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             yield* updateJobStatus(jobId, {
               identityFieldNames: JSON.stringify(identityFieldNames),
             });
+
+            // Pre-insert validation: fetch 1 row to validate source properties
+            const validationResult = yield* Effect.gen(function* () {
+              let sampleRow: Record<string, unknown> | undefined;
+
+              if (job.mode === "query" && job.sourceQueryPath) {
+                const batch = yield* imisApi.executeQuery(
+                  job.sourceEnvironmentId,
+                  job.sourceQueryPath,
+                  1,
+                  0,
+                );
+                sampleRow = batch.Items.$values[0];
+              } else if (job.mode === "datasource" && job.sourceEntityType) {
+                const batch = yield* imisApi.fetchDataSource(
+                  job.sourceEnvironmentId,
+                  job.sourceEntityType,
+                  1,
+                  0,
+                );
+                sampleRow = batch.Items.$values[0];
+              }
+
+              // If no rows, validation passes (nothing to validate against)
+              if (!sampleRow) {
+                return { valid: true as const };
+              }
+
+              return validateSourceProperties(sampleRow, mappings);
+            });
+
+            if (!validationResult.valid) {
+              const missingProps = validationResult.missing.join(", ");
+              yield* updateJobStatus(jobId, {
+                status: "failed",
+                errorMessage: `Source properties not found: ${missingProps}. The source schema may have changed since mappings were defined.`,
+                completedAt: new Date().toISOString(),
+              });
+              return { failedOffsets: [], totalRows: 0 };
+            }
 
             // Track failed query offsets
             const failedOffsetsRef = yield* Ref.make<number[]>([]);
