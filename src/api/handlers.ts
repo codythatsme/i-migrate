@@ -525,17 +525,7 @@ export const HandlersLive = ApiGroup.toLayer({
         mappings: [...payload.mappings],
       });
 
-      // Fork job to run in the background (completely independent of HTTP request)
-      // Using forkDaemon ensures the job continues even after the request completes
-      yield* Effect.forkDaemon(
-        jobService.runJob(result.jobId).pipe(
-          Effect.catchAllCause((cause) => {
-            console.error(`[MigrationJob] Background job ${result.jobId} failed:`, cause);
-            return Effect.void;
-          }),
-        ),
-      );
-
+      // Job stays in "queued" status - user must manually run from job details page
       return result;
     }).pipe(
       Effect.mapError((error) => {

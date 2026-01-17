@@ -151,11 +151,11 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
 
       return { jobId };
     },
-    onSuccess: async () => {
+    onSuccess: async ({ jobId }) => {
       // Invalidate jobs query and wait for it to complete before navigating
       await queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      // Navigate to jobs page
-      navigate({ to: "/jobs" });
+      // Navigate to job details page
+      navigate({ to: "/jobs/$jobId", params: { jobId } });
     },
     onError: (error) => {
       console.error("[CreateJob] Failed to create job:", error);
@@ -507,12 +507,12 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               {createJobMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Creating Job...
+                  Saving Job...
                 </>
               ) : (
                 <>
                   <ListChecks className="mr-2 size-4" />
-                  Queue Migration
+                  Save Job
                 </>
               )}
             </Button>
