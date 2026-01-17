@@ -1217,60 +1217,60 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           `/api/${entityTypeName}`,
           (baseUrl, token) =>
             HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`).pipe(
-            HttpClientRequest.bearerToken(token),
-            HttpClientRequest.setHeader("Accept", "application/json"),
-            HttpClientRequest.setHeader("Content-Type", "application/json"),
-            HttpClientRequest.bodyJson(body),
-            Effect.flatMap((req) => httpClient.execute(req)),
-            Effect.flatMap((res) => {
-              if (res.status >= 200 && res.status < 300) {
-                // Parse response body as JSON to extract identity elements
-                return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
-                  Effect.map((data): InsertEntityResult => {
-                    // Try to extract identity elements from the response
-                    // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
-                    const identityElements: string[] = [];
-                    if (data && typeof data === "object" && "Identity" in data) {
-                      const identity = (data as Record<string, unknown>).Identity;
-                      if (
-                        identity &&
-                        typeof identity === "object" &&
-                        "IdentityElements" in identity
-                      ) {
-                        const identityElems = (identity as Record<string, unknown>)
-                          .IdentityElements;
+              HttpClientRequest.bearerToken(token),
+              HttpClientRequest.setHeader("Accept", "application/json"),
+              HttpClientRequest.setHeader("Content-Type", "application/json"),
+              HttpClientRequest.bodyJson(body),
+              Effect.flatMap((req) => httpClient.execute(req)),
+              Effect.flatMap((res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  // Parse response body as JSON to extract identity elements
+                  return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
+                    Effect.map((data): InsertEntityResult => {
+                      // Try to extract identity elements from the response
+                      // The structure is: { Identity: { IdentityElements: { $values: [...] } } }
+                      const identityElements: string[] = [];
+                      if (data && typeof data === "object" && "Identity" in data) {
+                        const identity = (data as Record<string, unknown>).Identity;
                         if (
-                          identityElems &&
-                          typeof identityElems === "object" &&
-                          "$values" in identityElems &&
-                          Array.isArray((identityElems as Record<string, unknown>).$values)
+                          identity &&
+                          typeof identity === "object" &&
+                          "IdentityElements" in identity
                         ) {
-                          identityElements.push(
-                            ...(
-                              (identityElems as Record<string, unknown>).$values as unknown[]
-                            ).map(String),
-                          );
+                          const identityElems = (identity as Record<string, unknown>)
+                            .IdentityElements;
+                          if (
+                            identityElems &&
+                            typeof identityElems === "object" &&
+                            "$values" in identityElems &&
+                            Array.isArray((identityElems as Record<string, unknown>).$values)
+                          ) {
+                            identityElements.push(
+                              ...(
+                                (identityElems as Record<string, unknown>).$values as unknown[]
+                              ).map(String),
+                            );
+                          }
                         }
                       }
-                    }
-                    return { identityElements };
+                      return { identityElements };
+                    }),
+                    // Fallback for edge cases where response body is empty or malformed
+                    Effect.catchAll(() =>
+                      Effect.succeed({ identityElements: [] } as InsertEntityResult),
+                    ),
+                  );
+                }
+                return Effect.fail(
+                  new HttpClientError.ResponseError({
+                    request: HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`),
+                    response: res,
+                    reason: "StatusCode",
                   }),
-                  // Fallback for edge cases where response body is empty or malformed
-                  Effect.catchAll(() =>
-                    Effect.succeed({ identityElements: [] } as InsertEntityResult),
-                  ),
                 );
-              }
-              return Effect.fail(
-                new HttpClientError.ResponseError({
-                  request: HttpClientRequest.post(`${baseUrl}/api/${entityTypeName}`),
-                  response: res,
-                  reason: "StatusCode",
-                }),
-              );
-            }),
-            Effect.scoped,
-          ),
+              }),
+              Effect.scoped,
+            ),
           { method: "POST", body },
         ).pipe(
           Effect.withSpan("imis.insertEntity", {
@@ -1352,32 +1352,34 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
           `/${endpointPath}`,
           (baseUrl, token) =>
             HttpClientRequest.post(`${baseUrl}/${endpointPath}`).pipe(
-            HttpClientRequest.bearerToken(token),
-            HttpClientRequest.setHeader("Accept", "application/json"),
-            HttpClientRequest.setHeader("Content-Type", "application/json"),
-            HttpClientRequest.bodyJson(body),
-            Effect.flatMap((req) => httpClient.execute(req)),
-            Effect.flatMap((res) => {
-              if (res.status >= 200 && res.status < 300) {
-                return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
-                  Effect.map((data): InsertEntityResult => ({
-                    identityElements: identityExtractor(data),
-                  })),
-                  Effect.catchAll(() =>
-                    Effect.succeed({ identityElements: [] } as InsertEntityResult),
-                  ),
+              HttpClientRequest.bearerToken(token),
+              HttpClientRequest.setHeader("Accept", "application/json"),
+              HttpClientRequest.setHeader("Content-Type", "application/json"),
+              HttpClientRequest.bodyJson(body),
+              Effect.flatMap((req) => httpClient.execute(req)),
+              Effect.flatMap((res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  return HttpClientResponse.schemaBodyJson(Schema.Unknown)(res).pipe(
+                    Effect.map(
+                      (data): InsertEntityResult => ({
+                        identityElements: identityExtractor(data),
+                      }),
+                    ),
+                    Effect.catchAll(() =>
+                      Effect.succeed({ identityElements: [] } as InsertEntityResult),
+                    ),
+                  );
+                }
+                return Effect.fail(
+                  new HttpClientError.ResponseError({
+                    request: HttpClientRequest.post(`${baseUrl}/${endpointPath}`),
+                    response: res,
+                    reason: "StatusCode",
+                  }),
                 );
-              }
-              return Effect.fail(
-                new HttpClientError.ResponseError({
-                  request: HttpClientRequest.post(`${baseUrl}/${endpointPath}`),
-                  response: res,
-                  reason: "StatusCode",
-                }),
-              );
-            }),
-            Effect.scoped,
-          ),
+              }),
+              Effect.scoped,
+            ),
           { method: "POST", body },
         ).pipe(
           Effect.withSpan("imis.insertCustomEndpoint", {

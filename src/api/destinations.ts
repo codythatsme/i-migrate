@@ -219,8 +219,9 @@ function customEndpointToDestination(config: CustomEndpointConfig): DestinationD
 /**
  * Destination definitions derived from CUSTOM_ENDPOINTS for UI/schema use.
  */
-export const CUSTOM_ENDPOINT_DEFINITIONS: DestinationDefinition[] =
-  CUSTOM_ENDPOINTS.map(customEndpointToDestination);
+export const CUSTOM_ENDPOINT_DEFINITIONS: DestinationDefinition[] = CUSTOM_ENDPOINTS.map(
+  customEndpointToDestination,
+);
 
 /**
  * Get all available destinations (BO entities + custom endpoints).
