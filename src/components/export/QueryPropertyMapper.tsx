@@ -102,15 +102,28 @@ function checkCompatibility(
   return { compatible: true, warnings };
 }
 
+/**
+ * Get the property key used for mapping lookups.
+ * - For 2017: Response rows use Caption as property names, so we must use Caption
+ * - For EMS: Response rows use Alias || PropertyName
+ */
+function getSourcePropertyKey(prop: QueryPropertyData, is2017: boolean): string {
+  if (is2017) {
+    return prop.Caption ?? prop.Alias ?? prop.PropertyName;
+  }
+  return prop.Alias || prop.PropertyName;
+}
+
 function findAutoMappings(
   queryProps: readonly QueryPropertyData[],
   destProps: readonly BoProperty[],
+  is2017: boolean,
 ): PropertyMapping[] {
   return queryProps.map((queryProp) => {
-    // Find matching destination property by name (using Alias or PropertyName) and compatible type
-    const queryName = queryProp.Alias || queryProp.PropertyName;
+    // Find matching destination property by name and compatible type
+    const sourceKey = getSourcePropertyKey(queryProp, is2017);
     const matchingDest = destProps.find((destProp) => {
-      if (destProp.Name.toLowerCase() !== queryName.toLowerCase()) return false;
+      if (destProp.Name.toLowerCase() !== sourceKey.toLowerCase()) return false;
       // Skip restricted properties
       if (destProp.Name in RESTRICTED_DESTINATION_PROPERTIES) return false;
       const { compatible } = checkCompatibility(queryProp.DataTypeName, destProp);
@@ -118,7 +131,7 @@ function findAutoMappings(
     });
 
     return {
-      sourceProperty: queryName,
+      sourceProperty: sourceKey,
       destinationProperty: matchingDest?.Name ?? null,
     };
   });
@@ -171,6 +184,8 @@ export function QueryPropertyMapper({
     return destEntity?.Properties?.$values ?? [];
   }, [destEntity]);
 
+  const is2017 = sourceEnvironmentVersion === "2017";
+
   // Lookup Maps for O(1) access instead of O(n) .find() calls
   const mappingBySource = useMemo(
     () => new Map(mappings.map((m) => [m.sourceProperty, m])),
@@ -178,8 +193,8 @@ export function QueryPropertyMapper({
   );
 
   const queryByName = useMemo(
-    () => new Map(queryProperties.map((p) => [p.Alias || p.PropertyName, p])),
-    [queryProperties],
+    () => new Map(queryProperties.map((p) => [getSourcePropertyKey(p, is2017), p])),
+    [queryProperties, is2017],
   );
 
   const destByName = useMemo(
@@ -226,11 +241,11 @@ export function QueryPropertyMapper({
   // Auto-map on initial load
   useEffect(() => {
     if (!hasInitialized && queryProperties.length > 0 && destProperties.length > 0) {
-      const autoMappings = findAutoMappings(queryProperties, destProperties);
+      const autoMappings = findAutoMappings(queryProperties, destProperties, is2017);
       onMappingsChange(autoMappings);
       setHasInitialized(true);
     }
-  }, [queryProperties, destProperties, hasInitialized, onMappingsChange]);
+  }, [queryProperties, destProperties, hasInitialized, onMappingsChange, is2017]);
 
   const handleMappingChange = useCallback(
     (sourceProperty: string, destinationProperty: string | null) => {
@@ -254,17 +269,18 @@ export function QueryPropertyMapper({
   const filteredProperties = useMemo(() => {
     const search = deferredSearch.toLowerCase();
     return queryProperties.filter((prop) => {
-      const name = prop.Alias || prop.PropertyName;
-      const matchesSearch = name.toLowerCase().includes(search);
+      const displayName = prop.Alias || prop.PropertyName;
+      const propKey = getSourcePropertyKey(prop, is2017);
+      const matchesSearch = displayName.toLowerCase().includes(search);
 
       if (showUnmappedOnly) {
-        const mapping = mappingBySource.get(name);
+        const mapping = mappingBySource.get(propKey);
         return matchesSearch && (!mapping || mapping.destinationProperty === null);
       }
 
       return matchesSearch;
     });
-  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource]);
+  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource, is2017]);
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
@@ -430,7 +446,7 @@ export function QueryPropertyMapper({
         <div className="flex flex-col max-h-[500px] overflow-y-auto divide-y divide-border">
           {filteredProperties.length > 0 ? (
             filteredProperties.map((queryProp) => {
-              const propKey = queryProp.Alias || queryProp.PropertyName;
+              const propKey = getSourcePropertyKey(queryProp, is2017);
               const mapping = mappingBySource.get(propKey);
               const destProp = mapping?.destinationProperty
                 ? destByName.get(mapping.destinationProperty)
