@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2025-01-19
+
+### Fixed
+
+- 2017 IQA "source properties not found" error during migration (use Caption for property mappings)
+
 ## [0.6.0] - 2025-01-17
 
 ### Added
