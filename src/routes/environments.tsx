@@ -160,25 +160,39 @@ function EnvironmentsPage() {
               >
                 <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                   <div className="flex items-start gap-3">
-                    {env.icon ? (
-                      <img
-                        src={env.icon}
-                        alt=""
-                        className="size-10 shrink-0 rounded-lg object-contain"
-                      />
-                    ) : (
-                      <div
-                        className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                          isSelected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        <Server className="size-5" />
-                      </div>
-                    )}
+                    <div className="relative">
+                      {env.icon ? (
+                        <img
+                          src={env.icon}
+                          alt=""
+                          className="size-10 shrink-0 rounded-lg object-contain"
+                        />
+                      ) : (
+                        <div
+                          className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <Server className="size-5" />
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute -bottom-1 -right-1 size-4 rounded-full bg-primary border-2 border-background flex items-center justify-center">
+                          <CheckCircle2 className="size-2.5 text-primary-foreground" />
+                        </div>
+                      )}
+                    </div>
                     <div className="flex flex-col gap-1">
-                      <CardTitle className="text-base">{env.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base">{env.name}</CardTitle>
+                        {isSelected && (
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            Source
+                          </span>
+                        )}
+                      </div>
                       <CardDescription className="text-xs">{env.username}</CardDescription>
                     </div>
                   </div>
@@ -220,12 +234,6 @@ function EnvironmentsPage() {
                         {env.baseUrl}
                       </span>
                     </div>
-                    {isSelected && (
-                      <div className="flex items-center gap-2 rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">
-                        <div className="size-1.5 rounded-full bg-primary" />
-                        Current Source
-                      </div>
-                    )}
 
                     {/* Password Status and Actions */}
                     <div className="flex flex-col gap-2 pt-1">
