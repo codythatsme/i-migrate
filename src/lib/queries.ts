@@ -6,6 +6,7 @@ import {
   getDocumentByPath,
   getDocumentsInFolder,
   getQueryDefinition,
+  getQuerySampleKeys,
   listTraces,
   getTrace,
   listJobs,
@@ -73,6 +74,16 @@ export const queries = {
       queryOptions({
         queryKey: ["queryDefinition", environmentId, path],
         queryFn: () => getQueryDefinition(environmentId!, path!),
+        enabled: !!environmentId && !!path,
+      }),
+  },
+
+  querySampleKeys: {
+    // Get sample property keys from a query's first row
+    byPath: (environmentId: string | null, path: string | null) =>
+      queryOptions({
+        queryKey: ["querySampleKeys", environmentId, path],
+        queryFn: () => getQuerySampleKeys(environmentId!, path!),
         enabled: !!environmentId && !!path,
       }),
   },

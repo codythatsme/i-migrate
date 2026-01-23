@@ -172,6 +172,20 @@ function JobDetailsPage() {
               Cancel
             </Button>
           )}
+          {job.status === "failed" && (
+            <Button
+              size="sm"
+              onClick={() => runJobMutation.mutate(job.id)}
+              disabled={runJobMutation.isPending}
+            >
+              {runJobMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin mr-1" />
+              ) : (
+                <RotateCcw className="size-4 mr-1" />
+              )}
+              Retry Job
+            </Button>
+          )}
           {job.failedRowCount > 0 &&
             (job.status === "completed" || job.status === "partial" || job.status === "failed") && (
               <Button

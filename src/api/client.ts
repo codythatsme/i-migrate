@@ -111,6 +111,10 @@ export const getDocumentsInFolder = (
 export const getQueryDefinition = (environmentId: string, path: string) =>
   withClient((client) => client.queries.definition({ environmentId, path }));
 
+/** Get sample property keys from a query's first row */
+export const getQuerySampleKeys = (environmentId: string, path: string) =>
+  withClient((client) => client.queries.sampleKeys({ environmentId, path }));
+
 // ---------------------
 // Trace Functions
 // ---------------------
@@ -249,6 +253,7 @@ export type {
   RetryFailedRowsResponse,
   RetrySingleRowResponse,
   Settings,
+  GetQuerySampleKeysResponse,
 } from "./schemas";
 
 export type {

@@ -23,6 +23,8 @@ import {
   GetDocumentByPathRequestSchema,
   GetDocumentsInFolderRequestSchema,
   GetQueryDefinitionRequestSchema,
+  GetQuerySampleKeysRequestSchema,
+  GetQuerySampleKeysResponseSchema,
   TraceSummarySchema,
   StoredTraceSchema,
   ListTracesRequestSchema,
@@ -205,6 +207,21 @@ const GetDocumentsInFolder = Rpc.make("documents.inFolder", {
 const GetQueryDefinition = Rpc.make("queries.definition", {
   payload: GetQueryDefinitionRequestSchema,
   success: QueryDefinitionResultSchema,
+  error: Schema.Union(
+    DatabaseErrorSchema,
+    EnvironmentNotFoundErrorSchema,
+    MissingCredentialsErrorSchema,
+    ImisAuthErrorSchema,
+    ImisRequestErrorSchema,
+    ImisResponseErrorSchema,
+    ImisSchemaErrorSchema,
+  ),
+});
+
+/** Get sample property keys by executing a query with limit 1 */
+const GetQuerySampleKeys = Rpc.make("queries.sampleKeys", {
+  payload: GetQuerySampleKeysRequestSchema,
+  success: GetQuerySampleKeysResponseSchema,
   error: Schema.Union(
     DatabaseErrorSchema,
     EnvironmentNotFoundErrorSchema,
@@ -410,6 +427,7 @@ export const ApiGroup = RpcGroup.make(
   GetDocumentsInFolder,
   // Query Definitions
   GetQueryDefinition,
+  GetQuerySampleKeys,
   // Traces
   ListTraces,
   GetTrace,
