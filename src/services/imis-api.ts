@@ -473,9 +473,12 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
             );
           }),
           // Log response (success or error)
-          Effect.tap(() => logVerbose("RES", method, `${fullUrl} (success)`)),
+          Effect.tap((result) => logVerbose("RES", method, fullUrl, result)),
           Effect.tapError((error) =>
-            logVerbose("RES", method, `${fullUrl} (error: ${error._tag})`),
+            logVerbose("RES", method, fullUrl, {
+              error: error._tag,
+              ...("body" in error && error.body ? { body: error.body } : {}),
+            }),
           ),
         );
       });
