@@ -205,8 +205,8 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         updates: Partial<{
           totalRows: number | null;
           status: JobStatus;
-          startedAt: string;
-          completedAt: string;
+          startedAt: string | null;
+          completedAt: string | null;
           failedQueryOffsets: string;
           identityFieldNames: string;
           errorMessage: string | null;
@@ -658,15 +658,31 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
         /**
          * Run a queued migration job.
          * This is the main migration execution function.
+         * Also supports retrying failed/partial jobs by resetting their state first.
          */
         runJob: (jobId: string) =>
           Effect.gen(function* () {
             // Get job
             const job = yield* getJobById(jobId);
 
-            // Verify job is in queued state
-            if (job.status !== "queued") {
+            // Verify job is in a runnable state
+            // Note: Only "queued" and "failed" allowed. "partial" jobs should use retryFailedRows to avoid duplicates.
+            if (job.status !== "queued" && job.status !== "failed") {
               return yield* Effect.fail(new JobAlreadyRunningError({ jobId }));
+            }
+
+            // Reset job state if retrying a failed job (pre-validation failure)
+            if (job.status === "failed") {
+              // Delete any existing rows (should be none for pre-validation failures, but clean up just in case)
+              yield* deleteRowsForJob(jobId);
+              yield* updateJobStatus(jobId, {
+                status: "queued",
+                totalRows: null,
+                errorMessage: null,
+                startedAt: null,
+                completedAt: null,
+                failedQueryOffsets: undefined,
+              });
             }
 
             // Parse mappings

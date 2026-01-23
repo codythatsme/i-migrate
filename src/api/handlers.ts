@@ -595,8 +595,9 @@ export const HandlersLive = ApiGroup.toLayer({
       const jobService = yield* MigrationJobService;
 
       // Verify job exists and is in a runnable state (will throw if not found or already running)
+      // Note: Only "queued" and "failed" allowed. "partial" jobs should use "Retry Failed" to avoid duplicates.
       const job = yield* jobService.getJob(jobId);
-      if (job.status !== "queued" && job.status !== "failed" && job.status !== "partial") {
+      if (job.status !== "queued" && job.status !== "failed") {
         return yield* Effect.fail(new JobAlreadyRunningError({ jobId }));
       }
 
