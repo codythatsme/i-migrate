@@ -104,12 +104,12 @@ function checkCompatibility(
 
 /**
  * Get the property key used for mapping lookups.
- * - For 2017: Response rows use Caption as property names, so we must use Caption
+ * - For 2017: normalize2017Response() uses p.Name as keys, so we must match that
  * - For EMS: Response rows use Alias || PropertyName
  */
 function getSourcePropertyKey(prop: QueryPropertyData, is2017: boolean): string {
   if (is2017) {
-    return prop.Caption ?? prop.Alias ?? prop.PropertyName;
+    return prop.Name;
   }
   return prop.Alias || prop.PropertyName;
 }
