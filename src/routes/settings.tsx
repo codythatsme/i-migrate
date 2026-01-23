@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ShieldCheck, ShieldOff, KeyRound, AlertTriangle, Terminal } from "lucide-react";
+import { ShieldCheck, ShieldOff, KeyRound, AlertTriangle, Terminal, Sun, Moon } from "lucide-react";
 import { queries } from "@/lib/queries";
 import {
   useDisablePasswordStorage,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MasterPasswordDialog } from "@/components/master-password-dialog";
+import { useThemeStore } from "@/stores/theme-store";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -33,6 +34,7 @@ function SettingsPage() {
   const disableStorage = useDisablePasswordStorage();
   const changeMasterPassword = useChangeMasterPassword();
   const setVerboseLogging = useSetVerboseLogging();
+  const { theme, setTheme } = useThemeStore();
 
   const [showEnableDialog, setShowEnableDialog] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
@@ -201,6 +203,31 @@ function SettingsPage() {
               checked={settings?.verboseLogging ?? false}
               onCheckedChange={(checked) => setVerboseLogging.mutate(checked)}
               disabled={setVerboseLogging.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {theme === "light" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+            Appearance
+          </CardTitle>
+          <CardDescription>Customize how the application looks.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start justify-between gap-4">
+            <Label htmlFor="light-mode" className="flex flex-col items-start gap-1 pt-0.5">
+              <span className="leading-none">Light Mode</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Switch between dark and light themes
+              </span>
+            </Label>
+            <Switch
+              id="light-mode"
+              checked={theme === "light"}
+              onCheckedChange={(checked) => setTheme(checked ? "light" : "dark")}
             />
           </div>
         </CardContent>
