@@ -5,6 +5,7 @@ import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useEnvironmentStore } from "@/stores/environment-store";
+import { useThemeStore } from "@/stores/theme-store";
 import { queries } from "@/lib/queries";
 import { EnvironmentSelectScreen } from "@/components/environment-select-screen";
 import { RunningJobIndicator } from "@/components/running-job-indicator";
@@ -16,9 +17,15 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
+  const theme = useThemeStore((s) => s.theme);
   const selectedId = useEnvironmentStore((s) => s.selectedId);
   const { data: environments } = useQuery(queries.environments.all());
   const { data: settings } = useQuery(queries.settings.current());
+
+  // Apply theme class to document root
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+  }, [theme]);
 
   // Track if we should show unlock dialog on startup
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
