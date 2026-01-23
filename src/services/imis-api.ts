@@ -949,6 +949,13 @@ export class ImisApiService extends Effect.Service<ImisApiService>()("app/ImisAp
 
           // Parse and normalize based on version
           if (is2017) {
+            // 2017 returns null directly if query not found (unlike EMS which wraps in { Result: null })
+            if (rawResult === null) {
+              return {
+                $type: "Asi.Soa.Core.DataContracts.GenericExecuteResult, Asi.Contracts" as const,
+                Result: null,
+              } as QueryDefinitionResult;
+            }
             // 2017 returns QueryDefinition directly at top level (without Document field)
             const queryDef2017 = yield* Schema.decodeUnknown(QueryDefinition2017Schema)(rawResult);
 
