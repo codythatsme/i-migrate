@@ -104,16 +104,17 @@ function checkCompatibility(
 
 /**
  * Get the property key used for mapping lookups.
- * - For 2017: Query definition Name is "{QuerySourceId}.{PropertyName}" but response
- *   data uses just the property name. Extract property name from after the dot.
+ * - For 2017: Query definition Name is "{GUID}.CL{N}" (internal column ID) but Caption
+ *   is "{Table}.{PropertyName}". Response data uses just the PropertyName.
  * - For EMS: Response rows use Alias || PropertyName
  */
 function getSourcePropertyKey(prop: QueryPropertyData, is2017: boolean): string {
   if (is2017) {
-    // 2017 query definition Name format: "{GUID}.{PropertyName}"
-    // Response data properties use just the property name (no GUID prefix)
-    const dotIndex = prop.Name.lastIndexOf(".");
-    return dotIndex !== -1 ? prop.Name.slice(dotIndex + 1) : prop.Name;
+    // 2017 query definition: Name="{GUID}.CL{N}", Caption="{Table}.{PropertyName}"
+    // Response data properties use just the PropertyName (e.g., "ApprovalDate")
+    const caption = prop.Caption ?? prop.Name;
+    const dotIndex = caption.lastIndexOf(".");
+    return dotIndex !== -1 ? caption.slice(dotIndex + 1) : caption;
   }
   return prop.Alias || prop.PropertyName;
 }
@@ -529,7 +530,10 @@ const QueryMappingRow = memo(function QueryMappingRow({
   const propertyName = queryProperty.Alias || queryProperty.PropertyName;
   // For 2017: show Caption as main name, PropertyName in tooltip
   // For EMS: show PropertyName as main name, Caption in tooltip
-  const displayName = is2017 && queryProperty.Caption ? queryProperty.Caption : propertyName;
+  const displayName =
+    is2017 && queryProperty.Caption
+      ? (queryProperty.Caption.split(".").pop() ?? queryProperty.Caption)
+      : propertyName;
   const tooltipName = is2017 ? propertyName : queryProperty.Caption;
 
   return (
