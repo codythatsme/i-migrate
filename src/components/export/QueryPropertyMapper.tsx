@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { BoProperty, ImisVersion, QueryDefinition, QueryPropertyData } from "@/api/client";
+import type { BoProperty, ImisVersion, QueryDefinition } from "@/api/client";
 import { type PropertyMapping, checkIsPrimaryRequired } from "./PropertyMapper";
 import type { DestinationDefinition } from "@/api/destinations";
 import { destinationPropertyToBoProperty } from "@/api/destinations";
@@ -35,6 +35,15 @@ import { destinationPropertyToBoProperty } from "@/api/destinations";
 type MappingWarning = {
   type: "typeMismatch";
   message: string;
+};
+
+// Simplified property type for internal use (supports both API data and synthetic sample keys)
+type SourceProperty = {
+  Name: string;
+  PropertyName: string;
+  Alias: string;
+  Caption: string;
+  DataTypeName: string; // "Unknown" for sample keys, actual type for query definition
 };
 
 // Properties that cannot be mapped to as they are auto-created on insert
@@ -55,6 +64,10 @@ type QueryPropertyMapperProps = {
   sourceEnvironmentVersion?: ImisVersion;
   /** Optional pre-loaded destination definition. When provided, skips API fetch. */
   destinationDefinition?: DestinationDefinition;
+  /** For 2017: actual property keys from query's first row */
+  samplePropertyKeys?: string[];
+  /** For 2017: whether the query has any rows */
+  sampleHasRows?: boolean;
 };
 
 // ---------------------
@@ -88,6 +101,11 @@ function checkCompatibility(
   sourceType: string,
   dest: BoProperty,
 ): { compatible: boolean; warnings: MappingWarning[] } {
+  // Unknown type (from 2017 sample keys) is compatible with everything
+  if (sourceType === "Unknown") {
+    return { compatible: true, warnings: [] };
+  }
+
   const warnings: MappingWarning[] = [];
   const boCompatibleType = getBoCompatibleType(sourceType);
   const destType = getBoPropertyTypeName(dest);
@@ -104,11 +122,19 @@ function checkCompatibility(
 
 /**
  * Get the property key used for mapping lookups.
- * - For 2017: Query definition Name is "{GUID}.CL{N}" (internal column ID) but Caption
- *   is "{Table}.{PropertyName}". Response data uses just the PropertyName.
+ * - For 2017 with sample keys: use the key directly (it's already from actual response)
+ * - For 2017 without sample keys: extract from Caption "{Table}.{PropertyName}"
  * - For EMS: Response rows use Alias || PropertyName
  */
-function getSourcePropertyKey(prop: QueryPropertyData, is2017: boolean): string {
+function getSourcePropertyKey(
+  prop: SourceProperty,
+  is2017: boolean,
+  usingSampleKeys: boolean = false,
+): string {
+  if (usingSampleKeys) {
+    // Sample keys mode: property Name is already the actual response key
+    return prop.Name;
+  }
   if (is2017) {
     // 2017 query definition: Name="{GUID}.CL{N}", Caption="{Table}.{PropertyName}"
     // Response data properties use just the PropertyName (e.g., "ApprovalDate")
@@ -120,13 +146,14 @@ function getSourcePropertyKey(prop: QueryPropertyData, is2017: boolean): string 
 }
 
 function findAutoMappings(
-  queryProps: readonly QueryPropertyData[],
+  queryProps: readonly SourceProperty[],
   destProps: readonly BoProperty[],
   is2017: boolean,
+  usingSampleKeys: boolean = false,
 ): PropertyMapping[] {
   return queryProps.map((queryProp) => {
     // Find matching destination property by name and compatible type
-    const sourceKey = getSourcePropertyKey(queryProp, is2017);
+    const sourceKey = getSourcePropertyKey(queryProp, is2017, usingSampleKeys);
     const matchingDest = destProps.find((destProp) => {
       if (destProp.Name.toLowerCase() !== sourceKey.toLowerCase()) return false;
       // Skip restricted properties
@@ -155,10 +182,15 @@ export function QueryPropertyMapper({
   onValidationChange,
   sourceEnvironmentVersion,
   destinationDefinition,
+  samplePropertyKeys,
+  sampleHasRows,
 }: QueryPropertyMapperProps) {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
+
+  const is2017 = sourceEnvironmentVersion === "2017";
+  const useSampleKeys = is2017 && samplePropertyKeys !== undefined;
 
   // Skip API fetch when definition is provided (e.g., custom endpoints)
   const { data: destData, isLoading: destLoading } = useQuery({
@@ -181,15 +213,32 @@ export function QueryPropertyMapper({
     return destData?.Items.$values.find((e) => e.EntityTypeName === destinationEntityType);
   }, [destData, destinationEntityType, destinationDefinition]);
 
-  const queryProperties = useMemo(() => {
-    return queryDefinition.Properties.$values ?? [];
-  }, [queryDefinition]);
+  // For 2017 with sample keys: create synthetic properties from the actual response keys
+  // For EMS or when sample keys not available: use query definition properties
+  const queryProperties = useMemo((): readonly SourceProperty[] => {
+    if (useSampleKeys && samplePropertyKeys) {
+      // Build synthetic properties from sample keys
+      return samplePropertyKeys.map((key) => ({
+        Name: key,
+        PropertyName: key,
+        Alias: "",
+        Caption: key,
+        DataTypeName: "Unknown", // Type info not available from sample data
+      }));
+    }
+    // Map QueryPropertyData to SourceProperty (handles optional fields from 2017)
+    return (queryDefinition.Properties.$values ?? []).map((p) => ({
+      Name: p.Name,
+      PropertyName: p.PropertyName ?? p.Name,
+      Alias: p.Alias ?? "",
+      Caption: p.Caption ?? p.Name,
+      DataTypeName: p.DataTypeName,
+    }));
+  }, [queryDefinition, useSampleKeys, samplePropertyKeys]);
 
   const destProperties = useMemo(() => {
     return destEntity?.Properties?.$values ?? [];
   }, [destEntity]);
-
-  const is2017 = sourceEnvironmentVersion === "2017";
 
   // Lookup Maps for O(1) access instead of O(n) .find() calls
   const mappingBySource = useMemo(
@@ -198,8 +247,8 @@ export function QueryPropertyMapper({
   );
 
   const queryByName = useMemo(
-    () => new Map(queryProperties.map((p) => [getSourcePropertyKey(p, is2017), p])),
-    [queryProperties, is2017],
+    () => new Map(queryProperties.map((p) => [getSourcePropertyKey(p, is2017, useSampleKeys), p])),
+    [queryProperties, is2017, useSampleKeys],
   );
 
   const destByName = useMemo(
@@ -257,11 +306,11 @@ export function QueryPropertyMapper({
   // Auto-map on initial load
   useEffect(() => {
     if (!hasInitialized && queryProperties.length > 0 && destProperties.length > 0) {
-      const autoMappings = findAutoMappings(queryProperties, destProperties, is2017);
+      const autoMappings = findAutoMappings(queryProperties, destProperties, is2017, useSampleKeys);
       onMappingsChange(autoMappings);
       setHasInitialized(true);
     }
-  }, [queryProperties, destProperties, hasInitialized, onMappingsChange, is2017]);
+  }, [queryProperties, destProperties, hasInitialized, onMappingsChange, is2017, useSampleKeys]);
 
   const handleMappingChange = useCallback(
     (sourceProperty: string, destinationProperty: string | null) => {
@@ -286,7 +335,7 @@ export function QueryPropertyMapper({
     const search = deferredSearch.toLowerCase();
     return queryProperties.filter((prop) => {
       const displayName = prop.Alias || prop.PropertyName;
-      const propKey = getSourcePropertyKey(prop, is2017);
+      const propKey = getSourcePropertyKey(prop, is2017, useSampleKeys);
       const matchesSearch = displayName.toLowerCase().includes(search);
 
       if (showUnmappedOnly) {
@@ -296,7 +345,7 @@ export function QueryPropertyMapper({
 
       return matchesSearch;
     });
-  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource, is2017]);
+  }, [queryProperties, deferredSearch, showUnmappedOnly, mappingBySource, is2017, useSampleKeys]);
 
   const warningCount = useMemo(() => {
     return mappings.reduce((count, mapping) => {
@@ -308,6 +357,34 @@ export function QueryPropertyMapper({
       return count + warnings.length;
     }, 0);
   }, [mappings, queryByName, destByName]);
+
+  // For 2017: block mapping if query has no rows (can't determine property keys)
+  if (
+    is2017 &&
+    samplePropertyKeys !== undefined &&
+    samplePropertyKeys.length === 0 &&
+    !sampleHasRows
+  ) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold text-foreground">Map Query Properties</h2>
+        </div>
+        <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="size-5 text-destructive mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-destructive">Query Returned No Rows</span>
+              <p className="text-sm text-destructive/80">
+                This query currently has no data. For iMIS 2017, property names are determined from
+                the query results. Please add data to the query before mapping properties.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (destLoading && !destinationDefinition) {
     return (
@@ -462,7 +539,7 @@ export function QueryPropertyMapper({
         <div className="flex flex-col max-h-[500px] overflow-y-auto divide-y divide-border">
           {filteredProperties.length > 0 ? (
             filteredProperties.map((queryProp) => {
-              const propKey = getSourcePropertyKey(queryProp, is2017);
+              const propKey = getSourcePropertyKey(queryProp, is2017, useSampleKeys);
               const mapping = mappingBySource.get(propKey);
               const destProp = mapping?.destinationProperty
                 ? destByName.get(mapping.destinationProperty)
@@ -479,7 +556,8 @@ export function QueryPropertyMapper({
                   selectedDestination={mapping?.destinationProperty ?? null}
                   onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
                   compatibility={compatibility}
-                  is2017={sourceEnvironmentVersion === "2017"}
+                  is2017={is2017}
+                  useSampleKeys={useSampleKeys}
                   usedDestinations={usedDestinations}
                 />
               );
@@ -506,12 +584,13 @@ export function QueryPropertyMapper({
 // ---------------------
 
 type QueryMappingRowProps = {
-  queryProperty: QueryPropertyData;
+  queryProperty: SourceProperty;
   sortedDestinations: readonly BoProperty[];
   selectedDestination: string | null;
   onDestinationChange: (destination: string | null) => void;
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null;
   is2017: boolean;
+  useSampleKeys: boolean;
   usedDestinations: Set<string>;
 };
 
@@ -522,19 +601,22 @@ const QueryMappingRow = memo(function QueryMappingRow({
   onDestinationChange,
   compatibility,
   is2017,
+  useSampleKeys,
   usedDestinations,
 }: QueryMappingRowProps) {
   const sourceType = queryProperty.DataTypeName;
   const boCompatibleType = getBoCompatibleType(sourceType);
   const isMapped = selectedDestination !== null;
   const propertyName = queryProperty.Alias || queryProperty.PropertyName;
+  // For sample keys mode: use Name directly (it's the actual response key)
   // For 2017: show Caption as main name, PropertyName in tooltip
   // For EMS: show PropertyName as main name, Caption in tooltip
-  const displayName =
-    is2017 && queryProperty.Caption
+  const displayName = useSampleKeys
+    ? queryProperty.Name
+    : is2017 && queryProperty.Caption
       ? (queryProperty.Caption.split(".").pop() ?? queryProperty.Caption)
       : propertyName;
-  const tooltipName = is2017 ? propertyName : queryProperty.Caption;
+  const tooltipName = useSampleKeys ? undefined : is2017 ? propertyName : queryProperty.Caption;
 
   return (
     <div
@@ -627,7 +709,8 @@ const QueryMappingRow = memo(function QueryMappingRow({
               </SelectItem>
               {sortedDestinations.map((destProp) => {
                 const destType = getBoPropertyTypeName(destProp);
-                const isCompatibleType = destType === boCompatibleType;
+                // Unknown source type (from 2017 sample keys) is compatible with all types
+                const isCompatibleType = sourceType === "Unknown" || destType === boCompatibleType;
                 const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name];
                 const isRestricted = !!restrictedReason;
                 const isAlreadyUsed =

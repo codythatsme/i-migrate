@@ -450,6 +450,17 @@ export const HandlersLive = ApiGroup.toLayer({
       return result;
     }).pipe(Effect.mapError(mapConnectionError)),
 
+  "queries.sampleKeys": ({ environmentId, path }) =>
+    Effect.gen(function* () {
+      const imisApi = yield* ImisApiService;
+      const result = yield* imisApi.executeQuery(environmentId, path, 1, 0);
+      const firstRow = result.Items.$values[0] as Record<string, unknown> | undefined;
+      return {
+        propertyKeys: firstRow ? Object.keys(firstRow) : [],
+        hasRows: result.TotalCount > 0,
+      };
+    }).pipe(Effect.mapError(mapConnectionError)),
+
   // ---------------------
   // Trace Handlers
   // ---------------------

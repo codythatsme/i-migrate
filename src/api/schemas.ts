@@ -562,6 +562,24 @@ export const ChangeMasterPasswordSchema = Schema.Struct({
 
 export type ChangeMasterPassword = typeof ChangeMasterPasswordSchema.Type;
 
+// ---------------------
+// Query Sample Keys Schemas
+// ---------------------
+
+export const GetQuerySampleKeysRequestSchema = Schema.Struct({
+  environmentId: Schema.String,
+  path: Schema.String,
+});
+
+export type GetQuerySampleKeysRequest = typeof GetQuerySampleKeysRequestSchema.Type;
+
+export const GetQuerySampleKeysResponseSchema = Schema.Struct({
+  propertyKeys: Schema.Array(Schema.String),
+  hasRows: Schema.Boolean,
+});
+
+export type GetQuerySampleKeysResponse = typeof GetQuerySampleKeysResponseSchema.Type;
+
 export class InvalidMasterPasswordErrorSchema extends Schema.TaggedError<InvalidMasterPasswordErrorSchema>()(
   "InvalidMasterPasswordError",
   {

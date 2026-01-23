@@ -162,15 +162,25 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
     },
   });
 
+  // Get source and destination environment info
+  const sourceEnvironment = environments?.find((env) => env.id === sourceEnvironmentId);
+  const destinationEnvironment = environments?.find((env) => env.id === destEnv);
+
   // Fetch query definition (for query mode)
   const { data: queryDefinitionData } = useQuery({
     ...queries.queryDefinition.byPath(sourceEnvironmentId, sourceQuery),
     enabled: !!sourceEnvironmentId && !!sourceQuery && mode === "query",
   });
 
-  // Get source and destination environment info
-  const sourceEnvironment = environments?.find((env) => env.id === sourceEnvironmentId);
-  const destinationEnvironment = environments?.find((env) => env.id === destEnv);
+  // Fetch sample keys for 2017 queries (needed to get actual property keys from response)
+  const { data: sampleKeysData, isLoading: sampleKeysLoading } = useQuery({
+    ...queries.querySampleKeys.byPath(sourceEnvironmentId, sourceQuery),
+    enabled:
+      !!sourceEnvironmentId &&
+      !!sourceQuery &&
+      mode === "query" &&
+      sourceEnvironment?.version === "2017",
+  });
   const destNeedsPassword =
     destEnv !== null && destinationEnvironment !== undefined && !destinationEnvironment.hasPassword;
 
@@ -442,7 +452,9 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
           sourceQuery &&
           destEnv &&
           destEntity &&
-          queryDefinitionData?.Result && (
+          queryDefinitionData?.Result &&
+          // For 2017: wait for sample keys to load
+          (sourceEnvironment?.version !== "2017" || !sampleKeysLoading) && (
             <QueryPropertyMapper
               queryDefinition={queryDefinitionData.Result}
               destinationEnvironmentId={destEnv}
@@ -452,7 +464,24 @@ export function ExportWizard({ initialMode }: ExportWizardProps = {}) {
               onValidationChange={handleValidationChange}
               sourceEnvironmentVersion={sourceEnvironment?.version}
               destinationDefinition={selectedDestination ?? undefined}
+              samplePropertyKeys={
+                sampleKeysData?.propertyKeys ? [...sampleKeysData.propertyKeys] : undefined
+              }
+              sampleHasRows={sampleKeysData?.hasRows}
             />
+          )}
+
+        {/* Loading state for 2017 sample keys */}
+        {step === 4 &&
+          mode === "query" &&
+          sourceEnvironment?.version === "2017" &&
+          sampleKeysLoading && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Loader2 className="size-8 animate-spin text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                Loading query properties from sample data...
+              </p>
+            </div>
           )}
 
         {/* Job Name Input - Show on step 4 */}
