@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-01-23
+
+### Added
+
+- Light/dark theme toggle in settings (dark mode default)
+- Retry Job button for failed migration jobs
+- Sample row approach for 2017 IQA property mapping
+- Response body included in verbose API logging
+
+### Fixed
+
+- 2017 IQA property mapping issues (Caption field, GUID-prefixed Name, null responses, missing values)
+- Environment card button alignment and source indicator
+
 ## [0.6.3] - 2025-01-19
 
 ### Fixed
