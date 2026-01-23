@@ -104,12 +104,16 @@ function checkCompatibility(
 
 /**
  * Get the property key used for mapping lookups.
- * - For 2017: normalize2017Response() uses p.Name as keys, so we must match that
+ * - For 2017: Query definition Name is "{QuerySourceId}.{PropertyName}" but response
+ *   data uses just the property name. Extract property name from after the dot.
  * - For EMS: Response rows use Alias || PropertyName
  */
 function getSourcePropertyKey(prop: QueryPropertyData, is2017: boolean): string {
   if (is2017) {
-    return prop.Name;
+    // 2017 query definition Name format: "{GUID}.{PropertyName}"
+    // Response data properties use just the property name (no GUID prefix)
+    const dotIndex = prop.Name.lastIndexOf(".");
+    return dotIndex !== -1 ? prop.Name.slice(dotIndex + 1) : prop.Name;
   }
   return prop.Alias || prop.PropertyName;
 }
@@ -206,6 +210,17 @@ export function QueryPropertyMapper({
   const sortedDestinations = useMemo(() => {
     return [...destProperties].sort((a, b) => a.Name.localeCompare(b.Name));
   }, [destProperties]);
+
+  // Track which destination properties are already mapped
+  const usedDestinations = useMemo(() => {
+    const used = new Set<string>();
+    for (const m of mappings) {
+      if (m.destinationProperty) {
+        used.add(m.destinationProperty);
+      }
+    }
+    return used;
+  }, [mappings]);
 
   // Deferred search for non-blocking UI
   const deferredSearch = useDeferredValue(searchQuery);
@@ -464,6 +479,7 @@ export function QueryPropertyMapper({
                   onDestinationChange={(dest) => handleMappingChange(propKey, dest)}
                   compatibility={compatibility}
                   is2017={sourceEnvironmentVersion === "2017"}
+                  usedDestinations={usedDestinations}
                 />
               );
             })
@@ -495,6 +511,7 @@ type QueryMappingRowProps = {
   onDestinationChange: (destination: string | null) => void;
   compatibility: { compatible: boolean; warnings: MappingWarning[] } | null;
   is2017: boolean;
+  usedDestinations: Set<string>;
 };
 
 const QueryMappingRow = memo(function QueryMappingRow({
@@ -504,6 +521,7 @@ const QueryMappingRow = memo(function QueryMappingRow({
   onDestinationChange,
   compatibility,
   is2017,
+  usedDestinations,
 }: QueryMappingRowProps) {
   const sourceType = queryProperty.DataTypeName;
   const boCompatibleType = getBoCompatibleType(sourceType);
@@ -608,6 +626,9 @@ const QueryMappingRow = memo(function QueryMappingRow({
                 const isCompatibleType = destType === boCompatibleType;
                 const restrictedReason = RESTRICTED_DESTINATION_PROPERTIES[destProp.Name];
                 const isRestricted = !!restrictedReason;
+                const isAlreadyUsed =
+                  usedDestinations.has(destProp.Name) && destProp.Name !== selectedDestination;
+                const isDisabled = isRestricted || isAlreadyUsed;
 
                 return (
                   <Tooltip key={destProp.Name}>
@@ -615,9 +636,10 @@ const QueryMappingRow = memo(function QueryMappingRow({
                       <div>
                         <SelectItem
                           value={destProp.Name}
+                          disabled={isDisabled}
                           className={
-                            isRestricted
-                              ? "opacity-50 cursor-not-allowed pointer-events-none"
+                            isDisabled
+                              ? "opacity-50 cursor-not-allowed"
                               : !isCompatibleType
                                 ? "opacity-50"
                                 : ""
@@ -630,6 +652,8 @@ const QueryMappingRow = memo(function QueryMappingRow({
                             </span>
                             {isRestricted ? (
                               <Lock className="size-3 text-muted-foreground" />
+                            ) : isAlreadyUsed ? (
+                              <Check className="size-3 text-muted-foreground" />
                             ) : (
                               !isCompatibleType && (
                                 <AlertTriangle className="size-3 text-destructive" />
@@ -639,12 +663,14 @@ const QueryMappingRow = memo(function QueryMappingRow({
                         </SelectItem>
                       </div>
                     </TooltipTrigger>
-                    {(isRestricted || !isCompatibleType) && (
+                    {(isRestricted || isAlreadyUsed || !isCompatibleType) && (
                       <TooltipContent>
                         <p className="text-xs">
                           {isRestricted
                             ? restrictedReason
-                            : `Type mismatch: ${sourceType} → ${destType}`}
+                            : isAlreadyUsed
+                              ? "Already mapped to another source property"
+                              : `Type mismatch: ${sourceType} → ${destType}`}
                         </p>
                       </TooltipContent>
                     )}
