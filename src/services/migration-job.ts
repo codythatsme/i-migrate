@@ -318,7 +318,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           catch: (cause) => new DatabaseError({ message: "Failed to get job counts", cause }),
         });
 
-      const getEnvironmentConcurrency = (envId: string) =>
+      const getEnvironmentSettings = (envId: string) =>
         Effect.gen(function* () {
           const results = yield* Effect.try({
             try: () => db.select().from(environments).where(eq(environments.id, envId)).all(),
@@ -331,6 +331,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           return {
             queryConcurrency: env.queryConcurrency,
             insertConcurrency: env.insertConcurrency,
+            queryBatchSize: env.queryBatchSize,
           };
         });
 
@@ -338,8 +339,13 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
       // Migration Logic
       // ---------------------
 
-      const executeQueryWithRetry = (envId: string, queryPath: string, offset: number) =>
-        imisApi.executeQuery(envId, queryPath, 500, offset).pipe(
+      const executeQueryWithRetry = (
+        envId: string,
+        queryPath: string,
+        queryBatchSize: number,
+        offset: number,
+      ) =>
+        imisApi.executeQuery(envId, queryPath, queryBatchSize, offset).pipe(
           Effect.retry({
             schedule: queryRetrySchedule,
             while: (error: ImisApiError) => {
@@ -354,8 +360,13 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
           }),
         );
 
-      const executeDataSourceWithRetry = (envId: string, entityTypeName: string, offset: number) =>
-        imisApi.fetchDataSource(envId, entityTypeName, 500, offset).pipe(
+      const executeDataSourceWithRetry = (
+        envId: string,
+        entityTypeName: string,
+        queryBatchSize: number,
+        offset: number,
+      ) =>
+        imisApi.fetchDataSource(envId, entityTypeName, queryBatchSize, offset).pipe(
           Effect.retry({
             schedule: queryRetrySchedule,
             while: (error: ImisApiError) => {
@@ -689,9 +700,12 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             const mappings = JSON.parse(job.mappings) as PropertyMapping[];
 
             // Get concurrency settings from destination environment
-            const { queryConcurrency, insertConcurrency } = yield* getEnvironmentConcurrency(
+            const { queryConcurrency, insertConcurrency } = yield* getEnvironmentSettings(
               job.destEnvironmentId,
             );
+
+            // Get query batch size from source environment (source is where queries run)
+            const { queryBatchSize } = yield* getEnvironmentSettings(job.sourceEnvironmentId);
 
             // Fetch and store identity field names for the destination entity type
             const identityFieldNames = yield* imisApi.getIdentityFieldNames(
@@ -759,6 +773,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                 const firstBatch = yield* executeQueryWithRetry(
                   job.sourceEnvironmentId,
                   job.sourceQueryPath,
+                  queryBatchSize,
                   0,
                 );
 
@@ -781,7 +796,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                 }
 
                 // Generate remaining offsets
-                const remainingOffsets = generateOffsets(totalRows).slice(1);
+                const remainingOffsets = generateOffsets(totalRows, queryBatchSize).slice(1);
 
                 // Execute remaining queries with concurrency control
                 yield* Effect.forEach(
@@ -791,6 +806,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                       const batch = yield* executeQueryWithRetry(
                         job.sourceEnvironmentId,
                         job.sourceQueryPath!,
+                        queryBatchSize,
                         offset,
                       ).pipe(
                         Effect.catchAll((_error) => {
@@ -802,12 +818,12 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                               $type: "",
                               Items: { $type: "", $values: [] as Record<string, unknown>[] },
                               Offset: offset,
-                              Limit: 500,
+                              Limit: queryBatchSize,
                               Count: 0,
                               TotalCount: totalRows,
                               NextPageLink: null,
                               HasNext: false,
-                              NextOffset: offset + 500,
+                              NextOffset: offset + queryBatchSize,
                             };
                           });
                         }),
@@ -841,6 +857,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                 const firstBatch = yield* executeDataSourceWithRetry(
                   job.sourceEnvironmentId,
                   job.sourceEntityType,
+                  queryBatchSize,
                   0,
                 );
 
@@ -863,7 +880,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                 }
 
                 // Generate remaining offsets
-                const remainingOffsets = generateOffsets(totalRows).slice(1);
+                const remainingOffsets = generateOffsets(totalRows, queryBatchSize).slice(1);
 
                 // Execute remaining fetches with concurrency control
                 yield* Effect.forEach(
@@ -873,6 +890,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                       const batch = yield* executeDataSourceWithRetry(
                         job.sourceEnvironmentId,
                         job.sourceEntityType!,
+                        queryBatchSize,
                         offset,
                       ).pipe(
                         Effect.catchAll((_error) => {
@@ -884,12 +902,12 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
                               $type: "",
                               Items: { $type: "", $values: [] as Record<string, unknown>[] },
                               Offset: offset,
-                              Limit: 500,
+                              Limit: queryBatchSize,
                               Count: 0,
                               TotalCount: totalRows,
                               NextPageLink: null,
                               HasNext: false,
-                              NextOffset: offset + 500,
+                              NextOffset: offset + queryBatchSize,
                             };
                           });
                         }),
@@ -980,7 +998,7 @@ export class MigrationJobService extends Effect.Service<MigrationJobService>()(
             const mappings = JSON.parse(job.mappings) as PropertyMapping[];
 
             // Get concurrency settings
-            const { insertConcurrency } = yield* getEnvironmentConcurrency(job.destEnvironmentId);
+            const { insertConcurrency } = yield* getEnvironmentSettings(job.destEnvironmentId);
 
             let successCount = 0;
             let failCount = 0;
