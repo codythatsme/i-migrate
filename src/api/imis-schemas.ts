@@ -622,7 +622,7 @@ export const Iqa2017PropertyDataSchema = Schema.Struct({
 export const Iqa2017RowSchema = Schema.Struct({
   $type: Schema.String,
   EntityTypeName: Schema.String,
-  PrimaryParentEntityTypeName: Schema.String,
+  PrimaryParentEntityTypeName: Schema.optionalWith(Schema.String, { exact: true }),
   PrimaryParentIdentity: Schema.optionalWith(Schema.Any, { exact: true }),
   Properties: SoaCollectionSchema(Iqa2017PropertyDataSchema),
 });

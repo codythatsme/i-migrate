@@ -1,0 +1,1 @@
+ALTER TABLE `environments` ADD `query_batch_size` integer DEFAULT 500 NOT NULL;

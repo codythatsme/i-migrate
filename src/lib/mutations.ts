@@ -24,7 +24,13 @@ type UpdateEnvironmentInput = {
   updates: Partial<
     Pick<
       Environment,
-      "name" | "baseUrl" | "username" | "version" | "queryConcurrency" | "insertConcurrency"
+      | "name"
+      | "baseUrl"
+      | "username"
+      | "version"
+      | "queryConcurrency"
+      | "insertConcurrency"
+      | "queryBatchSize"
     >
   >;
 };

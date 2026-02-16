@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-16
+
+### Added
+
+- Per-environment query batch size setting (1-500 rows per API request) to prevent timeouts on slower iMIS environments
+
+### Fixed
+
+- 2017 IQA schema: make PrimaryParentEntityTypeName optional
+
 ## [0.7.0] - 2025-01-23
 
 ### Added
