@@ -12,8 +12,9 @@ export const environments = sqliteTable("environments", {
   version: text("version").notNull().$type<ImisVersion>().default("EMS"), // iMIS version: EMS or 2017
   icon: text("icon"), // Base64 encoded favicon or null
   // Concurrency settings for migration jobs
-  queryConcurrency: integer("query_concurrency").notNull().default(5), // Max concurrent 500-row query batches
+  queryConcurrency: integer("query_concurrency").notNull().default(5), // Max concurrent query batches
   insertConcurrency: integer("insert_concurrency").notNull().default(50), // Max concurrent single inserts
+  queryBatchSize: integer("query_batch_size").notNull().default(500), // Max rows per query batch (1-500)
   encryptedPassword: text("encrypted_password"), // AES-256-GCM encrypted password (optional)
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

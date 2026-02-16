@@ -105,6 +105,7 @@ export class PersistenceService extends Effect.Service<PersistenceService>()(
               | "icon"
               | "queryConcurrency"
               | "insertConcurrency"
+              | "queryBatchSize"
             >
           >,
         ) =>

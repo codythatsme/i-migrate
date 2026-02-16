@@ -286,6 +286,7 @@ export const HandlersLive = ApiGroup.toLayer({
         icon,
         queryConcurrency: payload.queryConcurrency ?? 5,
         insertConcurrency: payload.insertConcurrency ?? 50,
+        queryBatchSize: payload.queryBatchSize ?? 500,
         createdAt: now,
         updatedAt: now,
       };
@@ -309,6 +310,7 @@ export const HandlersLive = ApiGroup.toLayer({
         version: "EMS" | "2017";
         queryConcurrency: number;
         insertConcurrency: number;
+        queryBatchSize: number;
       }> = {};
       if (payload.name !== undefined) updates.name = payload.name;
       if (payload.baseUrl !== undefined) updates.baseUrl = payload.baseUrl;
@@ -318,6 +320,7 @@ export const HandlersLive = ApiGroup.toLayer({
         updates.queryConcurrency = payload.queryConcurrency;
       if (payload.insertConcurrency !== undefined)
         updates.insertConcurrency = payload.insertConcurrency;
+      if (payload.queryBatchSize !== undefined) updates.queryBatchSize = payload.queryBatchSize;
 
       if (Object.keys(updates).length === 0) {
         return yield* Effect.fail(

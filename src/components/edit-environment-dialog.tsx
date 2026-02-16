@@ -48,6 +48,7 @@ export function EditEnvironmentDialog({
   const [version, setVersion] = useState<ImisVersion>("EMS");
   const [queryConcurrency, setQueryConcurrency] = useState(5);
   const [insertConcurrency, setInsertConcurrency] = useState(50);
+  const [queryBatchSize, setQueryBatchSize] = useState(500);
 
   // Reset form when environment changes
   useEffect(() => {
@@ -58,6 +59,7 @@ export function EditEnvironmentDialog({
       setVersion(environment.version);
       setQueryConcurrency(environment.queryConcurrency);
       setInsertConcurrency(environment.insertConcurrency);
+      setQueryBatchSize(environment.queryBatchSize);
       // Don't pre-fill password - it's stored server-side and not retrievable
       setPasswordValue("");
     }
@@ -77,6 +79,7 @@ export function EditEnvironmentDialog({
           version,
           queryConcurrency,
           insertConcurrency,
+          queryBatchSize: Math.max(1, Math.min(500, queryBatchSize)),
         },
       },
       {
@@ -207,9 +210,23 @@ export function EditEnvironmentDialog({
                       />
                     </div>
                   </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="edit-env-query-batch-size">Query Batch Size</Label>
+                    <Input
+                      id="edit-env-query-batch-size"
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={queryBatchSize}
+                      onChange={(e) => setQueryBatchSize(Number(e.target.value) || 1)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Max rows per API request (1-500). Reduce for slower environments that timeout.
+                    </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Controls parallel operations during migration. Higher values may improve speed
-                    but increase load.
+                    Concurrency controls parallel operations during migration. Higher values may
+                    improve speed but increase load.
                   </p>
                 </div>
               </AccordionContent>
