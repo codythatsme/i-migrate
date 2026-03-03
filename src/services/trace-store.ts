@@ -1,7 +1,7 @@
 import { Effect, Layer, Data, Tracer, Context, Exit, Cause, Option } from "effect";
 import { db } from "../db/client";
 import { traces, spans, type NewTrace, type NewSpan } from "../db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, lt, sql, inArray } from "drizzle-orm";
 
 // ---------------------
 // Domain Errors
@@ -176,35 +176,25 @@ export class TraceStoreService extends Effect.Service<TraceStoreService>()(
 
       const listTraces = (limit: number = 50, offset: number = 0) =>
         Effect.try({
-          try: () => {
-            const traceRows = db
-              .select()
+          try: (): TraceSummary[] =>
+            db
+              .select({
+                id: traces.id,
+                name: traces.name,
+                status: traces.status,
+                startTime: traces.startTime,
+                durationMs: traces.durationMs,
+                createdAt: traces.createdAt,
+                errorMessage: traces.errorMessage,
+                spanCount: sql<number>`COUNT(${spans.id})`,
+              })
               .from(traces)
+              .leftJoin(spans, eq(traces.id, spans.traceId))
+              .groupBy(traces.id)
               .orderBy(desc(traces.startTime))
               .limit(limit)
               .offset(offset)
-              .all();
-
-            // Get span counts for each trace
-            return traceRows.map((trace): TraceSummary => {
-              const spanCount = db
-                .select()
-                .from(spans)
-                .where(eq(spans.traceId, trace.id))
-                .all().length;
-
-              return {
-                id: trace.id,
-                name: trace.name,
-                status: trace.status as "ok" | "error" | "running",
-                startTime: trace.startTime,
-                durationMs: trace.durationMs,
-                createdAt: trace.createdAt,
-                spanCount,
-                errorMessage: trace.errorMessage,
-              };
-            });
-          },
+              .all() as TraceSummary[],
           catch: (cause) => new TraceStoreError({ message: "Failed to list traces", cause }),
         });
 
@@ -266,24 +256,18 @@ export class TraceStoreService extends Effect.Service<TraceStoreService>()(
           try: () => {
             const cutoff = Date.now() - olderThanMs;
 
-            // Get trace IDs to delete
+            // Get trace IDs older than cutoff
             const oldTraces = db
               .select({ id: traces.id })
               .from(traces)
-              .where(eq(traces.startTime, cutoff))
+              .where(lt(traces.startTime, cutoff))
               .all();
 
             const traceIds = oldTraces.map((t) => t.id);
 
             if (traceIds.length > 0) {
-              // Delete spans for those traces
-              for (const traceId of traceIds) {
-                db.delete(spans).where(eq(spans.traceId, traceId)).run();
-              }
-              // Delete traces
-              for (const traceId of traceIds) {
-                db.delete(traces).where(eq(traces.id, traceId)).run();
-              }
+              db.delete(spans).where(inArray(spans.traceId, traceIds)).run();
+              db.delete(traces).where(inArray(traces.id, traceIds)).run();
             }
 
             return traceIds.length;

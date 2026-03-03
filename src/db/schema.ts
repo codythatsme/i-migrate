@@ -176,20 +176,24 @@ export const traces = sqliteTable("traces", {
 });
 
 // Spans table - individual operations within a trace
-export const spans = sqliteTable("spans", {
-  id: text("id").primaryKey(), // span ID (generated)
-  traceId: text("trace_id").notNull(), // Foreign key to traces.id
-  parentSpanId: text("parent_span_id"), // Parent span ID (null for root)
-  name: text("name").notNull(), // Operation name (e.g., "imis.getBoEntityDefinitions")
-  status: text("status").notNull(), // "ok" | "error" | "running"
-  kind: text("kind").notNull(), // "internal" | "client" | "server"
-  startTime: integer("start_time").notNull(), // Unix timestamp in ms
-  endTime: integer("end_time"), // Unix timestamp in ms (null if running)
-  durationMs: integer("duration_ms"), // Computed duration
-  attributes: text("attributes"), // JSON string of span attributes
-  events: text("events"), // JSON string of span events (logs)
-  errorCause: text("error_cause"), // Pretty-printed error cause chain
-});
+export const spans = sqliteTable(
+  "spans",
+  {
+    id: text("id").primaryKey(), // span ID (generated)
+    traceId: text("trace_id").notNull(), // Foreign key to traces.id
+    parentSpanId: text("parent_span_id"), // Parent span ID (null for root)
+    name: text("name").notNull(), // Operation name (e.g., "imis.getBoEntityDefinitions")
+    status: text("status").notNull(), // "ok" | "error" | "running"
+    kind: text("kind").notNull(), // "internal" | "client" | "server"
+    startTime: integer("start_time").notNull(), // Unix timestamp in ms
+    endTime: integer("end_time"), // Unix timestamp in ms (null if running)
+    durationMs: integer("duration_ms"), // Computed duration
+    attributes: text("attributes"), // JSON string of span attributes
+    events: text("events"), // JSON string of span events (logs)
+    errorCause: text("error_cause"), // Pretty-printed error cause chain
+  },
+  (table) => [index("spans_trace_id_idx").on(table.traceId)],
+);
 
 // Type inference helpers for observability
 export type Trace = typeof traces.$inferSelect;

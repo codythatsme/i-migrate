@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
 
 // Set process title for visibility in `lsof`, `ps`, etc.
 process.title = "i-migrate";
@@ -12,7 +12,7 @@ import { HandlersLive } from "./api/handlers";
 import { PersistenceServiceLive } from "./services/persistence";
 import { SessionServiceLive } from "./services/session";
 import { ImisApiServiceLive } from "./services/imis-api";
-import { TraceStoreServiceLive, TracerLive } from "./services/trace-store";
+import { TraceStoreService, TraceStoreServiceLive, TracerLive } from "./services/trace-store";
 import { MigrationJobServiceLive } from "./services/migration-job";
 
 // ---------------------
@@ -108,5 +108,15 @@ process.on("SIGTERM", async () => {
   await dispose();
   process.exit(0);
 });
+
+// Clean up traces older than 7 days on startup
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+Effect.runPromise(
+  TraceStoreService.deleteOldTraces(SEVEN_DAYS_MS).pipe(
+    Effect.tap((count) => (count > 0 ? Effect.log(`Cleaned up ${count} old traces`) : Effect.void)),
+    Effect.catchAll((error) => Effect.log(`Failed to clean up old traces: ${error.message}`)),
+    Effect.provide(TraceStoreServiceLive),
+  ),
+);
 
 console.log(`🚀 Server running at ${server.url}`);
