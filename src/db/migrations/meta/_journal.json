@@ -15,6 +15,13 @@
       "when": 1771241126076,
       "tag": "0001_huge_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1772538854769,
+      "tag": "0002_unique_komodo",
+      "breakpoints": true
     }
   ]
 }

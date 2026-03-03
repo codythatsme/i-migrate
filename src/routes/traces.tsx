@@ -5,6 +5,7 @@ import {
   Activity,
   AlertCircle,
   CheckCircle,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Copy,
@@ -27,12 +28,26 @@ export const Route = createFileRoute("/traces")({
   component: TracesPage,
 });
 
+type SpanNode = {
+  span: StoredSpan;
+  children: SpanNode[];
+};
+
+const PAGE_SIZE = 50;
+
 function TracesPage() {
   const queryClient = useQueryClient();
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(0);
 
-  const { data: traces, isLoading, refetch, isFetching } = useQuery(queries.traces.all());
+  const {
+    data: tracesData,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery(queries.traces.all(PAGE_SIZE, page * PAGE_SIZE));
+  const traces = tracesData;
   const { data: selectedTrace } = useQuery(queries.traces.byId(selectedTraceId));
 
   const clearMutation = useMutation({
@@ -40,6 +55,7 @@ function TracesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["traces"] });
       setSelectedTraceId(null);
+      setPage(0);
     },
   });
 
@@ -114,11 +130,6 @@ function TracesPage() {
     return roots;
   };
 
-  type SpanNode = {
-    span: StoredSpan;
-    children: SpanNode[];
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -179,18 +190,43 @@ function TracesPage() {
                 <p className="text-xs">Make some API calls to see traces here</p>
               </div>
             ) : (
-              <div className="divide-y">
-                {traces.map((trace) => (
-                  <TraceListItem
-                    key={trace.id}
-                    trace={trace}
-                    isSelected={selectedTraceId === trace.id}
-                    onSelect={() => setSelectedTraceId(trace.id)}
-                    formatDuration={formatDuration}
-                    formatRelativeTime={formatRelativeTime}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="divide-y">
+                  {traces.map((trace) => (
+                    <TraceListItem
+                      key={trace.id}
+                      trace={trace}
+                      isSelected={selectedTraceId === trace.id}
+                      onSelect={() => setSelectedTraceId(trace.id)}
+                      formatDuration={formatDuration}
+                      formatRelativeTime={formatRelativeTime}
+                    />
+                  ))}
+                </div>
+                {(page > 0 || traces.length === PAGE_SIZE) && (
+                  <div className="flex items-center justify-between px-4 py-2 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPage((p) => p - 1)}
+                      disabled={page === 0}
+                    >
+                      <ChevronLeft className="size-4" />
+                      Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Page {page + 1}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={traces.length < PAGE_SIZE}
+                    >
+                      Next
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -316,11 +352,6 @@ function TraceListItem({
     </button>
   );
 }
-
-type SpanNode = {
-  span: StoredSpan;
-  children: SpanNode[];
-};
 
 function SpanTreeNode({
   node,

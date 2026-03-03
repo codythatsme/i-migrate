@@ -1,0 +1,1 @@
+CREATE INDEX `spans_trace_id_idx` ON `spans` (`trace_id`);

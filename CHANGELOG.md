@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-03-03
+
+### Fixed
+
+- Traces page N+1 query (1 + N span-count queries every 5s) replaced with single LEFT JOIN + COUNT
+- `deleteOldTraces` bug: `eq` → `lt` (matched exact timestamp instead of older-than)
+- `deleteOldTraces` N+1 delete loops replaced with `inArray` batch deletes
+- Duplicate `SpanNode` type definition in traces page
+
+### Added
+
+- Index on `spans.trace_id` for fast span lookups
+- Pagination on traces page (Previous/Next controls, 50 per page)
+- Startup cleanup: auto-delete traces older than 7 days
+
 ## [0.8.0] - 2026-02-16
 
 ### Added
