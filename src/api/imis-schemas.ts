@@ -334,7 +334,7 @@ export const PropertyRenderingInformationSchema = Schema.Struct({
   HelpText: Schema.optionalWith(Schema.String, { exact: true }),
   ToolTip: Schema.optionalWith(Schema.String, { exact: true }),
   WatermarkText: Schema.optionalWith(Schema.String, { exact: true }),
-  ControlType: Schema.Literal(1, 3, 4, 7, 8, 12, 14, 18),
+  ControlType: Schema.Literal(1, 3, 4, 7, 8, 12, 14, 16, 18),
 });
 
 export const ExtendedPropertyInformationSchema = Schema.Struct({
